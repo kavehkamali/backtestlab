@@ -1,0 +1,70 @@
+"""
+Minimal GitHub webhook receiver for auto-deploy.
+Runs on port 9000. When it receives a push to main, it pulls and restarts.
+
+Setup: nohup python3 autodeploy.py &
+GitHub webhook URL: http://<your-ip>:9000/webhook
+"""
+
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import subprocess
+import json
+import os
+
+APP_DIR = os.path.expanduser("~/backtestlab")
+PORT = 9000
+
+
+class WebhookHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        if self.path != "/webhook":
+            self.send_response(404)
+            self.end_headers()
+            return
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length)
+
+        try:
+            payload = json.loads(body)
+            ref = payload.get("ref", "")
+            if ref != "refs/heads/main":
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"Ignored: not main branch")
+                return
+        except Exception:
+            pass
+
+        # Deploy
+        print("=== Webhook received, deploying... ===")
+        try:
+            # Pull
+            subprocess.run(["git", "pull", "origin", "main"], cwd=APP_DIR, check=True)
+            # Rebuild frontend
+            subprocess.run(["npm", "run", "build"], cwd=os.path.join(APP_DIR, "frontend"), check=True)
+            # Restart backend
+            subprocess.run(["pkill", "-f", "uvicorn app.main"], check=False)
+            subprocess.Popen(
+                ["python3", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"],
+                cwd=os.path.join(APP_DIR, "backend"),
+                stdout=open(os.path.expanduser("~/backtestlab.log"), "a"),
+                stderr=subprocess.STDOUT,
+            )
+            print("=== Deploy successful ===")
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Deployed successfully")
+        except Exception as e:
+            print(f"Deploy failed: {e}")
+            self.send_response(500)
+            self.end_headers()
+            self.wfile.write(f"Deploy failed: {e}".encode())
+
+    def log_message(self, format, *args):
+        print(f"[webhook] {args[0]}")
+
+
+if __name__ == "__main__":
+    print(f"Webhook listener on port {PORT}")
+    HTTPServer(("0.0.0.0", PORT), WebhookHandler).serve_forever()
