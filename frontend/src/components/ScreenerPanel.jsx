@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Search, Loader2, X, ChevronDown, ChevronRight, ArrowUpDown, SlidersHorizontal, Columns3 } from 'lucide-react';
 import { runScreener, fetchScreenerLists, fetchStockDetail } from '../api';
 import StockDetail from './StockDetail';
+import { MiniSnowflake } from './SnowflakeChart';
 
 const STRATEGY_LABELS = {
   sma_crossover: 'SMA', ema_crossover: 'EMA', rsi: 'RSI', macd: 'MACD',
@@ -49,6 +50,14 @@ const COLUMNS = {
   // Info
   sector: { label: 'Sector', group: 'info', default: false, align: 'left' },
   industry: { label: 'Industry', group: 'info', default: false, align: 'left' },
+  // Snowflake
+  snowflake: { label: 'Snowflake', group: 'snowflake', default: true, custom: 'snowflake', align: 'center' },
+  sf_total: { label: 'SF Score', group: 'snowflake', default: false, sortable: true, align: 'center' },
+  sf_value: { label: 'SF Value', group: 'snowflake', default: false, sortable: true, align: 'center' },
+  sf_future: { label: 'SF Future', group: 'snowflake', default: false, sortable: true, align: 'center' },
+  sf_past: { label: 'SF Past', group: 'snowflake', default: false, sortable: true, align: 'center' },
+  sf_health: { label: 'SF Health', group: 'snowflake', default: false, sortable: true, align: 'center' },
+  sf_dividend: { label: 'SF Dividend', group: 'snowflake', default: false, sortable: true, align: 'center' },
   // Signals (always at end)
   signals: { label: 'Signals', group: 'signals', default: true, alwaysOn: true },
   buy_count: { label: 'Score', group: 'signals', default: true, sortable: true, alwaysOn: true, custom: 'score' },
@@ -56,7 +65,7 @@ const COLUMNS = {
 
 const COL_GROUPS = {
   core: 'Core', performance: 'Performance', technical: 'Technical',
-  fundamental: 'Fundamentals', ownership: 'Ownership', info: 'Info',
+  fundamental: 'Fundamentals', ownership: 'Ownership', snowflake: 'Snowflake', info: 'Info',
 };
 
 function fmtCap(v) {
@@ -88,6 +97,12 @@ const DEFAULT_FILTERS = {
   short_pct_min: 0, short_pct_max: 100,
   insider_pct_min: 0, insider_pct_max: 100,
   profit_margin_min: -100, profit_margin_max: 100,
+  sf_total_min: 0, sf_total_max: 6,
+  sf_value_min: 0, sf_value_max: 6,
+  sf_future_min: 0, sf_future_max: 6,
+  sf_past_min: 0, sf_past_max: 6,
+  sf_health_min: 0, sf_health_max: 6,
+  sf_dividend_min: 0, sf_dividend_max: 6,
 };
 
 // ─── Tiny components ───
@@ -285,12 +300,29 @@ export default function ScreenerPanel() {
       if (r.short_pct_float != null && (r.short_pct_float < f.short_pct_min || r.short_pct_float > f.short_pct_max)) return false;
       if (r.insider_pct != null && (r.insider_pct < f.insider_pct_min || r.insider_pct > f.insider_pct_max)) return false;
       if (r.profit_margin != null && (r.profit_margin < f.profit_margin_min || r.profit_margin > f.profit_margin_max)) return false;
+      // Snowflake filters
+      const sf = r.snowflake;
+      if (sf) {
+        if (sf.total < f.sf_total_min || sf.total > f.sf_total_max) return false;
+        if (sf.value < f.sf_value_min || sf.value > f.sf_value_max) return false;
+        if (sf.future < f.sf_future_min || sf.future > f.sf_future_max) return false;
+        if (sf.past < f.sf_past_min || sf.past > f.sf_past_max) return false;
+        if (sf.health < f.sf_health_min || sf.health > f.sf_health_max) return false;
+        if (sf.dividend < f.sf_dividend_min || sf.dividend > f.sf_dividend_max) return false;
+      }
       return true;
     });
 
     return [...out].sort((a, b) => {
-      let va = a[sortKey] ?? -Infinity;
-      let vb = b[sortKey] ?? -Infinity;
+      let va, vb;
+      if (sortKey.startsWith('sf_')) {
+        const sfKey = sortKey.replace('sf_', '');
+        va = a.snowflake?.[sfKey] ?? -Infinity;
+        vb = b.snowflake?.[sfKey] ?? -Infinity;
+      } else {
+        va = a[sortKey] ?? -Infinity;
+        vb = b[sortKey] ?? -Infinity;
+      }
       if (typeof va === 'boolean') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
       return sortAsc ? va - vb : vb - va;
     });
@@ -311,6 +343,14 @@ export default function ScreenerPanel() {
     if (colKey === 'sparkline') return <Sparkline data={r.sparkline} />;
     if (col.custom === 'rsi') return <RsiBar value={r.rsi} />;
     if (col.custom === 'score') return <ScoreBar count={r.buy_count} total={r.total_strategies} />;
+    if (col.custom === 'snowflake') return <MiniSnowflake data={r.snowflake} />;
+    if (colKey === 'sf_total') return <span className="text-white font-bold text-[10px]">{r.snowflake?.total ?? '—'}</span>;
+    if (colKey.startsWith('sf_')) {
+      const sfKey = colKey.replace('sf_', '');
+      const val = r.snowflake?.[sfKey];
+      const color = val >= 4 ? 'text-emerald-400' : val >= 2 ? 'text-yellow-400' : 'text-red-400';
+      return <span className={`${color} text-[10px] font-mono`}>{val ?? '—'}</span>;
+    }
     if (colKey === 'signals') return (
       <div className="flex gap-0.5 justify-center">
         {ALL_STRATEGIES.map(s => <SignalDot key={s} signal={r.signals[s] || 0} />)}
@@ -425,7 +465,7 @@ export default function ScreenerPanel() {
       {/* ─── Filters Panel ─── */}
       {filtersOpen && (
         <div className="bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-x-8 gap-y-2 p-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-x-6 gap-y-2 p-4">
             <div>
               <div className="text-[9px] text-gray-500 uppercase tracking-widest mb-2 font-semibold">Performance</div>
               <div className="space-y-1.5">
@@ -484,8 +524,22 @@ export default function ScreenerPanel() {
                   <button onClick={() => setFilters({ ...DEFAULT_FILTERS, market_cap_min: 0, market_cap_max: 2 })} className="px-2 py-1 rounded text-[10px] bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20">Small Cap</button>
                   <button onClick={() => setFilters({ ...DEFAULT_FILTERS, dividend_yield_min: 3 })} className="px-2 py-1 rounded text-[10px] bg-purple-500/10 text-purple-400 hover:bg-purple-500/20">High Dividend</button>
                   <button onClick={() => setFilters({ ...DEFAULT_FILTERS, short_pct_min: 15 })} className="px-2 py-1 rounded text-[10px] bg-orange-500/10 text-orange-400 hover:bg-orange-500/20">High Short</button>
+                  <button onClick={() => setFilters({ ...DEFAULT_FILTERS, sf_total_min: 4 })} className="px-2 py-1 rounded text-[10px] bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20">Top Snowflake</button>
                   <button onClick={resetFilters} className="px-2 py-1 rounded text-[10px] bg-white/5 text-gray-400 hover:text-white">Reset All</button>
                 </div>
+              </div>
+            </div>
+
+            {/* Snowflake Filters */}
+            <div>
+              <div className="text-[9px] text-gray-500 uppercase tracking-widest mb-2 font-semibold">Snowflake (0-6)</div>
+              <div className="space-y-1.5">
+                <RangeRow label="Total Score" step={0.5} value_min={filters.sf_total_min} value_max={filters.sf_total_max} onChange={(s, v) => updateFilter(s === 'min' ? 'sf_total_min' : 'sf_total_max', v)} />
+                <RangeRow label="Value" step={0.5} value_min={filters.sf_value_min} value_max={filters.sf_value_max} onChange={(s, v) => updateFilter(s === 'min' ? 'sf_value_min' : 'sf_value_max', v)} />
+                <RangeRow label="Future" step={0.5} value_min={filters.sf_future_min} value_max={filters.sf_future_max} onChange={(s, v) => updateFilter(s === 'min' ? 'sf_future_min' : 'sf_future_max', v)} />
+                <RangeRow label="Past" step={0.5} value_min={filters.sf_past_min} value_max={filters.sf_past_max} onChange={(s, v) => updateFilter(s === 'min' ? 'sf_past_min' : 'sf_past_max', v)} />
+                <RangeRow label="Health" step={0.5} value_min={filters.sf_health_min} value_max={filters.sf_health_max} onChange={(s, v) => updateFilter(s === 'min' ? 'sf_health_min' : 'sf_health_max', v)} />
+                <RangeRow label="Dividend" step={0.5} value_min={filters.sf_dividend_min} value_max={filters.sf_dividend_max} onChange={(s, v) => updateFilter(s === 'min' ? 'sf_dividend_min' : 'sf_dividend_max', v)} />
               </div>
             </div>
           </div>

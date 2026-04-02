@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Loader2, Search, ExternalLink, Clock, TrendingUp, TrendingDown } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, ComposedChart, Line, PieChart, Pie } from 'recharts';
 import { fetchResearch } from '../api';
+import SnowflakeChart from './SnowflakeChart';
 
 // ─── Helpers ───
 function fmtNum(v, dec = 2) { return v != null ? Number(v).toFixed(dec) : '—'; }
@@ -64,77 +65,7 @@ function ChartTooltip({ active, payload, label }) {
   );
 }
 
-// ─── Snowflake Radar Chart (SVG) ───
-function SnowflakeChart({ data }) {
-  if (!data) return null;
-  const dims = [
-    { key: 'value', label: 'Value', color: '#6366f1' },
-    { key: 'future', label: 'Future', color: '#22c55e' },
-    { key: 'past', label: 'Past', color: '#f59e0b' },
-    { key: 'health', label: 'Health', color: '#06b6d4' },
-    { key: 'dividend', label: 'Dividend', color: '#ec4899' },
-  ];
-  const cx = 120, cy = 120, maxR = 90;
-  const angleStep = (2 * Math.PI) / 5;
-  const startAngle = -Math.PI / 2;
-
-  const getPoint = (i, val) => {
-    const angle = startAngle + i * angleStep;
-    const r = (val / 6) * maxR;
-    return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
-  };
-
-  // Grid rings
-  const rings = [1, 2, 3, 4, 5, 6].map(level => {
-    const pts = dims.map((_, i) => getPoint(i, level));
-    return pts.map(p => `${p.x},${p.y}`).join(' ');
-  });
-
-  // Data polygon
-  const dataPts = dims.map((d, i) => getPoint(i, data[d.key] || 0));
-  const dataPath = dataPts.map(p => `${p.x},${p.y}`).join(' ');
-
-  return (
-    <div className="flex flex-col items-center">
-      <svg width={240} height={240} viewBox="0 0 240 240">
-        {/* Grid */}
-        {rings.map((pts, i) => (
-          <polygon key={i} points={pts} fill="none" stroke="#ffffff06" strokeWidth={1} />
-        ))}
-        {/* Axis lines */}
-        {dims.map((_, i) => {
-          const p = getPoint(i, 6);
-          return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#ffffff08" strokeWidth={1} />;
-        })}
-        {/* Data fill */}
-        <polygon points={dataPath} fill="#6366f115" stroke="#6366f1" strokeWidth={2} />
-        {/* Data dots */}
-        {dataPts.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={4} fill={dims[i].color} stroke="#08080d" strokeWidth={2} />
-        ))}
-        {/* Labels */}
-        {dims.map((d, i) => {
-          const p = getPoint(i, 7.2);
-          return (
-            <text key={i} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle"
-              fill={d.color} fontSize={10} fontWeight={600}>{d.label}</text>
-          );
-        })}
-        {/* Scores */}
-        {dims.map((d, i) => {
-          const p = getPoint(i, 8.5);
-          return (
-            <text key={`s${i}`} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle"
-              fill="#888" fontSize={9}>{data[d.key]}/6</text>
-          );
-        })}
-        {/* Center score */}
-        <text x={cx} y={cy - 6} textAnchor="middle" fill="white" fontSize={18} fontWeight={700}>{data.total}</text>
-        <text x={cx} y={cy + 10} textAnchor="middle" fill="#666" fontSize={9}>/6</text>
-      </svg>
-    </div>
-  );
-}
+// SnowflakeChart imported from ./SnowflakeChart.jsx
 
 // ─── DCF Fair Value Bar ───
 function FairValueBar({ dcf }) {

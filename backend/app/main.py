@@ -235,6 +235,44 @@ def get_screener_lists():
     return {"lists": result}
 
 
+def _compute_snowflake(fund: dict, price: float, change_pct: float) -> dict:
+    """Compute Simply Wall St style snowflake scores (0-6) from cached fundamentals."""
+    def _sc(val, thresholds, reverse=False):
+        if val is None: return 3
+        scores = [0, 1, 2, 3, 4, 5, 6] if not reverse else [6, 5, 4, 3, 2, 1, 0]
+        for i, t in enumerate(thresholds):
+            if val < t: return scores[i]
+        return scores[-1]
+
+    pe = fund.get("pe_ratio")
+    pb = fund.get("price_to_book")
+    val = round((_sc(pe, [8, 12, 18, 25, 35, 50], True) + _sc(pb, [1, 2, 3, 5, 8, 15], True)) / 2, 1)
+
+    rg = fund.get("revenue_growth")
+    eg = fund.get("earnings_growth")
+    rg_v = rg / 100 if rg and abs(rg) < 10 else rg  # handle if already pct
+    eg_v = eg / 100 if eg and abs(eg) < 10 else eg
+    fut = round((_sc(rg_v, [-0.05, 0, 0.05, 0.10, 0.15, 0.25]) + _sc(eg_v, [-0.1, 0, 0.05, 0.10, 0.20, 0.40])) / 2, 1)
+
+    pm = fund.get("profit_margin")
+    pm_v = pm / 100 if pm and abs(pm) < 5 else pm
+    roe = fund.get("return_on_equity")
+    roe_v = roe / 100 if roe and abs(roe) < 5 else roe
+    past = round((_sc(pm_v, [-0.05, 0, 0.05, 0.10, 0.15, 0.25]) + _sc(roe_v, [-0.05, 0, 0.08, 0.15, 0.25, 0.40])) / 2, 1)
+
+    de = fund.get("debt_to_equity")
+    cr = fund.get("current_ratio")
+    health = round((_sc(de, [20, 50, 80, 120, 200, 400], True) + _sc(cr, [0.5, 0.8, 1.0, 1.5, 2.0, 3.0])) / 2, 1)
+
+    dy = fund.get("dividend_yield")
+    dy_v = dy / 100 if dy and dy > 1 else dy  # handle if pct
+    div = round(_sc(dy_v, [0, 0.01, 0.02, 0.03, 0.04, 0.06]), 1) if dy_v and dy_v > 0 else 0
+
+    total = round((min(6, val) + min(6, fut) + min(6, past) + min(6, health) + min(6, div)) / 5, 1)
+
+    return {"value": min(6, val), "future": min(6, fut), "past": min(6, past), "health": min(6, health), "dividend": min(6, div), "total": min(6, total)}
+
+
 @app.post("/api/screener")
 def screener(req: ScreenerRequest):
     """Professional screener with cached batch download, technicals + fundamentals."""
@@ -374,6 +412,8 @@ def screener(req: ScreenerRequest):
                 "debt_to_equity": fund.get("debt_to_equity"),
                 "current_ratio": fund.get("current_ratio"),
                 "return_on_equity": fund.get("return_on_equity"),
+                # Snowflake scores (0-6 each)
+                "snowflake": _compute_snowflake(fund, price, change_5d),
             })
         except Exception:
             continue
@@ -620,8 +660,8 @@ def market_overview():
                     elif len(close) > days:
                         changes[label] = round((price / float(close.iloc[-days - 1]) - 1) * 100, 2)
 
-                # Sparkline (last 60 trading days)
-                spark = [round(float(v), 2) for v in close.iloc[-60:].tolist()]
+                # Full 1Y sparkline (frontend slices by period)
+                spark = [round(float(v), 2) for v in close.tolist()]
 
                 cat_data.append({
                     "name": name,
