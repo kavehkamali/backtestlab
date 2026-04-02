@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Disk-based caching layer for stock data.
 

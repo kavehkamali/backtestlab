@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Seeking Alpha-style research data endpoints.
 Comprehensive stock analysis: summary, financials, earnings, dividends, peers, ratings.

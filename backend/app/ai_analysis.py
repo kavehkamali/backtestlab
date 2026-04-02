@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Rule-based AI analysis engine for stock technical analysis.
 No LLM needed — structured text generation from technical indicators.

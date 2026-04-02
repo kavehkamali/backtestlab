@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Terminal API endpoints — optimized for the trading terminal UI.
 """

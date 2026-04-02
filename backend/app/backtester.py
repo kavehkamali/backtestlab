@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Backtesting engine with strict no-leakage guarantees.
 

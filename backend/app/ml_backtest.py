@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Walk-forward ML backtesting with purged time-series cross-validation.
 
