@@ -175,7 +175,7 @@ function ToggleRow({ label, value, onChange, options }) {
 // ─── Main ───
 export default function ScreenerPanel() {
   const [lists, setLists] = useState([]);
-  const [activeList, setActiveList] = useState('sp500');
+  const [activeList, setActiveList] = useState('all');
   const [results, setResults] = useState(null);
   const [listName, setListName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -225,9 +225,9 @@ export default function ScreenerPanel() {
   const [sfQualityEnabled, setSfQualityEnabled] = useState(false);
   const [sfTechEnabled, setSfTechEnabled] = useState(false);
   const [sfMomEnabled, setSfMomEnabled] = useState(false);
-  const [sfQuality, setSfQuality] = useState({ value: 0, future: 0, past: 0, health: 0, dividend: 0 });
-  const [sfTech, setSfTech] = useState({ rsi_score: 0, macd_score: 0, volume_score: 0, trend_score: 0, bb_score: 0 });
-  const [sfMom, setSfMom] = useState({ mom_1d: 0, mom_5d: 0, mom_20d: 0, mom_60d: 0, mom_52w: 0 });
+  const [sfQuality, setSfQuality] = useState({ value: 3, future: 3, past: 3, health: 3, dividend: 3 });
+  const [sfTech, setSfTech] = useState({ rsi_score: 3, macd_score: 3, volume_score: 3, trend_score: 3, bb_score: 3 });
+  const [sfMom, setSfMom] = useState({ mom_1d: 3, mom_5d: 3, mom_20d: 3, mom_60d: 3, mom_52w: 3 });
 
   const anySfActive = sfQualityEnabled || sfTechEnabled || sfMomEnabled;
 
@@ -264,6 +264,12 @@ export default function ScreenerPanel() {
 
   useEffect(() => {
     fetchScreenerLists().then(d => setLists(d.lists)).catch(() => {});
+    // Auto-load all stocks on first visit
+    setLoading(true);
+    runScreener({ list_id: 'all', strategies: ALL_STRATEGIES })
+      .then(res => { setResults(res.results); setListName(res.list_name); setActiveList('all'); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const toggleCol = (key) => {
@@ -596,9 +602,9 @@ export default function ScreenerPanel() {
               <button onClick={() => { setSfQualityEnabled(true); setSfTechEnabled(true); setSfMomEnabled(true); }}
                 className="px-2 py-0.5 rounded text-[9px] text-gray-500 hover:text-white bg-white/5">All On</button>
               <button onClick={() => {
-                setSfQuality({ value: 0, future: 0, past: 0, health: 0, dividend: 0 });
-                setSfTech({ rsi_score: 0, macd_score: 0, volume_score: 0, trend_score: 0, bb_score: 0 });
-                setSfMom({ mom_1d: 0, mom_5d: 0, mom_20d: 0, mom_60d: 0, mom_52w: 0 });
+                setSfQuality({ value: 3, future: 3, past: 3, health: 3, dividend: 3 });
+                setSfTech({ rsi_score: 3, macd_score: 3, volume_score: 3, trend_score: 3, bb_score: 3 });
+                setSfMom({ mom_1d: 3, mom_5d: 3, mom_20d: 3, mom_60d: 3, mom_52w: 3 });
               }}
                 className="px-2 py-0.5 rounded text-[9px] text-gray-500 hover:text-white bg-white/5">Reset Shapes</button>
             </div>

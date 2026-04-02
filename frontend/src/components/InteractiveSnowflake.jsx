@@ -2,13 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 
 /**
  * Interactive snowflake radar chart with draggable points.
- * Props:
- *   dims: [{key, label, color}]
- *   values: {key: 0-6} current filter thresholds
- *   onChange: (key, newValue) => void
- *   enabled: boolean
- *   onToggle: () => void
- *   title: string
+ * Drag anywhere near an axis to adjust that dimension's threshold.
  */
 
 function splinePath(points) {
@@ -32,7 +26,7 @@ function splinePath(points) {
 
 export default function InteractiveSnowflake({ dims, values, onChange, enabled, onToggle, title }) {
   const svgRef = useRef(null);
-  const [dragging, setDragging] = useState(null); // index of dim being dragged
+  const [dragging, setDragging] = useState(null);
   const [hovering, setHovering] = useState(null);
 
   const size = 180;
@@ -48,52 +42,89 @@ export default function InteractiveSnowflake({ dims, values, onChange, enabled, 
     return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
   };
 
-  const getValueFromMouse = useCallback((i, clientX, clientY) => {
+  // Convert mouse position to a value (0-6) for a given axis index
+  const mouseToValue = useCallback((i, clientX, clientY) => {
     const svg = svgRef.current;
     if (!svg) return null;
     const rect = svg.getBoundingClientRect();
-    const mx = clientX - rect.left;
-    const my = clientY - rect.top;
-    // Scale to viewBox
-    const sx = mx * (size / rect.width);
-    const sy = my * (size / rect.height);
-    // Distance from center along the axis
+    const sx = (clientX - rect.left) * (size / rect.width);
+    const sy = (clientY - rect.top) * (size / rect.height);
     const angle = startAngle + i * angleStep;
     const dx = sx - cx;
     const dy = sy - cy;
-    // Project onto axis direction
-    const axisX = Math.cos(angle);
-    const axisY = Math.sin(angle);
-    const projection = dx * axisX + dy * axisY;
-    const val = Math.round((projection / maxR) * 6 * 2) / 2; // snap to 0.5
+    const projection = dx * Math.cos(angle) + dy * Math.sin(angle);
+    const val = Math.round((projection / maxR) * 6 * 2) / 2;
     return Math.max(0, Math.min(6, val));
   }, []);
 
-  const handlePointerDown = (i) => (e) => {
+  // Find the closest axis to a mouse position
+  const closestAxis = useCallback((clientX, clientY) => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    const sx = (clientX - rect.left) * (size / rect.width);
+    const sy = (clientY - rect.top) * (size / rect.height);
+    const dx = sx - cx;
+    const dy = sy - cy;
+    const mouseAngle = Math.atan2(dy, dx);
+
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < n; i++) {
+      const angle = startAngle + i * angleStep;
+      let diff = Math.abs(mouseAngle - angle);
+      if (diff > Math.PI) diff = 2 * Math.PI - diff;
+      if (diff < bestDist) {
+        bestDist = diff;
+        bestIdx = i;
+      }
+    }
+    // Only match if within ~36 degrees of an axis
+    return bestDist < angleStep * 0.6 ? bestIdx : null;
+  }, []);
+
+  const handlePointerDown = (e) => {
     if (!enabled) return;
     e.preventDefault();
-    setDragging(i);
-    // Capture pointer
-    e.target.setPointerCapture?.(e.pointerId);
+    const idx = closestAxis(e.clientX, e.clientY);
+    if (idx === null) return;
+    setDragging(idx);
+    // Immediately update the value
+    const val = mouseToValue(idx, e.clientX, e.clientY);
+    if (val !== null) onChange(dims[idx].key, val);
+    // Capture pointer on the SVG so we get all move/up events
+    svgRef.current?.setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e) => {
-    if (dragging === null || !enabled) return;
-    const val = getValueFromMouse(dragging, e.clientX, e.clientY);
-    if (val !== null) {
-      onChange(dims[dragging].key, val);
+    if (!enabled) return;
+    if (dragging !== null) {
+      // Dragging mode — update the value
+      const val = mouseToValue(dragging, e.clientX, e.clientY);
+      if (val !== null) onChange(dims[dragging].key, val);
+    } else {
+      // Hover mode — highlight closest axis
+      const idx = closestAxis(e.clientX, e.clientY);
+      setHovering(idx);
     }
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (e) => {
     setDragging(null);
+    svgRef.current?.releasePointerCapture(e.pointerId);
+  };
+
+  const handlePointerLeave = () => {
+    setHovering(null);
   };
 
   const dataPts = dims.map((d, i) => getPoint(i, values[d.key] || 0));
   const dataPath = splinePath(dataPts);
   const ringPaths = [2, 4, 6].map(level => splinePath(dims.map((_, i) => getPoint(i, level))));
-
   const opacity = enabled ? 1 : 0.3;
+
+  // Unique ID for SVG defs
+  const uid = useRef(`is${Math.random().toString(36).slice(2, 7)}`).current;
 
   return (
     <div className="flex flex-col items-center" style={{ opacity }}>
@@ -113,86 +144,82 @@ export default function InteractiveSnowflake({ dims, values, onChange, enabled, 
         width={size}
         height={size}
         viewBox={`0 0 ${size} ${size}`}
+        onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-        style={{ cursor: enabled ? (dragging !== null ? 'grabbing' : 'default') : 'not-allowed', touchAction: 'none' }}
+        onPointerLeave={handlePointerLeave}
+        style={{
+          cursor: !enabled ? 'not-allowed' : dragging !== null ? 'grabbing' : hovering !== null ? 'grab' : 'crosshair',
+          touchAction: 'none',
+          userSelect: 'none',
+        }}
       >
         <defs>
-          <radialGradient id={`isg_${title}`} cx="50%" cy="50%" r="50%">
+          <radialGradient id={`${uid}_g`} cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor={enabled ? '#6366f1' : '#888'} stopOpacity={0.08} />
             <stop offset="100%" stopColor={enabled ? '#6366f1' : '#888'} stopOpacity={0} />
           </radialGradient>
-          <linearGradient id={`isf_${title}`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`${uid}_f`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={enabled ? '#818cf8' : '#666'} stopOpacity={0.25} />
             <stop offset="100%" stopColor={enabled ? '#6366f1' : '#444'} stopOpacity={0.05} />
           </linearGradient>
-          <filter id={`isb_${title}`}><feGaussianBlur in="SourceGraphic" stdDeviation="2" /></filter>
+          <filter id={`${uid}_b`}><feGaussianBlur in="SourceGraphic" stdDeviation="2" /></filter>
         </defs>
 
         {/* Background */}
-        <circle cx={cx} cy={cy} r={maxR * 1.15} fill={`url(#isg_${title})`} />
+        <circle cx={cx} cy={cy} r={maxR * 1.15} fill={`url(#${uid}_g)`} />
 
         {/* Grid rings */}
         {ringPaths.map((path, i) => (
           <path key={i} d={path} fill="none" stroke="#ffffff06" strokeWidth={0.8} />
         ))}
 
-        {/* Axis lines */}
+        {/* Axis lines — highlighted when hovered/dragging */}
         {dims.map((_, i) => {
           const p = getPoint(i, 6);
-          return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#ffffff08" strokeWidth={0.5} />;
+          const active = dragging === i || hovering === i;
+          return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y}
+            stroke={active && enabled ? '#ffffff20' : '#ffffff08'} strokeWidth={active ? 1.5 : 0.5} />;
         })}
 
         {/* Glow path */}
-        <path d={dataPath} fill={`url(#isf_${title})`} stroke={enabled ? '#818cf8' : '#555'} strokeWidth={2.5}
-          filter={`url(#isb_${title})`} opacity={0.4} />
+        <path d={dataPath} fill={`url(#${uid}_f)`} stroke={enabled ? '#818cf8' : '#555'} strokeWidth={2.5}
+          filter={`url(#${uid}_b)`} opacity={0.4} />
 
         {/* Data spline */}
-        <path d={dataPath} fill={`url(#isf_${title})`} stroke={enabled ? '#818cf8' : '#555'} strokeWidth={2}
+        <path d={dataPath} fill={`url(#${uid}_f)`} stroke={enabled ? '#818cf8' : '#555'} strokeWidth={2}
           strokeLinejoin="round" />
 
-        {/* Draggable points */}
+        {/* Points */}
         {dataPts.map((p, i) => {
           const isActive = dragging === i || hovering === i;
           return (
             <g key={i}>
-              {/* Hit area (larger invisible circle for easier grabbing) */}
-              <circle
-                cx={p.x} cy={p.y} r={12}
-                fill="transparent"
-                style={{ cursor: enabled ? 'grab' : 'not-allowed' }}
-                onPointerDown={handlePointerDown(i)}
-                onPointerEnter={() => setHovering(i)}
-                onPointerLeave={() => setHovering(null)}
-              />
-              {/* Glow */}
               {isActive && enabled && (
-                <circle cx={p.x} cy={p.y} r={10} fill={dims[i].color} opacity={0.15} filter={`url(#isb_${title})`} />
+                <circle cx={p.x} cy={p.y} r={12} fill={dims[i].color} opacity={0.12} filter={`url(#${uid}_b)`} />
               )}
-              {/* Dot */}
               <circle
                 cx={p.x} cy={p.y}
-                r={isActive ? 6 : 4}
+                r={isActive && enabled ? 7 : 4.5}
                 fill={enabled ? dims[i].color : '#555'}
                 stroke="#08080d"
                 strokeWidth={2}
-                style={{ transition: 'r 0.1s' }}
               />
             </g>
           );
         })}
 
-        {/* Labels + values */}
+        {/* Labels + threshold values */}
         {dims.map((d, i) => {
           const p = getPoint(i, 7.8);
           const val = values[d.key] || 0;
+          const isActive = dragging === i || hovering === i;
           return (
             <g key={`l${i}`}>
               <text x={p.x} y={p.y - 5} textAnchor="middle" dominantBaseline="middle"
-                fill={enabled ? d.color : '#555'} fontSize={9} fontWeight={600}>{d.label}</text>
+                fill={enabled ? (isActive ? '#fff' : d.color) : '#555'} fontSize={9} fontWeight={600}>{d.label}</text>
               <text x={p.x} y={p.y + 7} textAnchor="middle" dominantBaseline="middle"
-                fill={enabled ? '#aaa' : '#444'} fontSize={8} fontWeight={500}>≥{val}</text>
+                fill={enabled ? (isActive ? '#ddd' : '#888') : '#444'} fontSize={8} fontWeight={500}>≥{val}</text>
             </g>
           );
         })}
