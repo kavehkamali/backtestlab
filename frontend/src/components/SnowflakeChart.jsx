@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 // ─── Snowflake Radar Chart (SVG with Catmull-Rom spline curves) ───
 // Reusable: used in Research summary + Screener table
 
@@ -35,7 +37,7 @@ export default function SnowflakeChart({ data, size = 240, mini = false }) {
   const maxR = size * 0.37;
   const angleStep = (2 * Math.PI) / 5;
   const startAngle = -Math.PI / 2;
-  const id = `sf${size}${mini ? 'm' : ''}`;
+  const [uid] = useState(() => `sf${Math.random().toString(36).slice(2, 8)}`);
 
   const getPoint = (i, val) => {
     const angle = startAngle + i * angleStep;
@@ -50,18 +52,18 @@ export default function SnowflakeChart({ data, size = 240, mini = false }) {
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <defs>
-        <radialGradient id={`${id}_glow`} cx="50%" cy="50%" r="50%">
+        <radialGradient id={`${uid}_glow`} cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor="#6366f1" stopOpacity={0.12} />
           <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
         </radialGradient>
-        <linearGradient id={`${id}_fill`} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`${uid}_fill`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#818cf8" stopOpacity={0.2} />
           <stop offset="100%" stopColor="#6366f1" stopOpacity={0.05} />
         </linearGradient>
-        <filter id={`${id}_blur`}><feGaussianBlur in="SourceGraphic" stdDeviation={mini ? 1.5 : 3} /></filter>
+        <filter id={`${uid}_blur`}><feGaussianBlur in="SourceGraphic" stdDeviation={mini ? 1.5 : 3} /></filter>
       </defs>
 
-      <circle cx={cx} cy={cy} r={maxR * 1.1} fill={`url(#${id}_glow)`} />
+      <circle cx={cx} cy={cy} r={maxR * 1.1} fill={`url(#${uid}_glow)`} />
 
       {ringPaths.map((path, i) => <path key={i} d={path} fill="none" stroke="#ffffff06" strokeWidth={0.8} />)}
 
@@ -70,12 +72,12 @@ export default function SnowflakeChart({ data, size = 240, mini = false }) {
         return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#ffffff06" strokeWidth={0.5} />;
       })}
 
-      <path d={dataPath} fill={`url(#${id}_fill)`} stroke="#818cf8" strokeWidth={3} filter={`url(#${id}_blur)`} opacity={0.5} />
-      <path d={dataPath} fill={`url(#${id}_fill)`} stroke="#818cf8" strokeWidth={mini ? 1.5 : 2} strokeLinejoin="round" />
+      <path d={dataPath} fill={`url(#${uid}_fill)`} stroke="#818cf8" strokeWidth={3} filter={`url(#${uid}_blur)`} opacity={0.5} />
+      <path d={dataPath} fill={`url(#${uid}_fill)`} stroke="#818cf8" strokeWidth={mini ? 1.5 : 2} strokeLinejoin="round" />
 
       {dataPts.map((p, i) => (
         <g key={i}>
-          {!mini && <circle cx={p.x} cy={p.y} r={5} fill={dims[i].color} opacity={0.3} filter={`url(#${id}_blur)`} />}
+          {!mini && <circle cx={p.x} cy={p.y} r={5} fill={dims[i].color} opacity={0.3} filter={`url(#${uid}_blur)`} />}
           <circle cx={p.x} cy={p.y} r={mini ? 2 : 4} fill={dims[i].color} stroke="#08080d" strokeWidth={mini ? 1 : 2} />
         </g>
       ))}
@@ -97,6 +99,6 @@ export default function SnowflakeChart({ data, size = 240, mini = false }) {
 }
 
 export function MiniSnowflake({ data }) {
-  if (!data) return <div style={{ width: 44, height: 44 }} />;
-  return <SnowflakeChart data={data} size={44} mini />;
+  if (!data) return <div style={{ width: 48, height: 48 }} />;
+  return <SnowflakeChart data={data} size={48} mini />;
 }
