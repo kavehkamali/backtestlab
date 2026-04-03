@@ -246,9 +246,18 @@ def get_stats(days: int = 30, _admin=Depends(verify_admin)):
             "device": "Mobile" if any(m in (r["user_agent"] or "").lower() for m in ["mobile", "iphone", "android"]) else "Desktop",
         } for r in recent]
 
-        # Registered users count
+        # Registered users
         users_count = conn.execute("SELECT COUNT(*) as c FROM users").fetchone()["c"]
         users_today = conn.execute("SELECT COUNT(*) as c FROM users WHERE DATE(created_at) = DATE('now')").fetchone()["c"]
+        users_list = conn.execute("""
+            SELECT id, email, name, created_at, last_login, consent_policy, consent_newsletter, is_active
+            FROM users ORDER BY created_at DESC
+        """).fetchall()
+        users_data = [{
+            "id": r["id"], "email": r["email"], "name": r["name"],
+            "created_at": r["created_at"], "last_login": r["last_login"],
+            "newsletter": bool(r["consent_newsletter"]), "active": bool(r["is_active"]),
+        } for r in users_list]
 
         # Today's stats
         today_views = conn.execute("SELECT COUNT(*) as c FROM page_views WHERE DATE(timestamp) = DATE('now')").fetchone()["c"]
@@ -274,6 +283,7 @@ def get_stats(days: int = 30, _admin=Depends(verify_admin)):
             "devices": [{"name": k, "value": v} for k, v in devices.items()],
             "browsers": [{"name": k, "value": v} for k, v in browsers.most_common(5)],
             "recent_visitors": recent_data,
+            "users": users_data,
         }
     finally:
         conn.close()

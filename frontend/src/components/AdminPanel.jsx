@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Users, Eye, Globe, Monitor, Smartphone, Clock, BarChart3, LogOut, RefreshCw } from 'lucide-react';
+import { Loader2, Users, Eye, Globe, Monitor, Smartphone, Clock, BarChart3, LogOut, RefreshCw, Mail, CheckCircle, XCircle } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { adminLogin, fetchAdminStats } from '../api';
 
@@ -287,6 +287,44 @@ export default function AdminPanel() {
       </div>
 
       {/* Live visitor log */}
+      {/* Registered Users */}
+      <Section title={`Registered Users (${data.users?.length || 0})`}>
+        <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
+          <table className="w-full text-[11px]">
+            <thead className="sticky top-0 bg-[#0d0d14]">
+              <tr className="text-gray-500 border-b border-white/5">
+                <th className="text-left py-2 px-2 font-medium">ID</th>
+                <th className="text-left py-2 px-2 font-medium">Name</th>
+                <th className="text-left py-2 px-2 font-medium">Email</th>
+                <th className="text-left py-2 px-2 font-medium">Signed Up</th>
+                <th className="text-left py-2 px-2 font-medium">Last Login</th>
+                <th className="text-center py-2 px-2 font-medium">Newsletter</th>
+                <th className="text-center py-2 px-2 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data.users || []).map(u => (
+                <tr key={u.id} className="border-b border-white/[0.02] hover:bg-white/[0.02]">
+                  <td className="py-1.5 px-2 text-gray-500 font-mono">#{u.id}</td>
+                  <td className="py-1.5 px-2 text-white font-medium">{u.name || '—'}</td>
+                  <td className="py-1.5 px-2 text-gray-300">{u.email}</td>
+                  <td className="py-1.5 px-2 text-gray-400 whitespace-nowrap">{u.created_at?.slice(0, 16)}</td>
+                  <td className="py-1.5 px-2 text-gray-500 whitespace-nowrap">{u.last_login?.slice(0, 16) || 'Never'}</td>
+                  <td className="py-1.5 px-2 text-center">
+                    {u.newsletter ? <Mail className="w-3.5 h-3.5 text-indigo-400 mx-auto" /> : <span className="text-gray-700">—</span>}
+                  </td>
+                  <td className="py-1.5 px-2 text-center">
+                    {u.active ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400 mx-auto" /> : <XCircle className="w-3.5 h-3.5 text-red-400 mx-auto" />}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {(!data.users || data.users.length === 0) && <p className="text-xs text-gray-600 text-center py-4">No registered users yet</p>}
+        </div>
+      </Section>
+
+      {/* Recent Visitors */}
       <Section title="Recent Visitors (Live)">
         <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
           <table className="w-full text-[11px]">
