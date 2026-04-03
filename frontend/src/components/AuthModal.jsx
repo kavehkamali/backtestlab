@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Loader2, Eye, EyeOff } from 'lucide-react';
+import { X, Loader2, Eye, EyeOff, Check, AlertCircle } from 'lucide-react';
 import { signup, signin } from '../api';
 
 export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup', message }) {
@@ -13,17 +13,35 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Validation
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const passwordValid = password.length >= 8;
+  const passwordHasUpper = /[A-Z]/.test(password);
+  const passwordHasNumber = /[0-9]/.test(password);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+
+    if (!emailValid) {
+      setError('Please enter a valid email address (e.g. name@example.com)');
+      return;
+    }
+
+    if (mode === 'signup') {
+      if (!passwordValid) {
+        setError('Password must be at least 8 characters');
+        return;
+      }
+      if (!consentPolicy) {
+        setError('You must accept the Privacy Policy and Terms of Service to create an account');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       if (mode === 'signup') {
-        if (!consentPolicy) {
-          setError('You must accept the Privacy Policy and Terms of Service');
-          setLoading(false);
-          return;
-        }
         const data = await signup({ email, password, name, consent_policy: consentPolicy, consent_newsletter: consentNewsletter });
         onAuth(data.user);
       } else {
@@ -37,28 +55,32 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
     }
   };
 
+  function Req({ met, children }) {
+    return (
+      <div className={`flex items-center gap-1.5 text-[10px] ${met ? 'text-emerald-400' : 'text-gray-500'}`}>
+        {met ? <Check className="w-3 h-3" /> : <div className="w-3 h-3 rounded-full border border-gray-600" />}
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-      {/* Modal */}
       <div className="relative bg-[#12121a] border border-white/10 rounded-2xl w-full max-w-md mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
-        {/* Close button */}
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors">
           <X className="w-5 h-5" />
         </button>
 
         <div className="p-6">
-          {/* Header */}
           <div className="text-center mb-6">
             <h2 className="text-xl font-bold text-white">{mode === 'signup' ? 'Create your account' : 'Welcome back'}</h2>
             {message && <p className="text-sm text-indigo-400 mt-2">{message}</p>}
             {!message && <p className="text-sm text-gray-500 mt-1">{mode === 'signup' ? 'Get unlimited access to Equilima' : 'Sign in to your account'}</p>}
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             {mode === 'signup' && (
               <div>
                 <label className="block text-xs text-gray-400 mb-1">Name</label>
@@ -70,32 +92,49 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
 
             <div>
               <label className="block text-xs text-gray-400 mb-1">Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
-                placeholder="you@example.com"
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500/50" />
+              <input type="text" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="name@example.com" autoComplete="email"
+                className={`w-full bg-white/5 border rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none transition-colors ${
+                  email && !emailValid ? 'border-red-500/50 focus:border-red-500/80' : 'border-white/10 focus:border-indigo-500/50'
+                }`} />
+              {email && !emailValid && (
+                <p className="text-[10px] text-red-400 mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" /> Enter a valid email (e.g. name@example.com)
+                </p>
+              )}
             </div>
 
             <div>
               <label className="block text-xs text-gray-400 mb-1">Password</label>
               <div className="relative">
-                <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required
-                  placeholder={mode === 'signup' ? 'Min 8 characters' : 'Your password'}
+                <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
+                  placeholder="Enter password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 pr-10 text-white text-sm focus:outline-none focus:border-indigo-500/50" />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {mode === 'signup' && password.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <Req met={passwordValid}>At least 8 characters</Req>
+                  <Req met={passwordHasUpper}>One uppercase letter</Req>
+                  <Req met={passwordHasNumber}>One number</Req>
+                </div>
+              )}
             </div>
 
-            {/* Consent checkboxes (signup only) */}
             {mode === 'signup' && (
               <div className="space-y-3 pt-1">
                 <label className="flex items-start gap-2.5 cursor-pointer group">
                   <input type="checkbox" checked={consentPolicy} onChange={e => setConsentPolicy(e.target.checked)}
                     className="mt-0.5 accent-indigo-500 w-4 h-4 rounded" />
                   <span className="text-xs text-gray-400 group-hover:text-gray-300 leading-relaxed">
-                    I agree to the <a href="/privacy" target="_blank" className="text-indigo-400 hover:underline">Privacy Policy</a> and <a href="/terms" target="_blank" className="text-indigo-400 hover:underline">Terms of Service</a> <span className="text-red-400">*</span>
+                    I agree to the{' '}
+                    <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">Terms of Service</a>
+                    {' '}and{' '}
+                    <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">Privacy Policy</a>
+                    {' '}<span className="text-red-400">*</span>
                   </span>
                 </label>
 
@@ -103,20 +142,19 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
                   <input type="checkbox" checked={consentNewsletter} onChange={e => setConsentNewsletter(e.target.checked)}
                     className="mt-0.5 accent-indigo-500 w-4 h-4 rounded" />
                   <span className="text-xs text-gray-400 group-hover:text-gray-300 leading-relaxed">
-                    I'd like to receive market insights, product updates, and newsletters from Equilima via email
+                    I'd like to receive market insights, product updates, and newsletters from Equilima via email. You can unsubscribe at any time.
                   </span>
                 </label>
               </div>
             )}
 
-            {/* Error */}
             {error && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
-                {error}
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{error}</span>
               </div>
             )}
 
-            {/* Submit */}
             <button type="submit" disabled={loading}
               className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors text-sm">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
@@ -124,7 +162,6 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
             </button>
           </form>
 
-          {/* Toggle mode */}
           <div className="text-center mt-4 text-xs text-gray-500">
             {mode === 'signup' ? (
               <>Already have an account? <button onClick={() => { setMode('signin'); setError(null); }} className="text-indigo-400 hover:underline">Sign in</button></>
