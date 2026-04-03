@@ -23,14 +23,20 @@ function extractTickers(text) {
 
 // ─── Markdown renderer ───
 function inlineFormat(text) {
+  if (!text) return '';
   return text
-    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong class="text-white font-semibold"><em>$1</em></strong>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
-    .replace(/__(.+?)__/g, '<strong class="text-white font-semibold">$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em class="text-gray-200">$1</em>')
-    .replace(/_(.+?)_/g, '<em class="text-gray-200">$1</em>')
-    .replace(/`(.+?)`/g, '<code class="bg-white/5 px-1 rounded text-indigo-300 text-[10px]">$1</code>')
-    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" class="text-indigo-400 hover:underline">$1</a>');
+    // Code first (protect from other replacements)
+    .replace(/`([^`]+)`/g, '<code class="bg-white/5 px-1 rounded text-indigo-300 text-[10px]">$1</code>')
+    // Bold+italic
+    .replace(/\*{3}([^*]+)\*{3}/g, '<strong class="text-white font-semibold"><em>$1</em></strong>')
+    // Bold (both ** and __)
+    .replace(/\*{2}([^*]+)\*{2}/g, '<strong class="text-white font-semibold">$1</strong>')
+    .replace(/__([^_]+)__/g, '<strong class="text-white font-semibold">$1</strong>')
+    // Italic (single * or _) — but not inside URLs or already-processed HTML
+    .replace(/(?<![<\w])\*([^*]+)\*(?![>\w])/g, '<em class="text-gray-200">$1</em>')
+    .replace(/(?<![<\w])_([^_]+)_(?![>\w])/g, '<em class="text-gray-200">$1</em>')
+    // Links
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-indigo-400 hover:underline">$1</a>');
 }
 
 function RenderMarkdown({ text }) {
@@ -48,7 +54,7 @@ function RenderMarkdown({ text }) {
         if (trimmed.startsWith('## ')) return <h2 key={i} className="text-base font-bold text-white mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(3)) }} />;
         if (trimmed.startsWith('# ')) return <h1 key={i} className="text-lg font-bold text-white mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(2)) }} />;
         // Horizontal rule
-        if (/^[-*_]{3,}\s*$/.test(trimmed)) return <hr key={i} className="border-white/5 my-2" />;
+        if (/^([-]{3,}|[*]{3,}|[_]{3,})\s*$/.test(trimmed) && !/[a-zA-Z]/.test(trimmed)) return <hr key={i} className="border-white/5 my-2" />;
         // Unordered list
         if (/^[-*+]\s/.test(trimmed)) return (
           <div key={i} className="flex gap-2 text-xs text-gray-300 ml-2 my-0.5">
@@ -324,7 +330,7 @@ export default function AgentPanel({ onNavigate }) {
             <p className="text-xs text-gray-500 max-w-md mx-auto">AI-powered market research assistant</p>
             <div className="flex items-center gap-2 justify-center mt-2">
               <div className={`w-2 h-2 rounded-full ${agentOnline ? 'bg-emerald-400' : agentOnline === false ? 'bg-red-400' : 'bg-yellow-400'}`} />
-              <span className="text-[10px] text-gray-600">{agentOnline ? 'Qwen3-14B online' : agentOnline === false ? 'Agent offline' : 'Checking...'}</span>
+              <span className="text-[10px] text-gray-600">{agentOnline ? 'Gemma3-4B online' : agentOnline === false ? 'Agent offline' : 'Checking...'}</span>
             </div>
           </div>
         )}
@@ -410,7 +416,7 @@ export default function AgentPanel({ onNavigate }) {
       )}
 
       <div className="shrink-0 px-4 pb-2">
-        <p className="text-[9px] text-gray-700 text-center">Powered by Qwen3 · Not financial advice</p>
+        <p className="text-[9px] text-gray-700 text-center">Powered by Gemma3 · Not financial advice</p>
       </div>
     </div>
   );
