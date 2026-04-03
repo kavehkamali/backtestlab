@@ -97,7 +97,8 @@ export async function agentChat(message, ticker = '') {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Agent unavailable' }));
-    throw new Error(err.detail || 'Agent error');
+    const msg = typeof err.detail === 'string' ? err.detail : Array.isArray(err.detail) ? err.detail.map(e => e.msg || e).join(', ') : JSON.stringify(err.detail);
+    throw new Error(msg || 'Agent error');
   }
   return res.json();
 }
@@ -110,7 +111,8 @@ export async function agentQuick(message, ticker = '') {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Agent unavailable' }));
-    throw new Error(err.detail || 'Agent error');
+    const msg = typeof err.detail === 'string' ? err.detail : Array.isArray(err.detail) ? err.detail.map(e => e.msg || e).join(', ') : JSON.stringify(err.detail);
+    throw new Error(msg || 'Agent error');
   }
   return res.json();
 }
