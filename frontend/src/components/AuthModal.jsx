@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { X, Loader2, Eye, EyeOff, Check, AlertCircle } from 'lucide-react';
 import { signup, signin } from '../api';
 
-export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup', message }) {
+export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup', message, forced = false }) {
   const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -65,13 +65,15 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={forced ? undefined : onClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
       <div className="relative bg-[#12121a] border border-white/10 rounded-2xl w-full max-w-md mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors">
-          <X className="w-5 h-5" />
-        </button>
+        {!forced && onClose && (
+          <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        )}
 
         <div className="p-6">
           <div className="text-center mb-6">

@@ -22,27 +22,32 @@ function App() {
   const [authMessage, setAuthMessage] = useState('');
 
   // Interaction tracking
-  const [interactions, setInteractions] = useState(0);
+  const [forceAuth, setForceAuth] = useState(false);
+  const [softPromptShown, setSoftPromptShown] = useState(false);
 
   useEffect(() => {
     fetchStrategies().then(d => setStrategies(d.strategies)).catch(() => {});
   }, []);
 
-  // Track interactions on tab switch and periodically
+  // Track interactions on tab switch
   const trackInteraction = useCallback(async () => {
-    if (user) return; // signed-in users bypass
+    if (user) return;
     try {
       const data = await checkInteraction();
-      setInteractions(data.count);
-      if (data.exceeded) {
-        setAuthMessage('You\'ve reached the free daily limit. Sign up for unlimited access!');
+      if (data.force_signup) {
+        setForceAuth(true);
+        setAuthMessage('Create a free account to continue using Equilima');
+        setAuthMode('signup');
+        setShowAuth(true);
+      } else if (data.show_prompt && !softPromptShown) {
+        setSoftPromptShown(true);
+        setAuthMessage('Sign up for unlimited access — it\'s free!');
         setAuthMode('signup');
         setShowAuth(true);
       }
     } catch {}
-  }, [user]);
+  }, [user, softPromptShown]);
 
-  // Track on tab change
   useEffect(() => {
     trackInteraction();
   }, [activeTab, trackInteraction]);
@@ -113,7 +118,8 @@ function App() {
         <AuthModal
           mode={authMode}
           message={authMessage}
-          onClose={() => setShowAuth(false)}
+          forced={forceAuth}
+          onClose={forceAuth ? undefined : () => setShowAuth(false)}
           onAuth={handleAuth}
         />
       )}

@@ -27,7 +27,8 @@ DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 SECRET_KEY = os.environ.get("JWT_SECRET", secrets.token_hex(32))
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 72
-FREE_INTERACTIONS_PER_DAY = 25
+SOFT_LIMIT = 5     # gentle popup (dismissible)
+HARD_LIMIT = 20    # forced signup wall
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer(auto_error=False)
@@ -124,9 +125,11 @@ def track_interaction(ip: str) -> dict:
         count = row["count"] if row else 0
         return {
             "count": count,
-            "limit": FREE_INTERACTIONS_PER_DAY,
-            "remaining": max(0, FREE_INTERACTIONS_PER_DAY - count),
-            "exceeded": count > FREE_INTERACTIONS_PER_DAY,
+            "soft_limit": SOFT_LIMIT,
+            "hard_limit": HARD_LIMIT,
+            "show_prompt": count >= SOFT_LIMIT,
+            "force_signup": count >= HARD_LIMIT,
+            "remaining": max(0, HARD_LIMIT - count),
         }
     finally:
         conn.close()
