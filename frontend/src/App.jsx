@@ -7,10 +7,20 @@ import ResearchPanel from './components/ResearchPanel';
 import TerminalPanel from './components/terminal/TerminalPanel';
 import Header from './components/Header';
 import AuthModal from './components/AuthModal';
+import AdminPanel from './components/AdminPanel';
+import { BarChart3 } from 'lucide-react';
 
 function App() {
   const [strategies, setStrategies] = useState([]);
+  const [isAdmin, setIsAdmin] = useState(window.location.hash === '#admin');
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Listen for hash changes
+  useEffect(() => {
+    const handler = () => setIsAdmin(window.location.hash === '#admin');
+    window.addEventListener('hashchange', handler);
+    return () => window.removeEventListener('hashchange', handler);
+  }, []);
   const [compareResults, setCompareResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -92,6 +102,26 @@ function App() {
   };
 
   const isTerminal = activeTab === 'terminal';
+
+  // Admin panel — hidden route via #admin
+  if (isAdmin) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f]">
+        <header className="border-b border-white/5">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <BarChart3 className="w-6 h-6 text-indigo-400" />
+              <h1 className="text-lg font-semibold tracking-tight text-white">Equilima Admin</h1>
+            </div>
+            <a href="/" className="text-xs text-gray-500 hover:text-white">Back to site</a>
+          </div>
+        </header>
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-12 mt-4">
+          <AdminPanel />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0f]">
