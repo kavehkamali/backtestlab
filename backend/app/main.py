@@ -15,14 +15,16 @@ from .data_fetcher import fetch_stock_data, add_technical_indicators, fetch_mult
 from .backtester import BacktestConfig, StrategyType, run_backtest
 from .terminal import router as terminal_router
 from .research import router as research_router
+from .auth import router as auth_router
 
 app = FastAPI(title="Stock Backtesting Dashboard API")
 app.include_router(terminal_router)
 app.include_router(research_router)
+app.include_router(auth_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "https://equilima.com", "http://equilima.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

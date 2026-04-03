@@ -8,3 +8,5 @@ scikit-learn
 ta
 pydantic
 python-dateutil
+passlib[bcrypt]
+python-jose[cryptography]

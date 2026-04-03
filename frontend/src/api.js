@@ -1,5 +1,56 @@
 const BASE = '/api';
 
+// ─── Auth helpers ───
+function getToken() { return localStorage.getItem('eq_token'); }
+
+function authHeaders() {
+  const token = getToken();
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+export async function signup({ email, password, name, consent_policy, consent_newsletter }) {
+  const res = await fetch(`${BASE}/auth/signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, name, consent_policy, consent_newsletter }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || 'Signup failed');
+  localStorage.setItem('eq_token', data.token);
+  localStorage.setItem('eq_user', JSON.stringify(data.user));
+  return data;
+}
+
+export async function signin({ email, password }) {
+  const res = await fetch(`${BASE}/auth/signin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || 'Sign in failed');
+  localStorage.setItem('eq_token', data.token);
+  localStorage.setItem('eq_user', JSON.stringify(data.user));
+  return data;
+}
+
+export function signout() {
+  localStorage.removeItem('eq_token');
+  localStorage.removeItem('eq_user');
+}
+
+export function getStoredUser() {
+  try { return JSON.parse(localStorage.getItem('eq_user')); } catch { return null; }
+}
+
+export async function checkInteraction() {
+  const res = await fetch(`${BASE}/auth/interaction`, {
+    headers: { ...authHeaders() },
+  });
+  if (!res.ok) return { exceeded: false, count: 0, remaining: 999 };
+  return res.json();
+}
+
 export async function fetchStrategies() {
   const res = await fetch(`${BASE}/strategies`);
   if (!res.ok) throw new Error('Failed to fetch strategies');

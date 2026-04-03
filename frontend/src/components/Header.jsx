@@ -1,6 +1,6 @@
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, User, LogOut } from 'lucide-react';
 
-export default function Header({ activeTab, setActiveTab }) {
+export default function Header({ activeTab, setActiveTab, user, onSignIn, onSignUp, onSignOut }) {
   return (
     <header className="border-b border-white/5">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between">
@@ -32,6 +32,33 @@ export default function Header({ activeTab, setActiveTab }) {
             </button>
           ))}
         </nav>
+
+        {/* Auth */}
+        <div className="flex items-center gap-2">
+          {user ? (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5">
+                <User className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="text-xs text-gray-300">{user.name || user.email}</span>
+              </div>
+              <button onClick={onSignOut}
+                className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors" title="Sign out">
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <button onClick={onSignIn}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-white transition-colors">
+                Sign In
+              </button>
+              <button onClick={onSignUp}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-500 transition-colors">
+                Sign Up
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
