@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchStrategies, compareStrategies, getStoredUser, signout, checkInteraction } from './api';
 import DashboardPanel from './components/DashboardPanel';
 import ComparePanel from './components/ComparePanel';
@@ -48,7 +48,13 @@ function App() {
     } catch {}
   }, [user, softPromptShown]);
 
+  // Only track after user interacts (not on first page load)
+  const hasInteracted = useRef(false);
   useEffect(() => {
+    if (!hasInteracted.current) {
+      hasInteracted.current = true;
+      return; // skip initial mount
+    }
     trackInteraction();
   }, [activeTab, trackInteraction]);
 
