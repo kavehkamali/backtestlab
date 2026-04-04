@@ -146,11 +146,29 @@ def _fetch_all_tickers():
                 for row in rows:
                     sym = row.get("symbol", "").strip()
                     # Filter: no warrants, units, preferred, or too-long symbols
-                    if sym and len(sym) <= 5 and not any(c in sym for c in ["/", "^", "+"]):
+                    if not sym or len(sym) > 5 or any(c in sym for c in ["/", "^", "+"]):
+                        continue
+
+                    # Filter penny stocks and micro caps
+                    try:
+                        price_str = row.get("lastsale", "$0").replace("$", "").replace(",", "").strip()
+                        price = float(price_str) if price_str else 0
+                    except (ValueError, TypeError):
+                        price = 0
+
+                    try:
+                        mcap_str = row.get("marketCap", "0").replace(",", "").strip()
+                        mcap = float(mcap_str) if mcap_str else 0
+                    except (ValueError, TypeError):
+                        mcap = 0
+
+                    # Keep: price >= $3, market cap >= $200M
+                    if price >= 3 and mcap >= 200_000_000:
                         all_symbols.add(sym)
         except Exception as e:
             print(f"[stock_lists] Failed to fetch {exchange}: {e}")
 
+    print(f"[stock_lists] Filtered to {len(all_symbols)} stocks (>=$3, >=$200M mcap)")
     return sorted(all_symbols)
 
 
