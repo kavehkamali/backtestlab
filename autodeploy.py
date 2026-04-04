@@ -43,27 +43,10 @@ class WebhookHandler(BaseHTTPRequestHandler):
             subprocess.run(["git", "pull", "origin", "main"], cwd=APP_DIR, check=True)
             # Rebuild frontend
             subprocess.run(["npm", "run", "build"], cwd=os.path.join(APP_DIR, "frontend"), check=True)
-            # Restart backend
-            subprocess.run(["pkill", "-f", "uvicorn app.main"], check=False)
-            # Load env vars from server config
-            env = os.environ.copy()
-            env_file = os.path.expanduser("~/.equilima_env")
-            if os.path.exists(env_file):
-                with open(env_file) as f:
-                    for line in f:
-                        line = line.strip()
-                        if line.startswith("export "):
-                            line = line[7:]
-                        if "=" in line and not line.startswith("#"):
-                            k, v = line.split("=", 1)
-                            env[k.strip()] = v.strip()
-            subprocess.Popen(
-                [os.path.expanduser("~/.local/bin/uvicorn"), "app.main:app", "--host", "127.0.0.1", "--port", "8080"],
-                cwd=os.path.join(APP_DIR, "backend"),
-                env=env,
-                stdout=open(os.path.expanduser("~/backtestlab.log"), "a"),  # noqa
-                stderr=subprocess.STDOUT,
-            )
+            # Restart backend using the start script (which sources env vars)
+            subprocess.run(["screen", "-S", "backtestlab", "-X", "quit"], check=False)
+            import time; time.sleep(2)
+            subprocess.run(["screen", "-dmS", "backtestlab", os.path.expanduser("~/start_equilima.sh")], check=True)
             print("=== Deploy successful ===")
             self.send_response(200)
             self.end_headers()
