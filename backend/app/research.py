@@ -50,7 +50,12 @@ def _grade(value, thresholds, reverse=False):
 
 @router.get("/{symbol}")
 def get_research(symbol: str):
-    """Full Seeking Alpha-style research page data."""
+    """Full research — shared cache per symbol."""
+    from .shared_cache import get_or_compute, RESEARCH_TTL
+    return get_or_compute(f"research_{symbol.upper()}", RESEARCH_TTL, lambda: _research_compute(symbol))
+
+
+def _research_compute(symbol: str):
     try:
         ticker = yf.Ticker(symbol)
         info = ticker.info or {}

@@ -17,6 +17,7 @@ from .terminal import router as terminal_router
 from .research import router as research_router
 from .auth import router as auth_router
 from .analytics import router as analytics_router
+from .shared_cache import get_or_compute, SCREENER_TTL, DASHBOARD_TTL, CRYPTO_TTL, RESEARCH_TTL, cache_stats
 
 app = FastAPI(title="Stock Backtesting Dashboard API")
 app.include_router(terminal_router)
@@ -214,7 +215,7 @@ def compare_strategies(req: CompareRequest):
     try:
         df = fetch_stock_data(req.symbol, period=req.period)
         results = []
-        for strategy_id in req.strategies:
+        for strategy_id in strategies:
             strategy = StrategyType(strategy_id)
             params = req.params_per_strategy.get(strategy_id, {})
             config = BacktestConfig(
@@ -283,7 +284,18 @@ def _compute_snowflake(fund: dict, price: float, change_pct: float) -> dict:
 
 @app.post("/api/screener")
 def screener(req: ScreenerRequest):
-    """Professional screener with cached batch download, technicals + fundamentals."""
+    """Professional screener with shared cache for all users."""
+    cache_key = f"screener_{req.list_id}"
+
+    def _compute():
+        return _screener_compute(req.list_id, req.strategies)
+
+    result = get_or_compute(cache_key, SCREENER_TTL, _compute)
+    return result
+
+
+def _screener_compute(list_id, strategies):
+    """Actual screener computation — called by shared cache."""
     from .backtester import STRATEGY_MAP
     from .stock_lists import LISTS
     from .cache import batch_fetch_prices, fetch_fundamentals_cached
@@ -293,9 +305,9 @@ def screener(req: ScreenerRequest):
     import numpy as np
     from concurrent.futures import ThreadPoolExecutor
 
-    stock_list = LISTS.get(req.list_id)
+    stock_list = LISTS.get(list_id)
     if not stock_list:
-        raise HTTPException(status_code=400, detail=f"Unknown list: {req.list_id}")
+        raise HTTPException(status_code=400, detail=f"Unknown list: {list_id}")
 
     symbols = stock_list["symbols"]
 
@@ -362,7 +374,7 @@ def screener(req: ScreenerRequest):
 
             signals = {}
             buy_count = 0
-            for strategy_id in req.strategies:
+            for strategy_id in strategies:
                 try:
                     strategy = StrategyType(strategy_id)
                     if strategy in STRATEGY_MAP:
@@ -400,7 +412,7 @@ def screener(req: ScreenerRequest):
                 "above_sma200": price > sma_200,
                 "signals": signals,
                 "buy_count": buy_count,
-                "total_strategies": len(req.strategies),
+                "total_strategies": len(strategies),
                 "sparkline": [round(float(v), 2) for v in spark_data],
                 # Fundamentals
                 "market_cap": fund.get("market_cap"),
@@ -637,7 +649,11 @@ MARKET_TICKERS = {
 
 @app.get("/api/market/overview")
 def market_overview():
-    """Full market overview: indices, commodities, bonds, currencies, sectors, crypto."""
+    """Full market overview — shared cache for all users."""
+    return get_or_compute("dashboard_overview", DASHBOARD_TTL, _market_overview_compute)
+
+
+def _market_overview_compute():
     import yfinance as yf
     import numpy as np
     from .cache import fetch_price_cached
@@ -706,7 +722,11 @@ CRYPTO_TICKERS = [
 
 @app.get("/api/crypto")
 def crypto_overview():
-    """Crypto dashboard data — price, volume, market cap, changes, sparklines."""
+    """Crypto dashboard — shared cache."""
+    return get_or_compute("crypto_overview", CRYPTO_TTL, _crypto_compute)
+
+
+def _crypto_compute():
     import yfinance as yf
     import numpy as np
     from .cache import fetch_price_cached

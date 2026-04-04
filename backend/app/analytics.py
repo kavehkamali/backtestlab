@@ -25,6 +25,14 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 security = HTTPBearer(auto_error=False)
 
 
+def _get_cache_stats():
+    try:
+        from .shared_cache import cache_stats
+        return cache_stats()
+    except Exception:
+        return []
+
+
 def get_db():
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
@@ -284,6 +292,7 @@ def get_stats(days: int = 30, _admin=Depends(verify_admin)):
             "browsers": [{"name": k, "value": v} for k, v in browsers.most_common(5)],
             "recent_visitors": recent_data,
             "users": users_data,
+            "cache_stats": _get_cache_stats(),
         }
     finally:
         conn.close()
