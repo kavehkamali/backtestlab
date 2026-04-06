@@ -10,7 +10,7 @@ import os
 import ipaddress
 from datetime import datetime, timedelta
 from pathlib import Path
-from collections import Counter
+from collections import Counter, defaultdict
 
 from fastapi import APIRouter, HTTPException, Request, Depends, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -126,11 +126,61 @@ def _resolve_excluded_ip_literals(conn: sqlite3.Connection, excluded: list[str])
     return sorted(literals)
 
 
-def _sql_ip_not_in(literals: list[str]) -> tuple[str, tuple]:
-    if not literals:
-        return "", ()
-    ph = ",".join("?" * len(literals))
-    return f" AND ip NOT IN ({ph})", tuple(literals)
+def _make_ip_excluder(excluded: list[str], literals: list[str]):
+    """
+    Same matching rules as tracking: raw string, trimmed literals, and canonical IP.
+    Avoids SQL NOT IN missing rows when stored ip text differs slightly from ignore list.
+    """
+    literal_set: set[str] = set()
+    for x in excluded:
+        t = str(x).strip()
+        if t:
+            literal_set.add(t)
+    for x in literals:
+        t = str(x).strip()
+        if t:
+            literal_set.add(t)
+    norm_set: set[str] = set()
+    for t in literal_set:
+        n = _normalize_ip_loose(t)
+        if n:
+            norm_set.add(n)
+
+    def is_excluded(ip: str | None) -> bool:
+        raw = (ip or "").strip()
+        if raw in literal_set:
+            return True
+        n = _normalize_ip_loose(ip)
+        return bool(n and n in norm_set)
+
+    return is_excluded
+
+
+def _date_key(ts: str | None) -> str | None:
+    if not ts:
+        return None
+    s = str(ts).strip().replace("T", " ")
+    return s[:10] if len(s) >= 10 else None
+
+
+def _parse_ts_datetime(ts: str | None) -> datetime | None:
+    if not ts:
+        return None
+    s = str(ts).strip().replace("T", " ").replace("Z", "")
+    if len(s) >= 19:
+        try:
+            return datetime.strptime(s[:19], "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            pass
+    if len(s) >= 10:
+        try:
+            return datetime.strptime(s[:10], "%Y-%m-%d")
+        except ValueError:
+            pass
+    try:
+        return datetime.fromisoformat(str(ts).replace("Z", "+00:00").split("+")[0])
+    except ValueError:
+        return None
 
 
 def _client_ip_for_storage(raw: str | None) -> str:
@@ -295,79 +345,92 @@ def get_stats(response: Response, days: int = 30, _admin=Depends(verify_admin)):
         since = (datetime.utcnow() - timedelta(days=int(days))).strftime("%Y-%m-%d")
         excluded = _load_excluded_ips(conn)
         excluded_literals = _resolve_excluded_ip_literals(conn, excluded)
-        ni_sql, ni_args = _sql_ip_not_in(excluded_literals)
-        # date(timestamp) >= date(?) matches how daily buckets are grouped (avoids odd string compares on mixed formats)
-        sp = (since,) + ni_args
+        is_excluded = _make_ip_excluder(excluded, excluded_literals)
 
-        # One filtered rowset for the selected period — every aggregate below uses identical IP + date rules
-        _pv_period = f"""WITH pv_period AS (
-            SELECT * FROM page_views WHERE date(timestamp) >= date(?){ni_sql}
-        ) """
+        # Pull period rows once; filter IPs in Python (matches /track, survives DB string quirks)
+        period_rows: list[sqlite3.Row] = []
+        for row in conn.execute(
+            """
+            SELECT ip, timestamp, tab, session_id, user_agent, country, city, referer, path, user_id
+            FROM page_views WHERE date(timestamp) >= date(?)
+            ORDER BY timestamp ASC
+            """,
+            (since,),
+        ):
+            if is_excluded(row["ip"]):
+                continue
+            period_rows.append(row)
 
-        # Total views
-        total = conn.execute(_pv_period + "SELECT COUNT(*) as c FROM pv_period", sp).fetchone()["c"]
+        total = len(period_rows)
+        unique_ips = len({r["ip"] for r in period_rows})
+        unique_sessions = len({r["session_id"] for r in period_rows if (r["session_id"] or "").strip()})
 
-        # Unique IPs
-        unique_ips = conn.execute(_pv_period + "SELECT COUNT(DISTINCT ip) as c FROM pv_period", sp).fetchone()["c"]
+        d_views: dict[str, int] = defaultdict(int)
+        d_visitors: dict[str, set[str]] = defaultdict(set)
+        for r in period_rows:
+            dk = _date_key(r["timestamp"])
+            if dk:
+                d_views[dk] += 1
+                d_visitors[dk].add(r["ip"])
+        daily_data = [
+            {"date": day, "views": d_views[day], "visitors": len(d_visitors[day])}
+            for day in sorted(d_views.keys())
+        ]
 
-        # Unique sessions
-        unique_sessions = conn.execute(
-            _pv_period + "SELECT COUNT(DISTINCT session_id) as c FROM pv_period WHERE session_id != ''", sp,
-        ).fetchone()["c"]
+        # Last 24h hourly (SQLite window + same IP filter)
+        hourly_counter: Counter[str] = Counter()
+        for row in conn.execute(
+            """
+            SELECT ip, timestamp FROM page_views
+            WHERE datetime(timestamp) >= datetime('now', '-1 day')
+            """,
+        ):
+            if is_excluded(row["ip"]):
+                continue
+            dt = _parse_ts_datetime(row["timestamp"])
+            if dt:
+                hourly_counter[f"{dt.hour:02d}:00"] += 1
+        hourly_data = [{"hour": h, "views": c} for h, c in sorted(hourly_counter.items())]
 
-        # Views per day
-        daily = conn.execute(_pv_period + """
-            SELECT DATE(timestamp) as day, COUNT(*) as views, COUNT(DISTINCT ip) as visitors
-            FROM pv_period GROUP BY DATE(timestamp) ORDER BY day
-        """, sp).fetchall()
-        daily_data = [{"date": r["day"], "views": r["views"], "visitors": r["visitors"]} for r in daily]
+        tab_counts = Counter(
+            (r["tab"] or "").strip() for r in period_rows if (r["tab"] or "").strip()
+        )
+        top_tabs_data = [{"tab": t, "views": c} for t, c in tab_counts.most_common(10)]
 
-        # Views per hour (last 24h) — same IP filter via CTE
-        _pv_24h = f"""WITH pv_24h AS (
-            SELECT * FROM page_views WHERE datetime(timestamp) >= datetime('now', '-1 day'){ni_sql}
-        ) """
-        hourly = conn.execute(_pv_24h + """
-            SELECT strftime('%H', timestamp) as hour, COUNT(*) as views
-            FROM pv_24h GROUP BY hour ORDER BY hour
-        """, ni_args).fetchall()
-        hourly_data = [{"hour": f"{r['hour']}:00", "views": r["views"]} for r in hourly]
+        country_agg: dict[str, list] = defaultdict(lambda: [0, set()])
+        for r in period_rows:
+            co = (r["country"] or "").strip()
+            if not co:
+                continue
+            country_agg[co][0] += 1
+            country_agg[co][1].add(r["ip"])
+        top_countries_data = sorted(
+            [{"country": k, "views": v[0], "visitors": len(v[1])} for k, v in country_agg.items()],
+            key=lambda x: -x["views"],
+        )[:20]
 
-        # Top pages/tabs
-        top_tabs = conn.execute(_pv_period + """
-            SELECT tab, COUNT(*) as views FROM pv_period
-            WHERE tab != '' GROUP BY tab ORDER BY views DESC LIMIT 10
-        """, sp).fetchall()
-        top_tabs_data = [{"tab": r["tab"], "views": r["views"]} for r in top_tabs]
+        city_agg: dict[tuple[str, str], list] = defaultdict(lambda: [0, set()])
+        for r in period_rows:
+            ci = (r["city"] or "").strip()
+            co = (r["country"] or "").strip()
+            if not ci:
+                continue
+            city_agg[(ci, co)][0] += 1
+            city_agg[(ci, co)][1].add(r["ip"])
+        top_cities_data = sorted(
+            [{"city": k[0], "country": k[1], "views": v[0], "visitors": len(v[1])} for k, v in city_agg.items()],
+            key=lambda x: -x["views"],
+        )[:20]
 
-        # Top countries
-        top_countries = conn.execute(_pv_period + """
-            SELECT country, COUNT(*) as views, COUNT(DISTINCT ip) as visitors
-            FROM pv_period WHERE country != ''
-            GROUP BY country ORDER BY views DESC LIMIT 20
-        """, sp).fetchall()
-        top_countries_data = [{"country": r["country"], "views": r["views"], "visitors": r["visitors"]} for r in top_countries]
+        ref_counts = Counter(
+            (r["referer"] or "").strip() for r in period_rows if (r["referer"] or "").strip()
+        )
+        top_referrers_data = [{"referer": r, "views": c} for r, c in ref_counts.most_common(10)]
 
-        # Top cities
-        top_cities = conn.execute(_pv_period + """
-            SELECT city, country, COUNT(*) as views, COUNT(DISTINCT ip) as visitors
-            FROM pv_period WHERE city != ''
-            GROUP BY city, country ORDER BY views DESC LIMIT 20
-        """, sp).fetchall()
-        top_cities_data = [{"city": r["city"], "country": r["country"], "views": r["views"], "visitors": r["visitors"]} for r in top_cities]
-
-        # Top referrers
-        top_referrers = conn.execute(_pv_period + """
-            SELECT referer, COUNT(*) as views FROM pv_period
-            WHERE referer != '' GROUP BY referer ORDER BY views DESC LIMIT 10
-        """, sp).fetchall()
-        top_referrers_data = [{"referer": r["referer"], "views": r["views"]} for r in top_referrers]
-
-        # Device types (from user agent)
-        all_ua = conn.execute(_pv_period + "SELECT user_agent FROM pv_period", sp).fetchall()
         devices = {"Mobile": 0, "Tablet": 0, "Desktop": 0}
         browsers = Counter()
-        for row in all_ua:
-            ua = (row["user_agent"] or "").lower()
+        for r in period_rows:
+            ua = (r["user_agent"] or "").lower()
             if "mobile" in ua or "android" in ua or "iphone" in ua:
                 devices["Mobile"] += 1
             elif "tablet" in ua or "ipad" in ua:
@@ -385,18 +448,28 @@ def get_stats(response: Response, days: int = 30, _admin=Depends(verify_admin)):
             else:
                 browsers["Other"] += 1
 
-        # Recent visitors (last 50) — same IP literals as every other metric
-        _pv_recent = f"""WITH pv_recent AS (SELECT * FROM page_views WHERE 1=1{ni_sql}) """
-        recent = conn.execute(_pv_recent + """
+        today_key = datetime.utcnow().strftime("%Y-%m-%d")
+        today_rows = [r for r in period_rows if _date_key(r["timestamp"]) == today_key]
+        today_views = len(today_rows)
+        today_visitors = len({r["ip"] for r in today_rows})
+
+        recent_data = []
+        for row in conn.execute(
+            """
             SELECT ip, path, tab, country, city, user_agent, timestamp, user_id
-            FROM pv_recent ORDER BY timestamp DESC LIMIT 50
-        """, ni_args).fetchall()
-        recent_data = [{
-            "ip": r["ip"], "path": r["path"], "tab": r["tab"],
-            "country": r["country"], "city": r["city"],
-            "timestamp": r["timestamp"], "user_id": r["user_id"],
-            "device": "Mobile" if any(m in (r["user_agent"] or "").lower() for m in ["mobile", "iphone", "android"]) else "Desktop",
-        } for r in recent]
+            FROM page_views ORDER BY timestamp DESC LIMIT 3000
+            """,
+        ):
+            if is_excluded(row["ip"]):
+                continue
+            recent_data.append({
+                "ip": row["ip"], "path": row["path"], "tab": row["tab"],
+                "country": row["country"], "city": row["city"],
+                "timestamp": row["timestamp"], "user_id": row["user_id"],
+                "device": "Mobile" if any(m in (row["user_agent"] or "").lower() for m in ["mobile", "iphone", "android"]) else "Desktop",
+            })
+            if len(recent_data) >= 50:
+                break
 
         # Registered users
         users_count = conn.execute("SELECT COUNT(*) as c FROM users").fetchone()["c"]
@@ -410,15 +483,6 @@ def get_stats(response: Response, days: int = 30, _admin=Depends(verify_admin)):
             "created_at": r["created_at"], "last_login": r["last_login"],
             "newsletter": bool(r["consent_newsletter"]), "active": bool(r["is_active"]),
         } for r in users_list]
-
-        # Today's stats — same IP filter via CTE
-        _pv_today = f"""WITH pv_today AS (
-            SELECT * FROM page_views WHERE date(timestamp) = date('now'){ni_sql}
-        ) """
-        today_views = conn.execute(_pv_today + "SELECT COUNT(*) as c FROM pv_today", ni_args).fetchone()["c"]
-        today_visitors = conn.execute(
-            _pv_today + "SELECT COUNT(DISTINCT ip) as c FROM pv_today", ni_args,
-        ).fetchone()["c"]
 
         return {
             "period_days": days,

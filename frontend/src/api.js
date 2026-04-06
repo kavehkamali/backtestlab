@@ -78,7 +78,7 @@ export async function adminLogin(username, password) {
 
 export async function fetchAdminStats(days = 30) {
   const token = localStorage.getItem('eq_admin_token');
-  const res = await fetch(`${BASE}/admin/stats?days=${days}`, {
+  const res = await fetch(`${BASE}/admin/stats?days=${days}&_=${Date.now()}`, {
     cache: 'no-store',
     headers: { 'Authorization': `Bearer ${token}` },
   });
