@@ -148,3 +148,35 @@ def test_stored_ip_with_whitespace_matches_normalized_ignore_list(client: TestCl
     recent_ips = [x["ip"] for x in data["recent_visitors"]]
     assert "9.9.9.9" in recent_ips
     assert not any(str(x).strip().rstrip() == "1.1.1.1" for x in recent_ips)
+
+
+def test_ipv4_cidr_excludes_entire_subnet(client: TestClient):
+    """Blocking 10.10.10.0/24 removes 10.10.10.5 and 10.10.10.99 from stats (ISP-style rotation)."""
+    import app.analytics as analytics
+
+    now = _utc_now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = analytics.get_db()
+    try:
+        _seed_views(
+            conn,
+            [
+                ("10.10.10.5", now, "dash", "Mozilla/5.0", "Canada", "Montreal", "s1"),
+                ("10.10.10.99", now, "dash", "Mozilla/5.0", "Canada", "Montreal", "s2"),
+                ("8.8.8.8", now, "dash", "Mozilla/5.0", "US", "NYC", "s3"),
+            ],
+        )
+        conn.execute("INSERT INTO analytics_excluded_ips (ip) VALUES ('10.10.10.0/24')")
+        conn.commit()
+    finally:
+        conn.close()
+
+    tok = client.post("/api/admin/login", json={"username": "admintest", "password": "passtest"}).json()["token"]
+    data = client.get("/api/admin/stats?days=7", headers={"Authorization": f"Bearer {tok}"}).json()
+
+    assert data["summary"]["total_views"] == 1
+    assert data["summary"]["unique_visitors"] == 1
+    cities = {f"{c['city']}, {c['country']}": c["views"] for c in data["top_cities"]}
+    assert "Montreal, Canada" not in cities
+    recent_ips = [x["ip"] for x in data["recent_visitors"]]
+    assert "8.8.8.8" in recent_ips
+    assert "10.10.10.5" not in recent_ips

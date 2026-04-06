@@ -7,6 +7,7 @@ Stores in SQLite. Admin-only access.
 import sqlite3
 import json
 import os
+import re
 import ipaddress
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -78,10 +79,34 @@ def init_analytics_db():
 init_analytics_db()
 
 
-def _normalize_ip(raw: str) -> str:
+# IPv4 "a.b.c.*" → same /24 as a.b.c.0/24
+_IPV4_LAST_OCTET_WILDCARD = re.compile(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.\*$")
+
+
+def _is_network_exclusion(s: str) -> bool:
+    t = (s or "").strip()
+    if _IPV4_LAST_OCTET_WILDCARD.fullmatch(t):
+        return True
+    if "/" in t:
+        try:
+            ipaddress.ip_network(t, strict=False)
+            return True
+        except ValueError:
+            return False
+    return False
+
+
+def _parse_exclude_entry(raw: str) -> str:
+    """Normalize admin input: single IP, IPv4/IPv6 CIDR, or IPv4 a.b.c.* → canonical stored string."""
     s = (raw or "").strip()
     if not s:
-        raise ValueError("empty IP")
+        raise ValueError("empty")
+    m = _IPV4_LAST_OCTET_WILDCARD.fullmatch(s)
+    if m:
+        a, b, c = m.group(1), m.group(2), m.group(3)
+        return str(ipaddress.ip_network(f"{a}.{b}.{c}.0/24", strict=False))
+    if "/" in s:
+        return str(ipaddress.ip_network(s, strict=False))
     return str(ipaddress.ip_address(s))
 
 
@@ -104,17 +129,19 @@ def _load_excluded_ips(conn: sqlite3.Connection) -> list[str]:
 
 def _resolve_excluded_ip_literals(conn: sqlite3.Connection, excluded: list[str]) -> list[str]:
     """
-    Every distinct `page_views.ip` value that represents an ignored address (same
-    canonical form as an entry in `excluded`). Ensures charts match legacy rows
-    even if the DB string differs from the normalized ignore list.
+    Every distinct `page_views.ip` value that represents an ignored host (same
+    canonical form). Pass only single-host rules — CIDR / * rows are handled via
+    network checks in _make_ip_excluder.
     """
     if not excluded:
         return []
     literals: set[str] = {str(x).strip() for x in excluded if x and str(x).strip()}
     norm_targets: set[str] = set()
     for x in excluded:
+        if _is_network_exclusion(str(x)):
+            continue
         n = _normalize_ip_loose(x)
-        if n:
+        if n and not _is_network_exclusion(str(n)):
             norm_targets.add(n)
     if not norm_targets:
         return sorted(literals)
@@ -128,22 +155,32 @@ def _resolve_excluded_ip_literals(conn: sqlite3.Connection, excluded: list[str])
 
 def _make_ip_excluder(excluded: list[str], literals: list[str]):
     """
-    Same matching rules as tracking: raw string, trimmed literals, and canonical IP.
-    Avoids SQL NOT IN missing rows when stored ip text differs slightly from ignore list.
+    Match: literal strings, canonical single IPs, and IPv4/IPv6 CIDR (and IPv4 a.b.c.* stored as /24).
     """
     literal_set: set[str] = set()
+    networks: list[ipaddress._BaseNetwork] = []
     for x in excluded:
         t = str(x).strip()
-        if t:
+        if not t:
+            continue
+        if _is_network_exclusion(t):
+            try:
+                networks.append(ipaddress.ip_network(_parse_exclude_entry(t), strict=False))
+            except ValueError:
+                pass
             literal_set.add(t)
+            continue
+        literal_set.add(t)
     for x in literals:
         t = str(x).strip()
         if t:
             literal_set.add(t)
     norm_set: set[str] = set()
     for t in literal_set:
+        if _is_network_exclusion(t):
+            continue
         n = _normalize_ip_loose(t)
-        if n:
+        if n and not _is_network_exclusion(n):
             norm_set.add(n)
 
     def is_excluded(ip: str | None) -> bool:
@@ -151,7 +188,19 @@ def _make_ip_excluder(excluded: list[str], literals: list[str]):
         if raw in literal_set:
             return True
         n = _normalize_ip_loose(ip)
-        return bool(n and n in norm_set)
+        if n and n in norm_set:
+            return True
+        try:
+            addr = ipaddress.ip_address(n or raw)
+        except ValueError:
+            return False
+        for net in networks:
+            try:
+                if addr in net:
+                    return True
+            except TypeError:
+                continue
+        return False
 
     return is_excluded
 
@@ -192,18 +241,11 @@ def _client_ip_for_storage(raw: str | None) -> str:
 
 
 def _track_ip_is_excluded(conn: sqlite3.Connection, client_ip: str) -> bool:
-    """True if this request should not be tracked (matches any ignored address)."""
-    raw = client_ip.strip()
-    canon = _normalize_ip_loose(client_ip)
-    rows = conn.execute("SELECT ip FROM analytics_excluded_ips").fetchall()
-    for r in rows:
-        e = r["ip"]
-        if e == raw or (canon and e == canon):
-            return True
-        en = _normalize_ip_loose(e)
-        if canon and en and en == canon:
-            return True
-    return False
+    """True if this request should not be tracked (same rules as dashboard aggregates)."""
+    excluded = [r["ip"] for r in conn.execute("SELECT ip FROM analytics_excluded_ips").fetchall()]
+    host_only = [e for e in excluded if not _is_network_exclusion(str(e))]
+    literals = _resolve_excluded_ip_literals(conn, host_only)
+    return _make_ip_excluder(excluded, literals)(client_ip)
 
 
 # ─── Admin auth ───
@@ -305,9 +347,12 @@ async def put_excluded_ips(request: Request, _admin=Depends(verify_admin)):
     normalized: list[str] = []
     for raw in ips:
         try:
-            normalized.append(_normalize_ip(str(raw)))
+            normalized.append(_parse_exclude_entry(str(raw)))
         except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid IP address: {raw!r}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid IP or CIDR: {raw!r} (use e.g. 1.2.3.4, 2001:db8::1, 67.69.76.0/24, or 67.69.76.* for a /24)",
+            )
     seen: set[str] = set()
     uniq = []
     for x in normalized:
@@ -344,7 +389,8 @@ def get_stats(response: Response, days: int = 30, _admin=Depends(verify_admin)):
     try:
         since = (datetime.utcnow() - timedelta(days=int(days))).strftime("%Y-%m-%d")
         excluded = _load_excluded_ips(conn)
-        excluded_literals = _resolve_excluded_ip_literals(conn, excluded)
+        host_only = [e for e in excluded if not _is_network_exclusion(str(e))]
+        excluded_literals = _resolve_excluded_ip_literals(conn, host_only)
         is_excluded = _make_ip_excluder(excluded, excluded_literals)
 
         # Pull period rows once; filter IPs in Python (matches /track, survives DB string quirks)

@@ -174,7 +174,9 @@ export default function AdminPanel() {
         right={<Filter className="w-3.5 h-3.5 text-gray-500" />}
       >
         <p className="text-[11px] text-gray-500 mb-3">
-          Hits from these addresses are not stored and do not appear in charts or the visitor log. Use your home or office public IPs (IPv4 or IPv6).
+          Hits from these rules are not stored and do not appear in charts or the visitor log. Use a single IP, or if your ISP keeps changing the last number (same city in the dashboard), add a range:{' '}
+          <span className="text-gray-400 font-mono">67.69.76.*</span> or{' '}
+          <span className="text-gray-400 font-mono">67.69.76.0/24</span> (IPv4 /24). IPv6 CIDR is supported too.
         </p>
         <div className="flex flex-wrap gap-2 mb-3">
           {ignoredDraft.length === 0 && <span className="text-xs text-gray-600">No IPs ignored yet</span>}
@@ -201,7 +203,7 @@ export default function AdminPanel() {
             value={newIp}
             onChange={(e) => setNewIp(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addIgnoredIp()}
-            placeholder="e.g. 203.0.113.42"
+            placeholder="IP, 67.69.76.*, or 67.69.76.0/24"
             className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-indigo-500/50"
           />
           <div className="flex gap-2">
