@@ -2,7 +2,7 @@
 Minimal GitHub webhook receiver for auto-deploy.
 Runs on port 9000. When it receives a push to main, it pulls and restarts.
 
-APP_DIR must match the clone path on the server (default ~/backtestlab).
+APP_DIR must match the clone path on the server (default ~/equilima).
 
 Setup: nohup python3 autodeploy.py &
 GitHub webhook URL: http://<your-ip>:9000/webhook
@@ -13,7 +13,7 @@ import subprocess
 import json
 import os
 
-APP_DIR = os.path.expanduser("~/backtestlab")
+APP_DIR = os.path.expanduser("~/equilima")
 PORT = 9000
 
 
@@ -46,9 +46,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
             # Rebuild frontend
             subprocess.run(["npm", "run", "build"], cwd=os.path.join(APP_DIR, "frontend"), check=True)
             # Restart backend using the start script (which sources env vars)
-            subprocess.run(["screen", "-S", "backtestlab", "-X", "quit"], check=False)
+            subprocess.run(["screen", "-S", "equilima", "-X", "quit"], check=False)
             import time; time.sleep(2)
-            subprocess.run(["screen", "-dmS", "backtestlab", os.path.expanduser("~/start_equilima.sh")], check=True)
+            subprocess.run(["screen", "-dmS", "equilima", os.path.expanduser("~/start_equilima.sh")], check=True)
             print("=== Deploy successful ===")
             self.send_response(200)
             self.end_headers()

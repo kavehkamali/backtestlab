@@ -4,7 +4,7 @@
 
 set -e
 
-APP_DIR="$HOME/backtestlab"
+APP_DIR="$HOME/equilima"
 REPO="https://github.com/kavehkamali/equilima.git"
 
 echo "=== Equilima Deploy ==="
@@ -52,10 +52,10 @@ sleep 1
 
 # Start server
 cd backend
-nohup ~/.local/bin/uvicorn app.main:app --host 127.0.0.1 --port 8080 > ~/backtestlab.log 2>&1 &
+nohup ~/.local/bin/uvicorn app.main:app --host 127.0.0.1 --port 8080 > ~/equilima.log 2>&1 &
 
 echo ""
 echo "=== Deployed! ==="
 echo "Server running on port 8080"
-echo "Log: ~/backtestlab.log"
+echo "Log: ~/equilima.log"
 echo "URL: http://$(curl -s ifconfig.me):8080"
