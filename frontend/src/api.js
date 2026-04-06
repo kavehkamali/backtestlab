@@ -88,6 +88,21 @@ export async function fetchAdminStats(days = 30) {
   return res.json();
 }
 
+export async function saveAdminExcludedIps(ips) {
+  const token = localStorage.getItem('eq_admin_token');
+  const res = await fetch(`${BASE}/admin/excluded-ips`, {
+    method: 'PUT',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ips }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(data.detail || 'Failed to save IP filters');
+  }
+  return data;
+}
+
 // ─── AI Agent ───
 export async function agentChat(message, ticker = '') {
   const res = await fetch(`${BASE}/agent/chat`, {

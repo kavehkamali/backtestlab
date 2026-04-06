@@ -5,9 +5,9 @@ Stores in SQLite. Admin-only access.
 """
 
 import sqlite3
-import time
 import json
 import os
+import ipaddress
 from datetime import datetime, timedelta
 from pathlib import Path
 from collections import Counter
@@ -66,12 +66,44 @@ def init_analytics_db():
         CREATE INDEX IF NOT EXISTS idx_pv_timestamp ON page_views(timestamp);
         CREATE INDEX IF NOT EXISTS idx_pv_ip ON page_views(ip);
         CREATE INDEX IF NOT EXISTS idx_pv_path ON page_views(path);
+
+        CREATE TABLE IF NOT EXISTS analytics_excluded_ips (
+            ip TEXT PRIMARY KEY
+        );
     """)
     conn.commit()
     conn.close()
 
 
 init_analytics_db()
+
+
+def _normalize_ip(raw: str) -> str:
+    s = (raw or "").strip()
+    if not s:
+        raise ValueError("empty IP")
+    return str(ipaddress.ip_address(s))
+
+
+def _client_ip_variants(ip: str) -> tuple[str, ...]:
+    """Match stored excluded IPs whether or not client address was normalized."""
+    out = {ip.strip()}
+    try:
+        out.add(str(ipaddress.ip_address(ip.strip())))
+    except ValueError:
+        pass
+    return tuple(out)
+
+
+def _load_excluded_ips(conn: sqlite3.Connection) -> list[str]:
+    return [r["ip"] for r in conn.execute("SELECT ip FROM analytics_excluded_ips ORDER BY ip").fetchall()]
+
+
+def _sql_ip_not_in(excluded: list[str]) -> tuple[str, tuple]:
+    if not excluded:
+        return "", ()
+    ph = ",".join("?" * len(excluded))
+    return f" AND ip NOT IN ({ph})", tuple(excluded)
 
 
 # ─── Admin auth ───
@@ -120,6 +152,18 @@ async def track_pageview(request: Request):
     ua = request.headers.get("user-agent", "")
     referer = request.headers.get("referer", "")
 
+    conn = get_db()
+    try:
+        variants = _client_ip_variants(ip)
+        ph = ",".join("?" * len(variants))
+        if conn.execute(
+            f"SELECT 1 FROM analytics_excluded_ips WHERE ip IN ({ph})",
+            variants,
+        ).fetchone():
+            return {"ok": True}
+    finally:
+        conn.close()
+
     # Simple IP geolocation (free, no API key)
     country = ""
     city = ""
@@ -146,6 +190,45 @@ async def track_pageview(request: Request):
     return {"ok": True}
 
 
+# ─── Excluded IPs (admin — omit from analytics) ───
+@router.get("/excluded-ips")
+def get_excluded_ips(_admin=Depends(verify_admin)):
+    conn = get_db()
+    try:
+        return {"ips": _load_excluded_ips(conn)}
+    finally:
+        conn.close()
+
+
+@router.put("/excluded-ips")
+async def put_excluded_ips(request: Request, _admin=Depends(verify_admin)):
+    body = await request.json()
+    ips = body.get("ips")
+    if not isinstance(ips, list):
+        raise HTTPException(status_code=400, detail="ips must be a JSON array of strings")
+    normalized: list[str] = []
+    for raw in ips:
+        try:
+            normalized.append(_normalize_ip(str(raw)))
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid IP address: {raw!r}")
+    seen: set[str] = set()
+    uniq = []
+    for x in normalized:
+        if x not in seen:
+            seen.add(x)
+            uniq.append(x)
+    conn = get_db()
+    try:
+        conn.execute("DELETE FROM analytics_excluded_ips")
+        for x in uniq:
+            conn.execute("INSERT INTO analytics_excluded_ips (ip) VALUES (?)", (x,))
+        conn.commit()
+        return {"ok": True, "ips": uniq}
+    finally:
+        conn.close()
+
+
 # ─── Admin login ───
 @router.post("/login")
 async def admin_login(request: Request):
@@ -163,64 +246,75 @@ def get_stats(days: int = 30, _admin=Depends(verify_admin)):
     conn = get_db()
     try:
         since = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
+        excluded = _load_excluded_ips(conn)
+        ni_sql, ni_args = _sql_ip_not_in(excluded)
+        sp = (since,) + ni_args
 
         # Total views
-        total = conn.execute("SELECT COUNT(*) as c FROM page_views WHERE timestamp >= ?", (since,)).fetchone()["c"]
+        total = conn.execute(
+            f"SELECT COUNT(*) as c FROM page_views WHERE timestamp >= ?{ni_sql}", sp,
+        ).fetchone()["c"]
 
         # Unique IPs
-        unique_ips = conn.execute("SELECT COUNT(DISTINCT ip) as c FROM page_views WHERE timestamp >= ?", (since,)).fetchone()["c"]
+        unique_ips = conn.execute(
+            f"SELECT COUNT(DISTINCT ip) as c FROM page_views WHERE timestamp >= ?{ni_sql}", sp,
+        ).fetchone()["c"]
 
         # Unique sessions
-        unique_sessions = conn.execute("SELECT COUNT(DISTINCT session_id) as c FROM page_views WHERE timestamp >= ? AND session_id != ''", (since,)).fetchone()["c"]
+        unique_sessions = conn.execute(
+            f"SELECT COUNT(DISTINCT session_id) as c FROM page_views WHERE timestamp >= ? AND session_id != ''{ni_sql}", sp,
+        ).fetchone()["c"]
 
         # Views per day
-        daily = conn.execute("""
+        daily = conn.execute(f"""
             SELECT DATE(timestamp) as day, COUNT(*) as views, COUNT(DISTINCT ip) as visitors
-            FROM page_views WHERE timestamp >= ?
+            FROM page_views WHERE timestamp >= ?{ni_sql}
             GROUP BY DATE(timestamp) ORDER BY day
-        """, (since,)).fetchall()
+        """, sp).fetchall()
         daily_data = [{"date": r["day"], "views": r["views"], "visitors": r["visitors"]} for r in daily]
 
         # Views per hour (last 24h)
-        hourly = conn.execute("""
+        hourly = conn.execute(f"""
             SELECT strftime('%H', timestamp) as hour, COUNT(*) as views
-            FROM page_views WHERE timestamp >= datetime('now', '-1 day')
+            FROM page_views WHERE timestamp >= datetime('now', '-1 day'){ni_sql}
             GROUP BY hour ORDER BY hour
-        """).fetchall()
+        """, ni_args).fetchall()
         hourly_data = [{"hour": f"{r['hour']}:00", "views": r["views"]} for r in hourly]
 
         # Top pages/tabs
-        top_tabs = conn.execute("""
+        top_tabs = conn.execute(f"""
             SELECT tab, COUNT(*) as views FROM page_views
-            WHERE timestamp >= ? AND tab != '' GROUP BY tab ORDER BY views DESC LIMIT 10
-        """, (since,)).fetchall()
+            WHERE timestamp >= ? AND tab != ''{ni_sql} GROUP BY tab ORDER BY views DESC LIMIT 10
+        """, sp).fetchall()
         top_tabs_data = [{"tab": r["tab"], "views": r["views"]} for r in top_tabs]
 
         # Top countries
-        top_countries = conn.execute("""
+        top_countries = conn.execute(f"""
             SELECT country, COUNT(*) as views, COUNT(DISTINCT ip) as visitors
-            FROM page_views WHERE timestamp >= ? AND country != ''
+            FROM page_views WHERE timestamp >= ? AND country != ''{ni_sql}
             GROUP BY country ORDER BY views DESC LIMIT 20
-        """, (since,)).fetchall()
+        """, sp).fetchall()
         top_countries_data = [{"country": r["country"], "views": r["views"], "visitors": r["visitors"]} for r in top_countries]
 
         # Top cities
-        top_cities = conn.execute("""
+        top_cities = conn.execute(f"""
             SELECT city, country, COUNT(*) as views, COUNT(DISTINCT ip) as visitors
-            FROM page_views WHERE timestamp >= ? AND city != ''
+            FROM page_views WHERE timestamp >= ? AND city != ''{ni_sql}
             GROUP BY city, country ORDER BY views DESC LIMIT 20
-        """, (since,)).fetchall()
+        """, sp).fetchall()
         top_cities_data = [{"city": r["city"], "country": r["country"], "views": r["views"], "visitors": r["visitors"]} for r in top_cities]
 
         # Top referrers
-        top_referrers = conn.execute("""
+        top_referrers = conn.execute(f"""
             SELECT referer, COUNT(*) as views FROM page_views
-            WHERE timestamp >= ? AND referer != '' GROUP BY referer ORDER BY views DESC LIMIT 10
-        """, (since,)).fetchall()
+            WHERE timestamp >= ? AND referer != ''{ni_sql} GROUP BY referer ORDER BY views DESC LIMIT 10
+        """, sp).fetchall()
         top_referrers_data = [{"referer": r["referer"], "views": r["views"]} for r in top_referrers]
 
         # Device types (from user agent)
-        all_ua = conn.execute("SELECT user_agent FROM page_views WHERE timestamp >= ?", (since,)).fetchall()
+        all_ua = conn.execute(
+            f"SELECT user_agent FROM page_views WHERE timestamp >= ?{ni_sql}", sp,
+        ).fetchall()
         devices = {"Mobile": 0, "Tablet": 0, "Desktop": 0}
         browsers = Counter()
         for row in all_ua:
@@ -243,10 +337,11 @@ def get_stats(days: int = 30, _admin=Depends(verify_admin)):
                 browsers["Other"] += 1
 
         # Recent visitors (last 50)
-        recent = conn.execute("""
+        recent = conn.execute(f"""
             SELECT ip, path, tab, country, city, user_agent, timestamp, user_id
-            FROM page_views ORDER BY timestamp DESC LIMIT 50
-        """).fetchall()
+            FROM page_views WHERE 1=1{ni_sql}
+            ORDER BY timestamp DESC LIMIT 50
+        """, ni_args).fetchall()
         recent_data = [{
             "ip": r["ip"], "path": r["path"], "tab": r["tab"],
             "country": r["country"], "city": r["city"],
@@ -268,11 +363,16 @@ def get_stats(days: int = 30, _admin=Depends(verify_admin)):
         } for r in users_list]
 
         # Today's stats
-        today_views = conn.execute("SELECT COUNT(*) as c FROM page_views WHERE DATE(timestamp) = DATE('now')").fetchone()["c"]
-        today_visitors = conn.execute("SELECT COUNT(DISTINCT ip) as c FROM page_views WHERE DATE(timestamp) = DATE('now')").fetchone()["c"]
+        today_views = conn.execute(
+            f"SELECT COUNT(*) as c FROM page_views WHERE DATE(timestamp) = DATE('now'){ni_sql}", ni_args,
+        ).fetchone()["c"]
+        today_visitors = conn.execute(
+            f"SELECT COUNT(DISTINCT ip) as c FROM page_views WHERE DATE(timestamp) = DATE('now'){ni_sql}", ni_args,
+        ).fetchone()["c"]
 
         return {
             "period_days": days,
+            "ignored_ips": excluded,
             "summary": {
                 "total_views": total,
                 "unique_visitors": unique_ips,
