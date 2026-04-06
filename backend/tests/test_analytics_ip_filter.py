@@ -180,3 +180,30 @@ def test_ipv4_cidr_excludes_entire_subnet(client: TestClient):
     recent_ips = [x["ip"] for x in data["recent_visitors"]]
     assert "8.8.8.8" in recent_ips
     assert "10.10.10.5" not in recent_ips
+
+
+def test_ipv4_mapped_ipv6_matches_ipv4_ignore(client: TestClient):
+    """Stored ::ffff:1.1.1.1 is treated as 1.1.1.1 for single-host ignore list."""
+    import app.analytics as analytics
+
+    now = _utc_now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = analytics.get_db()
+    try:
+        _seed_views(
+            conn,
+            [
+                ("::ffff:1.1.1.1", now, "dash", "Mozilla/5.0", "AU", "Sydney", "s1"),
+                ("8.8.8.8", now, "dash", "Mozilla/5.0", "US", "NYC", "s2"),
+            ],
+        )
+        conn.execute("INSERT INTO analytics_excluded_ips (ip) VALUES ('1.1.1.1')")
+        conn.commit()
+    finally:
+        conn.close()
+
+    tok = client.post("/api/admin/login", json={"username": "admintest", "password": "passtest"}).json()["token"]
+    data = client.get("/api/admin/stats?days=7", headers={"Authorization": f"Bearer {tok}"}).json()
+
+    assert data["summary"]["total_views"] == 1
+    assert "1.1.1.1" in (data.get("ignored_canonical") or [])
+    assert "AU" not in {c["country"] for c in data["top_countries"]}

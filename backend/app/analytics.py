@@ -123,6 +123,24 @@ def _normalize_ip_loose(s: str | None) -> str | None:
         return t
 
 
+def _canonical_ip_for_compare(s: str | None) -> str | None:
+    """
+    Comparable form across IPv4 and IPv4-mapped IPv6 (::ffff:x.x.x.d vs x.x.x.d).
+    """
+    if s is None:
+        return None
+    t = str(s).strip()
+    if not t:
+        return None
+    try:
+        a = ipaddress.ip_address(t)
+        if isinstance(a, ipaddress.IPv6Address) and a.ipv4_mapped is not None:
+            return str(a.ipv4_mapped)
+        return str(a)
+    except ValueError:
+        return None
+
+
 def _load_excluded_ips(conn: sqlite3.Connection) -> list[str]:
     return [r["ip"] for r in conn.execute("SELECT ip FROM analytics_excluded_ips ORDER BY ip").fetchall()]
 
@@ -140,24 +158,26 @@ def _resolve_excluded_ip_literals(conn: sqlite3.Connection, excluded: list[str])
     for x in excluded:
         if _is_network_exclusion(str(x)):
             continue
-        n = _normalize_ip_loose(x)
-        if n and not _is_network_exclusion(str(n)):
-            norm_targets.add(n)
+        c = _canonical_ip_for_compare(str(x))
+        if c:
+            norm_targets.add(c)
     if not norm_targets:
         return sorted(literals)
     for row in conn.execute("SELECT DISTINCT ip FROM page_views"):
         raw = row["ip"]
-        n = _normalize_ip_loose(raw)
-        if n and n in norm_targets:
+        c = _canonical_ip_for_compare(raw)
+        if c and c in norm_targets:
             literals.add(raw)
     return sorted(literals)
 
 
 def _make_ip_excluder(excluded: list[str], literals: list[str]):
     """
-    Match: literal strings, canonical single IPs, and IPv4/IPv6 CIDR (and IPv4 a.b.c.* stored as /24).
+    Single hosts: exact string, canonical match, IPv4-mapped IPv6 equivalence.
+    Networks: CIDR and a.b.c.* (stored as /24).
     """
     literal_set: set[str] = set()
+    canon_hosts: set[str] = set()
     networks: list[ipaddress._BaseNetwork] = []
     for x in excluded:
         t = str(x).strip()
@@ -171,27 +191,26 @@ def _make_ip_excluder(excluded: list[str], literals: list[str]):
             literal_set.add(t)
             continue
         literal_set.add(t)
+        c = _canonical_ip_for_compare(t)
+        if c:
+            canon_hosts.add(c)
     for x in literals:
         t = str(x).strip()
         if t:
             literal_set.add(t)
-    norm_set: set[str] = set()
-    for t in literal_set:
-        if _is_network_exclusion(t):
-            continue
-        n = _normalize_ip_loose(t)
-        if n and not _is_network_exclusion(n):
-            norm_set.add(n)
+            c = _canonical_ip_for_compare(t)
+            if c:
+                canon_hosts.add(c)
 
     def is_excluded(ip: str | None) -> bool:
         raw = (ip or "").strip()
         if raw in literal_set:
             return True
-        n = _normalize_ip_loose(ip)
-        if n and n in norm_set:
+        cip = _canonical_ip_for_compare(raw)
+        if cip and cip in canon_hosts:
             return True
         try:
-            addr = ipaddress.ip_address(n or raw)
+            addr = ipaddress.ip_address(_normalize_ip_loose(raw) or raw)
         except ValueError:
             return False
         for net in networks:
@@ -530,9 +549,14 @@ def get_stats(response: Response, days: int = 30, _admin=Depends(verify_admin)):
             "newsletter": bool(r["consent_newsletter"]), "active": bool(r["is_active"]),
         } for r in users_list]
 
+        ignored_canonical = sorted(
+            {c for e in excluded if not _is_network_exclusion(str(e)) for c in [_canonical_ip_for_compare(str(e))] if c}
+        )
+
         return {
             "period_days": days,
             "ignored_ips": excluded,
+            "ignored_canonical": ignored_canonical,
             "summary": {
                 "total_views": total,
                 "unique_visitors": unique_ips,
