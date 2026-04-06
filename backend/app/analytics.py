@@ -85,25 +85,75 @@ def _normalize_ip(raw: str) -> str:
     return str(ipaddress.ip_address(s))
 
 
-def _client_ip_variants(ip: str) -> tuple[str, ...]:
-    """Match stored excluded IPs whether or not client address was normalized."""
-    out = {ip.strip()}
+def _normalize_ip_loose(s: str | None) -> str | None:
+    """Canonical IP string, or None if empty, or stripped raw if not parseable."""
+    if s is None:
+        return None
+    t = str(s).strip()
+    if not t:
+        return None
     try:
-        out.add(str(ipaddress.ip_address(ip.strip())))
+        return str(ipaddress.ip_address(t))
     except ValueError:
-        pass
-    return tuple(out)
+        return t
 
 
 def _load_excluded_ips(conn: sqlite3.Connection) -> list[str]:
     return [r["ip"] for r in conn.execute("SELECT ip FROM analytics_excluded_ips ORDER BY ip").fetchall()]
 
 
-def _sql_ip_not_in(excluded: list[str]) -> tuple[str, tuple]:
+def _resolve_excluded_ip_literals(conn: sqlite3.Connection, excluded: list[str]) -> list[str]:
+    """
+    Every distinct `page_views.ip` value that represents an ignored address (same
+    canonical form as an entry in `excluded`). Ensures charts match legacy rows
+    even if the DB string differs from the normalized ignore list.
+    """
     if not excluded:
+        return []
+    norm_targets: set[str] = set()
+    for x in excluded:
+        n = _normalize_ip_loose(x)
+        if n:
+            norm_targets.add(n)
+    if not norm_targets:
+        return []
+    literals: set[str] = set(excluded)
+    for row in conn.execute("SELECT DISTINCT ip FROM page_views"):
+        raw = row["ip"]
+        n = _normalize_ip_loose(raw)
+        if n and n in norm_targets:
+            literals.add(raw)
+    return sorted(literals)
+
+
+def _sql_ip_not_in(literals: list[str]) -> tuple[str, tuple]:
+    if not literals:
         return "", ()
-    ph = ",".join("?" * len(excluded))
-    return f" AND ip NOT IN ({ph})", tuple(excluded)
+    ph = ",".join("?" * len(literals))
+    return f" AND ip NOT IN ({ph})", tuple(literals)
+
+
+def _client_ip_for_storage(raw: str | None) -> str:
+    """Store canonical IP when possible so filters and ignores stay consistent."""
+    if raw is None:
+        return ""
+    n = _normalize_ip_loose(raw)
+    return n if n else str(raw).strip()
+
+
+def _track_ip_is_excluded(conn: sqlite3.Connection, client_ip: str) -> bool:
+    """True if this request should not be tracked (matches any ignored address)."""
+    raw = client_ip.strip()
+    canon = _normalize_ip_loose(client_ip)
+    rows = conn.execute("SELECT ip FROM analytics_excluded_ips").fetchall()
+    for r in rows:
+        e = r["ip"]
+        if e == raw or (canon and e == canon):
+            return True
+        en = _normalize_ip_loose(e)
+        if canon and en and en == canon:
+            return True
+    return False
 
 
 # ─── Admin auth ───
@@ -139,10 +189,11 @@ async def track_pageview(request: Request):
     except Exception:
         body = {}
 
-    ip = request.client.host
+    ip = request.client.host or ""
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         ip = forwarded.split(",")[0].strip()
+    ip = _client_ip_for_storage(ip)
 
     path = body.get("path", "/")
     tab = body.get("tab", "")
@@ -154,12 +205,7 @@ async def track_pageview(request: Request):
 
     conn = get_db()
     try:
-        variants = _client_ip_variants(ip)
-        ph = ",".join("?" * len(variants))
-        if conn.execute(
-            f"SELECT 1 FROM analytics_excluded_ips WHERE ip IN ({ph})",
-            variants,
-        ).fetchone():
+        if _track_ip_is_excluded(conn, ip):
             return {"ok": True}
     finally:
         conn.close()
@@ -247,7 +293,8 @@ def get_stats(days: int = 30, _admin=Depends(verify_admin)):
     try:
         since = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
         excluded = _load_excluded_ips(conn)
-        ni_sql, ni_args = _sql_ip_not_in(excluded)
+        excluded_literals = _resolve_excluded_ip_literals(conn, excluded)
+        ni_sql, ni_args = _sql_ip_not_in(excluded_literals)
         sp = (since,) + ni_args
 
         # Total views
