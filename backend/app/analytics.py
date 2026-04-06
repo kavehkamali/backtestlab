@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from collections import Counter
 
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Request, Depends, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 DB_PATH = Path.home() / ".equilima_data" / "equilima.db"
@@ -110,14 +110,14 @@ def _resolve_excluded_ip_literals(conn: sqlite3.Connection, excluded: list[str])
     """
     if not excluded:
         return []
+    literals: set[str] = {str(x).strip() for x in excluded if x and str(x).strip()}
     norm_targets: set[str] = set()
     for x in excluded:
         n = _normalize_ip_loose(x)
         if n:
             norm_targets.add(n)
     if not norm_targets:
-        return []
-    literals: set[str] = set(excluded)
+        return sorted(literals)
     for row in conn.execute("SELECT DISTINCT ip FROM page_views"):
         raw = row["ip"]
         n = _normalize_ip_loose(raw)
@@ -287,81 +287,83 @@ async def admin_login(request: Request):
 
 # ─── Analytics dashboard data ───
 @router.get("/stats")
-def get_stats(days: int = 30, _admin=Depends(verify_admin)):
+def get_stats(response: Response, days: int = 30, _admin=Depends(verify_admin)):
     """Full analytics dashboard data."""
+    response.headers["Cache-Control"] = "no-store, private, max-age=0"
     conn = get_db()
     try:
-        since = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
+        since = (datetime.utcnow() - timedelta(days=int(days))).strftime("%Y-%m-%d")
         excluded = _load_excluded_ips(conn)
         excluded_literals = _resolve_excluded_ip_literals(conn, excluded)
         ni_sql, ni_args = _sql_ip_not_in(excluded_literals)
+        # date(timestamp) >= date(?) matches how daily buckets are grouped (avoids odd string compares on mixed formats)
         sp = (since,) + ni_args
 
+        # One filtered rowset for the selected period — every aggregate below uses identical IP + date rules
+        _pv_period = f"""WITH pv_period AS (
+            SELECT * FROM page_views WHERE date(timestamp) >= date(?){ni_sql}
+        ) """
+
         # Total views
-        total = conn.execute(
-            f"SELECT COUNT(*) as c FROM page_views WHERE timestamp >= ?{ni_sql}", sp,
-        ).fetchone()["c"]
+        total = conn.execute(_pv_period + "SELECT COUNT(*) as c FROM pv_period", sp).fetchone()["c"]
 
         # Unique IPs
-        unique_ips = conn.execute(
-            f"SELECT COUNT(DISTINCT ip) as c FROM page_views WHERE timestamp >= ?{ni_sql}", sp,
-        ).fetchone()["c"]
+        unique_ips = conn.execute(_pv_period + "SELECT COUNT(DISTINCT ip) as c FROM pv_period", sp).fetchone()["c"]
 
         # Unique sessions
         unique_sessions = conn.execute(
-            f"SELECT COUNT(DISTINCT session_id) as c FROM page_views WHERE timestamp >= ? AND session_id != ''{ni_sql}", sp,
+            _pv_period + "SELECT COUNT(DISTINCT session_id) as c FROM pv_period WHERE session_id != ''", sp,
         ).fetchone()["c"]
 
         # Views per day
-        daily = conn.execute(f"""
+        daily = conn.execute(_pv_period + """
             SELECT DATE(timestamp) as day, COUNT(*) as views, COUNT(DISTINCT ip) as visitors
-            FROM page_views WHERE timestamp >= ?{ni_sql}
-            GROUP BY DATE(timestamp) ORDER BY day
+            FROM pv_period GROUP BY DATE(timestamp) ORDER BY day
         """, sp).fetchall()
         daily_data = [{"date": r["day"], "views": r["views"], "visitors": r["visitors"]} for r in daily]
 
-        # Views per hour (last 24h)
-        hourly = conn.execute(f"""
+        # Views per hour (last 24h) — same IP filter via CTE
+        _pv_24h = f"""WITH pv_24h AS (
+            SELECT * FROM page_views WHERE datetime(timestamp) >= datetime('now', '-1 day'){ni_sql}
+        ) """
+        hourly = conn.execute(_pv_24h + """
             SELECT strftime('%H', timestamp) as hour, COUNT(*) as views
-            FROM page_views WHERE timestamp >= datetime('now', '-1 day'){ni_sql}
-            GROUP BY hour ORDER BY hour
+            FROM pv_24h GROUP BY hour ORDER BY hour
         """, ni_args).fetchall()
         hourly_data = [{"hour": f"{r['hour']}:00", "views": r["views"]} for r in hourly]
 
         # Top pages/tabs
-        top_tabs = conn.execute(f"""
-            SELECT tab, COUNT(*) as views FROM page_views
-            WHERE timestamp >= ? AND tab != ''{ni_sql} GROUP BY tab ORDER BY views DESC LIMIT 10
+        top_tabs = conn.execute(_pv_period + """
+            SELECT tab, COUNT(*) as views FROM pv_period
+            WHERE tab != '' GROUP BY tab ORDER BY views DESC LIMIT 10
         """, sp).fetchall()
         top_tabs_data = [{"tab": r["tab"], "views": r["views"]} for r in top_tabs]
 
         # Top countries
-        top_countries = conn.execute(f"""
+        top_countries = conn.execute(_pv_period + """
             SELECT country, COUNT(*) as views, COUNT(DISTINCT ip) as visitors
-            FROM page_views WHERE timestamp >= ? AND country != ''{ni_sql}
+            FROM pv_period WHERE country != ''
             GROUP BY country ORDER BY views DESC LIMIT 20
         """, sp).fetchall()
         top_countries_data = [{"country": r["country"], "views": r["views"], "visitors": r["visitors"]} for r in top_countries]
 
         # Top cities
-        top_cities = conn.execute(f"""
+        top_cities = conn.execute(_pv_period + """
             SELECT city, country, COUNT(*) as views, COUNT(DISTINCT ip) as visitors
-            FROM page_views WHERE timestamp >= ? AND city != ''{ni_sql}
+            FROM pv_period WHERE city != ''
             GROUP BY city, country ORDER BY views DESC LIMIT 20
         """, sp).fetchall()
         top_cities_data = [{"city": r["city"], "country": r["country"], "views": r["views"], "visitors": r["visitors"]} for r in top_cities]
 
         # Top referrers
-        top_referrers = conn.execute(f"""
-            SELECT referer, COUNT(*) as views FROM page_views
-            WHERE timestamp >= ? AND referer != ''{ni_sql} GROUP BY referer ORDER BY views DESC LIMIT 10
+        top_referrers = conn.execute(_pv_period + """
+            SELECT referer, COUNT(*) as views FROM pv_period
+            WHERE referer != '' GROUP BY referer ORDER BY views DESC LIMIT 10
         """, sp).fetchall()
         top_referrers_data = [{"referer": r["referer"], "views": r["views"]} for r in top_referrers]
 
         # Device types (from user agent)
-        all_ua = conn.execute(
-            f"SELECT user_agent FROM page_views WHERE timestamp >= ?{ni_sql}", sp,
-        ).fetchall()
+        all_ua = conn.execute(_pv_period + "SELECT user_agent FROM pv_period", sp).fetchall()
         devices = {"Mobile": 0, "Tablet": 0, "Desktop": 0}
         browsers = Counter()
         for row in all_ua:
@@ -383,11 +385,11 @@ def get_stats(days: int = 30, _admin=Depends(verify_admin)):
             else:
                 browsers["Other"] += 1
 
-        # Recent visitors (last 50)
-        recent = conn.execute(f"""
+        # Recent visitors (last 50) — same IP literals as every other metric
+        _pv_recent = f"""WITH pv_recent AS (SELECT * FROM page_views WHERE 1=1{ni_sql}) """
+        recent = conn.execute(_pv_recent + """
             SELECT ip, path, tab, country, city, user_agent, timestamp, user_id
-            FROM page_views WHERE 1=1{ni_sql}
-            ORDER BY timestamp DESC LIMIT 50
+            FROM pv_recent ORDER BY timestamp DESC LIMIT 50
         """, ni_args).fetchall()
         recent_data = [{
             "ip": r["ip"], "path": r["path"], "tab": r["tab"],
@@ -409,12 +411,13 @@ def get_stats(days: int = 30, _admin=Depends(verify_admin)):
             "newsletter": bool(r["consent_newsletter"]), "active": bool(r["is_active"]),
         } for r in users_list]
 
-        # Today's stats
-        today_views = conn.execute(
-            f"SELECT COUNT(*) as c FROM page_views WHERE DATE(timestamp) = DATE('now'){ni_sql}", ni_args,
-        ).fetchone()["c"]
+        # Today's stats — same IP filter via CTE
+        _pv_today = f"""WITH pv_today AS (
+            SELECT * FROM page_views WHERE date(timestamp) = date('now'){ni_sql}
+        ) """
+        today_views = conn.execute(_pv_today + "SELECT COUNT(*) as c FROM pv_today", ni_args).fetchone()["c"]
         today_visitors = conn.execute(
-            f"SELECT COUNT(DISTINCT ip) as c FROM page_views WHERE DATE(timestamp) = DATE('now'){ni_sql}", ni_args,
+            _pv_today + "SELECT COUNT(DISTINCT ip) as c FROM pv_today", ni_args,
         ).fetchone()["c"]
 
         return {

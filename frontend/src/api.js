@@ -79,6 +79,7 @@ export async function adminLogin(username, password) {
 export async function fetchAdminStats(days = 30) {
   const token = localStorage.getItem('eq_admin_token');
   const res = await fetch(`${BASE}/admin/stats?days=${days}`, {
+    cache: 'no-store',
     headers: { 'Authorization': `Bearer ${token}` },
   });
   if (!res.ok) {
@@ -92,6 +93,7 @@ export async function saveAdminExcludedIps(ips) {
   const token = localStorage.getItem('eq_admin_token');
   const res = await fetch(`${BASE}/admin/excluded-ips`, {
     method: 'PUT',
+    cache: 'no-store',
     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ ips }),
   });
