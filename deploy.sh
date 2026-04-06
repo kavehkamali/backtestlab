@@ -5,9 +5,9 @@
 set -e
 
 APP_DIR="$HOME/backtestlab"
-REPO="https://github.com/kavehkamali/backtestlab.git"
+REPO="https://github.com/kavehkamali/equilima.git"
 
-echo "=== BacktestLab Deploy ==="
+echo "=== Equilima Deploy ==="
 
 # Install system deps if needed
 if ! command -v node &>/dev/null; then

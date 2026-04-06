@@ -2,6 +2,8 @@
 Minimal GitHub webhook receiver for auto-deploy.
 Runs on port 9000. When it receives a push to main, it pulls and restarts.
 
+APP_DIR must match the clone path on the server (default ~/backtestlab).
+
 Setup: nohup python3 autodeploy.py &
 GitHub webhook URL: http://<your-ip>:9000/webhook
 """
