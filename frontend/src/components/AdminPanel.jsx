@@ -178,41 +178,84 @@ export default function AdminPanel() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-white">Analytics Dashboard</h2>
-          <p className="text-xs text-gray-500">Visitor tracking and insights</p>
+      {/* Header: title + logout; then section switch; analytics-only date range on its own row */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-white">
+              {adminTab === 'analytics' ? 'Analytics' : 'User management'}
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {adminTab === 'analytics'
+                ? 'Visitor tracking and insights'
+                : 'Search accounts, verify email, enable or disable users'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-white/5 shrink-0"
+            title="Logout"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-0.5 bg-white/5 rounded-lg p-0.5">
+
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div
+            className="flex gap-0.5 bg-white/5 rounded-lg p-0.5 w-fit"
+            role="tablist"
+            aria-label="Admin section"
+          >
             {[
               { id: 'analytics', label: 'Analytics' },
               { id: 'users', label: 'Users' },
             ].map((t) => (
               <button
                 key={t.id}
-                onClick={() => { setAdminTab(t.id); if (t.id === 'users') loadUsers(); }}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-medium ${adminTab === t.id ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500 hover:text-gray-300'}`}
+                type="button"
+                role="tab"
+                aria-selected={adminTab === t.id}
+                onClick={() => {
+                  setAdminTab(t.id);
+                  if (t.id === 'users') loadUsers();
+                }}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium min-w-[5.5rem] ${
+                  adminTab === t.id ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500 hover:text-gray-300'
+                }`}
               >
                 {t.label}
               </button>
             ))}
           </div>
-          <div className="flex gap-0.5 bg-white/5 rounded-lg p-0.5">
-            {[7, 14, 30, 90].map(d => (
-              <button key={d} onClick={() => handlePeriod(d)}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-medium ${days === d ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500 hover:text-gray-300'}`}>
-                {d}D
+
+          {adminTab === 'analytics' && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] text-gray-600 uppercase tracking-wide hidden sm:inline">Range</span>
+              <div className="flex gap-0.5 bg-white/5 rounded-lg p-0.5">
+                {[7, 14, 30, 90].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => handlePeriod(d)}
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-medium ${
+                      days === d ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                  >
+                    {d}D
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => load()}
+                className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5"
+                title="Refresh analytics"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               </button>
-            ))}
-          </div>
-          <button onClick={() => load()} className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-          <button onClick={handleLogout} className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-white/5" title="Logout">
-            <LogOut className="w-4 h-4" />
-          </button>
+            </div>
+          )}
         </div>
       </div>
 
