@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { Send, Loader2, Bot, User, Sparkles, TrendingUp, Zap, ExternalLink, BarChart3, Search, FileText, Trash2 } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Send, Loader2, Bot, User, Sparkles, TrendingUp, Zap, BarChart3, Search, FileText, Trash2, PanelLeft, MessageSquare, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, YAxis, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { agentHealth, fetchTerminalChart, fetchResearch } from '../api';
 import SnowflakeChart from './SnowflakeChart';
+
+const CHAT_STORAGE_KEY = 'eq_agent_chat_sessions_v1';
 
 // ─── Known tickers for detection ───
 const KNOWN_TICKERS = new Set(['AAPL','MSFT','GOOGL','GOOG','AMZN','NVDA','TSLA','META','JPM','V','WMT','UNH','JNJ','XOM','PG','MA','HD','CVX','MRK','ABBV','LLY','PEP','KO','COST','AVGO','MCD','CSCO','TMO','ABT','ACN','AMD','INTC','QCOM','CRM','ADBE','NFLX','DIS','BA','GE','CAT','GS','BLK','PYPL','SQ','COIN','SHOP','SNAP','UBER','ABNB','RIVN','PLTR','SOFI','NET','CRWD','DDOG','ZS','BTC','ETH','SOL','SPY','QQQ']);
@@ -334,9 +336,19 @@ async function streamAgent(url, body, onToken) {
   return { data, elapsedMs: Math.round(performance.now() - started) };
 }
 
+function newSession(title = 'New chat') {
+  return {
+    id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    title,
+    updatedAt: Date.now(),
+    mode: 'quick',
+    messages: [],
+    lastRun: null,
+  };
+}
+
 // ─── Main ───
 export default function AgentPanel({ onNavigate }) {
-  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('quick');
@@ -347,6 +359,76 @@ export default function AgentPanel({ onNavigate }) {
   const streamTextRef = useRef('');
   const streamTickerRef = useRef('');
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sessions, setSessions] = useState(() => {
+    try {
+      const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(parsed) && parsed.length) return parsed;
+    } catch {}
+    return [newSession('New chat')];
+  });
+  const [activeSessionId, setActiveSessionId] = useState(() => {
+    try {
+      const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(parsed) && parsed.length) return parsed[0].id;
+    } catch {}
+    return null;
+  });
+
+  const activeSession = useMemo(() => {
+    const s = sessions.find((x) => x.id === activeSessionId) || sessions[0];
+    return s || newSession('New chat');
+  }, [sessions, activeSessionId]);
+
+  const messages = activeSession?.messages || [];
+
+  // Persist sessions
+  useEffect(() => {
+    try {
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(sessions.slice(0, 50)));
+    } catch {}
+  }, [sessions]);
+
+  // Ensure active session id
+  useEffect(() => {
+    if (!sessions.length) {
+      const s = newSession('New chat');
+      setSessions([s]);
+      setActiveSessionId(s.id);
+      return;
+    }
+    if (!activeSessionId || !sessions.some((s) => s.id === activeSessionId)) {
+      setActiveSessionId(sessions[0].id);
+    }
+  }, [sessions, activeSessionId]);
+
+  // Keep mode in sync with active session
+  useEffect(() => {
+    if (activeSession?.mode && activeSession.mode !== mode) setMode(activeSession.mode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSessionId]);
+
+  const updateActiveSession = (patch) => {
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === activeSession.id
+          ? { ...s, ...patch, updatedAt: Date.now() }
+          : s
+      ).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    );
+  };
+
+  const createNewChat = () => {
+    const s = newSession('New chat');
+    setSessions((prev) => [s, ...prev]);
+    setActiveSessionId(s.id);
+    setInput('');
+    setStreamingText('');
+    setLastRun(null);
+  };
+
   useEffect(() => { agentHealth().then(d => setAgentOnline(d.status === 'ok')); }, []);
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -356,12 +438,15 @@ export default function AgentPanel({ onNavigate }) {
     const msg = input.trim();
     if (!msg || loading) return;
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: msg }]);
     setLoading(true);
     setStreamingText('');
     streamTextRef.current = '';
     streamTickerRef.current = '';
     setLastRun(null);
+    updateActiveSession({
+      messages: [...messages, { role: 'user', content: msg }],
+      title: activeSession.title === 'New chat' ? msg.slice(0, 40) : activeSession.title,
+    });
 
     try {
       const url = mode === 'full' ? '/api/agent/chat' : '/api/agent/quick';
@@ -371,9 +456,11 @@ export default function AgentPanel({ onNavigate }) {
         setStreamingText(text);
       });
       setLastRun({ mode, url, elapsedMs });
-      setMessages(prev => [...prev, { role: 'assistant', content: streamTextRef.current, ticker: streamTickerRef.current }]);
+      const nextMessages = [...messages, { role: 'user', content: msg }, { role: 'assistant', content: streamTextRef.current, ticker: streamTickerRef.current }];
+      updateActiveSession({ messages: nextMessages, lastRun: { mode, url, elapsedMs }, mode });
     } catch (e) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `**Error:** ${e.message}` }]);
+      const nextMessages = [...messages, { role: 'user', content: msg }, { role: 'assistant', content: `**Error:** ${e.message}` }];
+      updateActiveSession({ messages: nextMessages, mode });
     } finally {
       setLoading(false);
       setStreamingText('');
@@ -390,9 +477,91 @@ export default function AgentPanel({ onNavigate }) {
   ];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-52px)] sm:h-[calc(100vh-60px)] max-w-4xl mx-auto">
-      {/* Input area — top */}
-      <div className="shrink-0 px-4 pt-4 pb-2">
+    <div className="flex h-[calc(100vh-52px)] sm:h-[calc(100vh-60px)] max-w-6xl mx-auto">
+      {/* Left: chat history */}
+      <div className={`${sidebarCollapsed ? 'w-12' : 'w-72'} shrink-0 border-r border-white/5 bg-white/[0.01]`}>
+        <div className="h-full flex flex-col">
+          <div className="px-3 py-3 flex items-center justify-between gap-2 border-b border-white/5">
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed((v) => !v)}
+              className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5"
+              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            </button>
+            {!sidebarCollapsed && (
+              <div className="flex items-center gap-2 min-w-0">
+                <PanelLeft className="w-4 h-4 text-indigo-400 shrink-0" />
+                <span className="text-xs font-semibold text-gray-200 truncate">Chats</span>
+              </div>
+            )}
+            {!sidebarCollapsed && (
+              <button
+                type="button"
+                onClick={createNewChat}
+                className="ml-auto px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs text-white font-medium"
+              >
+                New
+              </button>
+            )}
+          </div>
+
+          {!sidebarCollapsed && (
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {sessions.map((s) => {
+                const active = s.id === activeSession.id;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      if (loading) return;
+                      setActiveSessionId(s.id);
+                      setLastRun(s.lastRun || null);
+                      setStreamingText('');
+                      setInput('');
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl border transition-colors ${
+                      active ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <MessageSquare className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${active ? 'text-indigo-300' : 'text-gray-600'}`} />
+                      <div className="min-w-0">
+                        <div className={`text-[11px] font-medium truncate ${active ? 'text-white' : 'text-gray-300'}`}>
+                          {s.title || 'New chat'}
+                        </div>
+                        <div className="text-[10px] text-gray-600 mt-0.5">
+                          {(s.messages?.length || 0)} msgs · {s.mode === 'full' ? 'Full' : 'Quick'}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {sidebarCollapsed && (
+            <div className="flex-1 flex items-start justify-center pt-3">
+              <button
+                type="button"
+                onClick={createNewChat}
+                className="p-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white"
+                title="New chat"
+              >
+                <MessageSquare className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Right: chat + composer */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Input area — top */}
+        <div className="shrink-0 px-4 pt-4 pb-2">
         {messages.length === 0 && (
           <div className="text-center mb-4">
             <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-3">
@@ -409,11 +578,11 @@ export default function AgentPanel({ onNavigate }) {
 
         <div className="flex items-center gap-2 mb-2">
           <div className="flex gap-0.5 bg-white/5 rounded-lg p-0.5">
-            <button onClick={() => setMode('quick')}
+            <button onClick={() => { setMode('quick'); updateActiveSession({ mode: 'quick' }); }}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${mode === 'quick' ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500'}`}>
               <Zap className="w-3 h-3" /> Quick
             </button>
-            <button onClick={() => setMode('full')}
+            <button onClick={() => { setMode('full'); updateActiveSession({ mode: 'full' }); }}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${mode === 'full' ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500'}`}>
               <Bot className="w-3 h-3" /> Full Analysis
             </button>
@@ -425,7 +594,7 @@ export default function AgentPanel({ onNavigate }) {
             </span>
           )}
           {messages.length > 0 && !loading && (
-            <button onClick={() => { setMessages([]); setStreamingText(''); }}
+            <button onClick={() => { createNewChat(); }}
               className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
               title="Clear chat">
               <Trash2 className="w-3 h-3" /> New chat
@@ -501,6 +670,7 @@ export default function AgentPanel({ onNavigate }) {
 
       <div className="shrink-0 px-4 pb-2">
         <p className="text-[9px] text-gray-700 text-center">Powered by Gemma3 · Not financial advice</p>
+      </div>
       </div>
     </div>
   );

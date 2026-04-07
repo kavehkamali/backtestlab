@@ -146,23 +146,33 @@ function App() {
               {error}
             </div>
           )}
-          {activeTab === 'agent' && <AgentPanel onNavigate={(tab, ticker) => {
-            setActiveTab(tab);
-            // Store ticker for the target tab to pick up
-            if (ticker) window.__equilima_nav_ticker = ticker;
-          }} />}
-          {activeTab === 'dashboard' && <DashboardPanel />}
-          {activeTab === 'screener' && <ScreenerPanel />}
-          {activeTab === 'research' && <ResearchPanel />}
-          {activeTab === 'account' && user && <AccountPanel onSignedOut={() => setUser(null)} />}
-          {activeTab === 'backtest' && (
+          {/* Keep panels mounted so their internal state persists when switching tabs */} 
+          <div className={activeTab === 'agent' ? '' : 'hidden'}>
+            <AgentPanel onNavigate={(tab, ticker) => {
+              setActiveTab(tab);
+              if (ticker) window.__equilima_nav_ticker = ticker;
+            }} />
+          </div>
+          <div className={activeTab === 'dashboard' ? '' : 'hidden'}>
+            <DashboardPanel />
+          </div>
+          <div className={activeTab === 'screener' ? '' : 'hidden'}>
+            <ScreenerPanel />
+          </div>
+          <div className={activeTab === 'research' ? '' : 'hidden'}>
+            <ResearchPanel />
+          </div>
+          <div className={activeTab === 'account' ? '' : 'hidden'}>
+            {user && <AccountPanel onSignedOut={() => setUser(null)} />}
+          </div>
+          <div className={activeTab === 'backtest' ? '' : 'hidden'}>
             <ComparePanel
               strategies={strategies}
               onCompare={handleCompare}
               results={compareResults}
               loading={loading}
             />
-          )}
+          </div>
         </main>
       )}
 
