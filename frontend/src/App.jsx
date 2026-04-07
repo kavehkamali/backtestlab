@@ -12,6 +12,8 @@ import AgentPanel from './components/AgentPanel';
 import ConsentBanner from './components/ConsentBanner';
 import AccountPanel from './components/AccountPanel';
 import { BarChart3 } from 'lucide-react';
+import { bootstrapAgentE2EE, fetchAgentE2EEMeta, rewrapAgentE2EE } from './api';
+import { createAndWrapDek, unwrapDek, wrapExistingDek } from './e2ee';
 
 function App() {
   const [strategies, setStrategies] = useState([]);
@@ -33,6 +35,7 @@ function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState('signup');
   const [authMessage, setAuthMessage] = useState('');
+  const [agentDek, setAgentDek] = useState(null); // CryptoKey (in-memory only)
 
   // Interaction tracking
   const [forceAuth, setForceAuth] = useState(false);
@@ -76,18 +79,48 @@ function App() {
     trackInteraction();
   }, [activeTab, trackInteraction]);
 
-  const handleAuth = (userData) => {
+  const handleAuth = async (userData, ctx = {}) => {
     setUser(userData);
     setShowAuth(false);
     setAuthMessage('');
+
+    // Unlock/initialize agent E2EE using the password the user just entered.
+    const password = ctx?.password;
+    if (!userData?.id || !password) return;
+    try {
+      const metaResp = await fetchAgentE2EEMeta().catch(() => ({ has_e2ee: false }));
+      if (!metaResp?.has_e2ee) {
+        const { dek, meta } = await createAndWrapDek(password);
+        await bootstrapAgentE2EE(meta);
+        setAgentDek(dek);
+      } else {
+        const dek = await unwrapDek(password, metaResp.meta);
+        setAgentDek(dek);
+      }
+    } catch {
+      // If unlocking fails, keep app usable; history will be unavailable.
+      setAgentDek(null);
+    }
   };
 
   const handleSignout = () => {
     signout();
     setUser(null);
+    setAgentDek(null);
     setShowAuth(false);
     setForceAuth(false);
     setSoftPromptShown(true); // don't show prompt again after signout
+  };
+
+  const handlePasswordChanged = async (current_password, new_password) => {
+    if (!user?.id) return;
+    // Rewrap DEK so chat history stays readable after password change.
+    const metaResp = await fetchAgentE2EEMeta().catch(() => null);
+    if (!metaResp?.has_e2ee) return;
+    const dek = await unwrapDek(current_password, metaResp.meta);
+    const newMeta = await wrapExistingDek(dek, new_password);
+    await rewrapAgentE2EE(newMeta);
+    setAgentDek(dek); // keep unlocked for this session
   };
 
   const handleCompare = async (params) => {
@@ -151,7 +184,7 @@ function App() {
             <AgentPanel onNavigate={(tab, ticker) => {
               setActiveTab(tab);
               if (ticker) window.__equilima_nav_ticker = ticker;
-            }} user={user} />
+            }} user={user} dek={agentDek} onRequireUnlock={() => { setAuthMode('signin'); setAuthMessage('Sign in again to unlock encrypted chat history'); setShowAuth(true); }} />
           </div>
           <div className={activeTab === 'dashboard' ? '' : 'hidden'}>
             <DashboardPanel />
@@ -163,7 +196,7 @@ function App() {
             <ResearchPanel />
           </div>
           <div className={activeTab === 'account' ? '' : 'hidden'}>
-            {user && <AccountPanel onSignedOut={() => setUser(null)} />}
+            {user && <AccountPanel onSignedOut={handleSignout} onPasswordChanged={handlePasswordChanged} />}
           </div>
           <div className={activeTab === 'backtest' ? '' : 'hidden'}>
             <ComparePanel

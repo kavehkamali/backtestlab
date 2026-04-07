@@ -1,54 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Send, Loader2, Bot, User, Sparkles, TrendingUp, Zap, BarChart3, Search, FileText, Trash2, PanelLeft, MessageSquare, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Send, Loader2, Bot, User, Sparkles, TrendingUp, Zap, BarChart3, Search, FileText, Trash2, PanelLeft, MessageSquare, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, YAxis, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
-import { agentHealth, fetchTerminalChart, fetchResearch } from '../api';
+import { agentHealth, fetchTerminalChart, fetchResearch, fetchAgentHistory, putAgentHistory } from '../api';
 import SnowflakeChart from './SnowflakeChart';
+import { decryptWithDek, encryptWithDek } from '../e2ee';
 
 const CHAT_STORAGE_KEY = 'eq_agent_chat_sessions_v1';
-const ENC_STORAGE_PREFIX = 'eq_agent_chat_sessions_enc_v1';
-const ENC_KEY_PREFIX = 'eq_agent_chat_key_v1';
-
-function _b64encode(bytes) {
-  let bin = '';
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin);
-}
-
-function _b64decode(b64) {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
-async function _getOrCreateUserKey(userId) {
-  const keyName = `${ENC_KEY_PREFIX}:${userId}`;
-  const existing = localStorage.getItem(keyName);
-  if (existing) {
-    const jwk = JSON.parse(existing);
-    return crypto.subtle.importKey('jwk', jwk, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
-  }
-  const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
-  const jwk = await crypto.subtle.exportKey('jwk', key);
-  localStorage.setItem(keyName, JSON.stringify(jwk));
-  return crypto.subtle.importKey('jwk', jwk, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
-}
-
-async function _encryptForUser(userId, value) {
-  const key = await _getOrCreateUserKey(userId);
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const pt = new TextEncoder().encode(JSON.stringify(value));
-  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, pt));
-  return { v: 1, alg: 'AES-GCM', iv: _b64encode(iv), ct: _b64encode(ct) };
-}
-
-async function _decryptForUser(userId, blob) {
-  const key = await _getOrCreateUserKey(userId);
-  const iv = _b64decode(blob.iv);
-  const ct = _b64decode(blob.ct);
-  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
-  return JSON.parse(new TextDecoder().decode(new Uint8Array(pt)));
-}
 
 // ─── Known tickers for detection ───
 const KNOWN_TICKERS = new Set(['AAPL','MSFT','GOOGL','GOOG','AMZN','NVDA','TSLA','META','JPM','V','WMT','UNH','JNJ','XOM','PG','MA','HD','CVX','MRK','ABBV','LLY','PEP','KO','COST','AVGO','MCD','CSCO','TMO','ABT','ACN','AMD','INTC','QCOM','CRM','ADBE','NFLX','DIS','BA','GE','CAT','GS','BLK','PYPL','SQ','COIN','SHOP','SNAP','UBER','ABNB','RIVN','PLTR','SOFI','NET','CRWD','DDOG','ZS','BTC','ETH','SOL','SPY','QQQ']);
@@ -392,7 +349,7 @@ function newSession(title = 'New chat') {
 }
 
 // ─── Main ───
-export default function AgentPanel({ onNavigate, user }) {
+export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('quick');
@@ -402,10 +359,13 @@ export default function AgentPanel({ onNavigate, user }) {
   const scrollRef = useRef(null);
   const streamTextRef = useRef('');
   const streamTickerRef = useRef('');
+  const [hydrated, setHydrated] = useState(false);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sessions, setSessions] = useState([newSession('New chat')]);
   const [activeSessionId, setActiveSessionId] = useState(null);
+
+  const locked = !!(user?.id && !dek);
 
   const activeSession = useMemo(() => {
     const s = sessions.find((x) => x.id === activeSessionId) || sessions[0];
@@ -414,92 +374,123 @@ export default function AgentPanel({ onNavigate, user }) {
 
   const messages = activeSession?.messages || [];
 
-  // Load sessions (encrypted if signed in; plaintext if not)
+  // Load: guest = localStorage plaintext; signed-in + dek = server blob (E2EE); signed-in no dek = locked (empty UI)
   useEffect(() => {
     let cancelled = false;
+    setHydrated(false);
+
     const load = async () => {
-      // Signed-in: prefer encrypted storage (per-user). Also migrate any plaintext history.
-      if (user?.id) {
-        const encKey = `${ENC_STORAGE_PREFIX}:${user.id}`;
-        const rawEnc = localStorage.getItem(encKey);
-        if (rawEnc) {
-          try {
-            const blob = JSON.parse(rawEnc);
-            const value = await _decryptForUser(user.id, blob);
-            if (!cancelled && Array.isArray(value) && value.length) {
-              setSessions(value);
-              setActiveSessionId(value[0]?.id || null);
-              return;
-            }
-          } catch {
-            // If decrypt fails (key rotated/cleared), fall through to new chat
+      if (!user?.id) {
+        try {
+          const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (!cancelled && Array.isArray(parsed) && parsed.length) {
+            setSessions(parsed);
+            setActiveSessionId(parsed[0]?.id || null);
+          } else if (!cancelled) {
+            const s = newSession('New chat');
+            setSessions([s]);
+            setActiveSessionId(s.id);
+          }
+        } catch {
+          if (!cancelled) {
+            const s = newSession('New chat');
+            setSessions([s]);
+            setActiveSessionId(s.id);
           }
         }
+        if (!cancelled) setHydrated(true);
+        return;
+      }
 
-        // Migrate plaintext if present
+      if (!dek) {
+        if (!cancelled) {
+          const s = newSession('New chat');
+          setSessions([s]);
+          setActiveSessionId(s.id);
+          setHydrated(true);
+        }
+        return;
+      }
+
+      try {
+        const data = await fetchAgentHistory();
+        if (cancelled) return;
+
+        if (!data) {
+          const s = newSession('New chat');
+          setSessions([s]);
+          setActiveSessionId(s.id);
+        } else if (data.blob) {
+          const value = await decryptWithDek(dek, data.blob);
+          if (!cancelled && Array.isArray(value) && value.length) {
+            setSessions(value.slice(0, 50));
+            setActiveSessionId(value[0]?.id || null);
+          } else if (!cancelled) {
+            const s = newSession('New chat');
+            setSessions([s]);
+            setActiveSessionId(s.id);
+          }
+        } else {
+          const s = newSession('New chat');
+          setSessions([s]);
+          setActiveSessionId(s.id);
+        }
+
         try {
           const rawPlain = localStorage.getItem(CHAT_STORAGE_KEY);
           const parsedPlain = rawPlain ? JSON.parse(rawPlain) : null;
           if (Array.isArray(parsedPlain) && parsedPlain.length) {
-            const blob = await _encryptForUser(user.id, parsedPlain.slice(0, 50));
-            localStorage.setItem(encKey, JSON.stringify(blob));
-            localStorage.removeItem(CHAT_STORAGE_KEY);
             if (!cancelled) {
               setSessions(parsedPlain.slice(0, 50));
               setActiveSessionId(parsedPlain[0]?.id || null);
-              return;
             }
+            localStorage.removeItem(CHAT_STORAGE_KEY);
           }
         } catch {}
 
+        try {
+          localStorage.removeItem(`eq_agent_chat_sessions_enc_v1:${user.id}`);
+        } catch {}
+      } catch {
         if (!cancelled) {
           const s = newSession('New chat');
           setSessions([s]);
           setActiveSessionId(s.id);
         }
-        return;
-      }
-
-      // Signed-out: use plaintext storage
-      try {
-        const raw = localStorage.getItem(CHAT_STORAGE_KEY);
-        const parsed = raw ? JSON.parse(raw) : null;
-        if (!cancelled && Array.isArray(parsed) && parsed.length) {
-          setSessions(parsed);
-          setActiveSessionId(parsed[0]?.id || null);
-          return;
-        }
-      } catch {}
-      if (!cancelled) {
-        const s = newSession('New chat');
-        setSessions([s]);
-        setActiveSessionId(s.id);
+      } finally {
+        if (!cancelled) setHydrated(true);
       }
     };
+
     load();
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, dek]);
 
-  // Persist sessions (encrypted if signed in; plaintext if not)
+  // Persist: guest = localStorage; signed-in + dek = encrypted blob to server
   useEffect(() => {
+    if (!hydrated) return;
     let cancelled = false;
     const persist = async () => {
       const payload = sessions.slice(0, 50);
-      if (user?.id) {
-        try {
-          const encKey = `${ENC_STORAGE_PREFIX}:${user.id}`;
-          const blob = await _encryptForUser(user.id, payload);
-          if (!cancelled) localStorage.setItem(encKey, JSON.stringify(blob));
-        } catch {}
-      } else {
+      if (!user?.id) {
         try {
           localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(payload));
         } catch {}
+        return;
       }
+      if (!dek) return;
+      try {
+        const blob = await encryptWithDek(dek, payload);
+        if (!cancelled) await putAgentHistory(blob);
+      } catch {}
     };
-    persist();
-    return () => { cancelled = true; };
-  }, [sessions, user?.id]);
+    const t = setTimeout(persist, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [sessions, user?.id, dek, hydrated]);
 
   // Ensure active session id
   useEffect(() => {
@@ -545,6 +536,7 @@ export default function AgentPanel({ onNavigate, user }) {
   }, [messages, streamingText]);
 
   const handleSend = async () => {
+    if (locked) return;
     const msg = input.trim();
     if (!msg || loading) return;
     setInput('');
@@ -672,6 +664,23 @@ export default function AgentPanel({ onNavigate, user }) {
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Input area — top */}
         <div className="shrink-0 px-4 pt-4 pb-2">
+        {locked && (
+          <div className="mb-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex items-start gap-2">
+              <Lock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-100/90">
+                Encrypted chat history is locked on this device until you sign in with your password again (session only — we don’t store your password).
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onRequireUnlock?.()}
+              className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 text-xs font-medium border border-amber-500/30"
+            >
+              Sign in to unlock
+            </button>
+          </div>
+        )}
         {messages.length === 0 && (
           <div className="text-center mb-4">
             <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-3">
@@ -688,12 +697,12 @@ export default function AgentPanel({ onNavigate, user }) {
 
         <div className="flex items-center gap-2 mb-2">
           <div className="flex gap-0.5 bg-white/5 rounded-lg p-0.5">
-            <button onClick={() => { setMode('quick'); updateActiveSession({ mode: 'quick' }); }}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${mode === 'quick' ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500'}`}>
+            <button type="button" disabled={locked} onClick={() => { setMode('quick'); updateActiveSession({ mode: 'quick' }); }}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all disabled:opacity-40 ${mode === 'quick' ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500'}`}>
               <Zap className="w-3 h-3" /> Quick
             </button>
-            <button onClick={() => { setMode('full'); updateActiveSession({ mode: 'full' }); }}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${mode === 'full' ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500'}`}>
+            <button type="button" disabled={locked} onClick={() => { setMode('full'); updateActiveSession({ mode: 'full' }); }}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all disabled:opacity-40 ${mode === 'full' ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500'}`}>
               <Bot className="w-3 h-3" /> Full Analysis
             </button>
           </div>
@@ -715,9 +724,10 @@ export default function AgentPanel({ onNavigate, user }) {
         <div className="flex gap-2">
           <input type="text" value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder="Ask about any stock, market trend, or strategy..." disabled={loading}
+            placeholder={locked ? 'Sign in to unlock encrypted chats…' : 'Ask about any stock, market trend, or strategy...'}
+            disabled={loading || locked}
             className="flex-1 bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500/40 disabled:opacity-50 placeholder-gray-600" />
-          <button onClick={handleSend} disabled={loading || !input.trim()}
+          <button onClick={handleSend} disabled={loading || !input.trim() || locked}
             className="px-4 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-white rounded-xl transition-colors">
             <Send className="w-4 h-4" />
           </button>

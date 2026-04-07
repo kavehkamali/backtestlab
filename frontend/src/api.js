@@ -242,6 +242,64 @@ export async function agentHealth() {
   } catch { return { status: 'offline' }; }
 }
 
+// ─── Agent E2EE History (server-synced) ───
+export async function fetchAgentE2EEMeta() {
+  const token = getToken();
+  const res = await fetch(`${BASE}/agent/e2ee/meta`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Failed to load E2EE meta');
+  return data;
+}
+
+export async function bootstrapAgentE2EE(meta) {
+  const token = getToken();
+  const res = await fetch(`${BASE}/agent/e2ee/bootstrap`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(meta),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Failed to bootstrap E2EE');
+  return data;
+}
+
+export async function rewrapAgentE2EE(meta) {
+  const token = getToken();
+  const res = await fetch(`${BASE}/agent/e2ee/rewrap`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(meta),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Failed to update E2EE meta');
+  return data;
+}
+
+export async function fetchAgentHistory() {
+  const token = getToken();
+  const res = await fetch(`${BASE}/agent/history`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(data.detail || 'Failed to load agent history');
+  return data;
+}
+
+export async function putAgentHistory(blob) {
+  const token = getToken();
+  const res = await fetch(`${BASE}/agent/history`, {
+    method: 'PUT',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ blob }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Failed to save agent history');
+  return data;
+}
+
 export async function forgotPassword(email) {
   const res = await fetch(`${BASE}/auth/forgot-password`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
