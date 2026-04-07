@@ -15,7 +15,6 @@ import {
   MessageSquare,
   ChevronLeft,
   ChevronRight,
-  Lock,
   LayoutDashboard,
   CandlestickChart,
   Scale,
@@ -27,6 +26,11 @@ import SnowflakeChart from './SnowflakeChart';
 import { decryptWithDek, encryptWithDek } from '../e2ee';
 
 const CHAT_STORAGE_KEY = 'eq_agent_chat_sessions_v1';
+
+/** Signed-in but no in-memory DEK (e.g. page refresh): keep chat usable via local plaintext until next password unlock. */
+function chatPlainStorageKey(userId) {
+  return `eq_agent_chat_sessions_plain_v1:${userId}`;
+}
 
 /** Cross-links to other app tabs — minimal cards on the empty state */
 const EXPLORE_TABS = [
@@ -380,7 +384,7 @@ function newSession(title = 'New chat') {
 }
 
 // ─── Main ───
-export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
+export default function AgentPanel({ onNavigate, user, dek }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('quick');
@@ -400,8 +404,6 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
   const [sessions, setSessions] = useState([newSession('New chat')]);
   const [activeSessionId, setActiveSessionId] = useState(null);
 
-  const locked = !!(user?.id && !dek);
-
   const activeSession = useMemo(() => {
     const s = sessions.find((x) => x.id === activeSessionId) || sessions[0];
     return s || newSession('New chat');
@@ -409,7 +411,7 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
 
   const messages = activeSession?.messages || [];
 
-  // Load: guest = localStorage plaintext; signed-in + dek = server blob (E2EE); signed-in no dek = locked (empty UI)
+  // Load: guest = localStorage; signed-in + dek = server E2EE; signed-in + no dek = user-scoped local plaintext (still usable)
   useEffect(() => {
     let cancelled = false;
     setHydrated(false);
@@ -439,12 +441,33 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
       }
 
       if (!dek) {
-        if (!cancelled) {
-          const s = newSession('New chat');
-          setSessions([s]);
-          setActiveSessionId(s.id);
-          setHydrated(true);
+        try {
+          const raw = localStorage.getItem(chatPlainStorageKey(user.id));
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (!cancelled && Array.isArray(parsed) && parsed.length) {
+            setSessions(parsed.slice(0, 50));
+            setActiveSessionId(parsed[0]?.id || null);
+          } else {
+            const guestRaw = localStorage.getItem(CHAT_STORAGE_KEY);
+            const guestParsed = guestRaw ? JSON.parse(guestRaw) : null;
+            if (!cancelled && Array.isArray(guestParsed) && guestParsed.length) {
+              setSessions(guestParsed.slice(0, 50));
+              setActiveSessionId(guestParsed[0]?.id || null);
+              localStorage.removeItem(CHAT_STORAGE_KEY);
+            } else if (!cancelled) {
+              const s = newSession('New chat');
+              setSessions([s]);
+              setActiveSessionId(s.id);
+            }
+          }
+        } catch {
+          if (!cancelled) {
+            const s = newSession('New chat');
+            setSessions([s]);
+            setActiveSessionId(s.id);
+          }
         }
+        if (!cancelled) setHydrated(true);
         return;
       }
 
@@ -452,37 +475,48 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
         const data = await fetchAgentHistory();
         if (cancelled) return;
 
-        if (!data) {
-          const s = newSession('New chat');
-          setSessions([s]);
-          setActiveSessionId(s.id);
-        } else if (data.blob) {
-          const value = await decryptWithDek(dek, data.blob);
-          if (!cancelled && Array.isArray(value) && value.length) {
-            setSessions(value.slice(0, 50));
-            setActiveSessionId(value[0]?.id || null);
-          } else if (!cancelled) {
-            const s = newSession('New chat');
-            setSessions([s]);
-            setActiveSessionId(s.id);
-          }
-        } else {
+        let loaded = false;
+        if (data?.blob) {
+          try {
+            const value = await decryptWithDek(dek, data.blob);
+            if (Array.isArray(value) && value.length) {
+              setSessions(value.slice(0, 50));
+              setActiveSessionId(value[0]?.id || null);
+              loaded = true;
+            }
+          } catch {}
+        }
+
+        if (!loaded) {
+          try {
+            const raw = localStorage.getItem(chatPlainStorageKey(user.id));
+            const parsed = raw ? JSON.parse(raw) : null;
+            if (Array.isArray(parsed) && parsed.length) {
+              setSessions(parsed.slice(0, 50));
+              setActiveSessionId(parsed[0]?.id || null);
+              loaded = true;
+            }
+          } catch {}
+        }
+
+        if (!loaded) {
+          try {
+            const rawPlain = localStorage.getItem(CHAT_STORAGE_KEY);
+            const parsedPlain = rawPlain ? JSON.parse(rawPlain) : null;
+            if (Array.isArray(parsedPlain) && parsedPlain.length) {
+              setSessions(parsedPlain.slice(0, 50));
+              setActiveSessionId(parsedPlain[0]?.id || null);
+              localStorage.removeItem(CHAT_STORAGE_KEY);
+              loaded = true;
+            }
+          } catch {}
+        }
+
+        if (!loaded && !cancelled) {
           const s = newSession('New chat');
           setSessions([s]);
           setActiveSessionId(s.id);
         }
-
-        try {
-          const rawPlain = localStorage.getItem(CHAT_STORAGE_KEY);
-          const parsedPlain = rawPlain ? JSON.parse(rawPlain) : null;
-          if (Array.isArray(parsedPlain) && parsedPlain.length) {
-            if (!cancelled) {
-              setSessions(parsedPlain.slice(0, 50));
-              setActiveSessionId(parsedPlain[0]?.id || null);
-            }
-            localStorage.removeItem(CHAT_STORAGE_KEY);
-          }
-        } catch {}
 
         try {
           localStorage.removeItem(`eq_agent_chat_sessions_enc_v1:${user.id}`);
@@ -502,7 +536,7 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
     return () => { cancelled = true; };
   }, [user?.id, dek]);
 
-  // Persist: guest = localStorage; signed-in + dek = encrypted blob to server
+  // Persist: guest = localStorage; signed-in + no dek = user plain local; signed-in + dek = encrypted server
   useEffect(() => {
     if (!hydrated) return;
     let cancelled = false;
@@ -514,10 +548,18 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
         } catch {}
         return;
       }
-      if (!dek) return;
+      if (!dek) {
+        try {
+          localStorage.setItem(chatPlainStorageKey(user.id), JSON.stringify(payload));
+        } catch {}
+        return;
+      }
       try {
         const blob = await encryptWithDek(dek, payload);
         if (!cancelled) await putAgentHistory(blob);
+        try {
+          localStorage.removeItem(chatPlainStorageKey(user.id));
+        } catch {}
       } catch {}
     };
     const t = setTimeout(persist, 400);
@@ -571,7 +613,6 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
   }, [messages, streamingText]);
 
   const handleSend = async () => {
-    if (locked) return;
     const msg = input.trim();
     if (!msg || loading) return;
     setInput('');
@@ -802,33 +843,15 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
           {/* Bottom composer — ChatGPT-style dock */}
           <div className="shrink-0 border-t border-white/[0.08] bg-[#0a0a0f] pt-3 pb-4">
             <div className="max-w-3xl w-full mx-auto px-4 sm:px-6">
-              {locked && (
-                <div className="mb-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="flex items-start gap-2">
-                    <Lock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-100/90">
-                      Encrypted chat history is locked on this device until you sign in with your password again.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onRequireUnlock?.()}
-                    className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 text-xs font-medium border border-amber-500/30"
-                  >
-                    Sign in to unlock
-                  </button>
-                </div>
-              )}
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <div className="flex gap-0.5 bg-white/5 rounded-lg p-0.5">
                   <button
                     type="button"
-                    disabled={locked}
                     onClick={() => {
                       setMode('quick');
                       updateActiveSession({ mode: 'quick' });
                     }}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all disabled:opacity-40 ${
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
                       mode === 'quick' ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500'
                     }`}
                   >
@@ -836,12 +859,11 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
                   </button>
                   <button
                     type="button"
-                    disabled={locked}
                     onClick={() => {
                       setMode('full');
                       updateActiveSession({ mode: 'full' });
                     }}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all disabled:opacity-40 ${
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
                       mode === 'full' ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500'
                     }`}
                   >
@@ -873,14 +895,14 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                  placeholder={locked ? 'Sign in to unlock encrypted chats…' : 'Message Equilima Agent…'}
-                  disabled={loading || locked}
+                  placeholder="Message Equilima Agent…"
+                  disabled={loading}
                   className="flex-1 bg-white/[0.06] border border-white/10 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/20 disabled:opacity-50 placeholder-gray-500"
                 />
                 <button
                   type="button"
                   onClick={handleSend}
-                  disabled={loading || !input.trim() || locked}
+                  disabled={loading || !input.trim()}
                   className="px-4 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-white rounded-2xl transition-colors shrink-0"
                 >
                   <Send className="w-4 h-4" />

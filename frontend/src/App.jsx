@@ -104,6 +104,12 @@ function App() {
   };
 
   const handleSignout = () => {
+    try {
+      const u = getStoredUser();
+      if (u?.id) {
+        localStorage.removeItem(`eq_agent_chat_sessions_plain_v1:${u.id}`);
+      }
+    } catch {}
     signout();
     setUser(null);
     setAgentDek(null);
@@ -213,11 +219,6 @@ function App() {
               }}
               user={user}
               dek={agentDek}
-              onRequireUnlock={() => {
-                setAuthMode('signin');
-                setAuthMessage('Sign in again to unlock encrypted chat history');
-                setShowAuth(true);
-              }}
             />
           </div>
           <div className={activeTab === 'markets' ? '' : 'hidden'}>
