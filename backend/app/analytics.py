@@ -468,15 +468,35 @@ def get_stats(
 
         d_views: dict[str, int] = defaultdict(int)
         d_visitors: dict[str, set[str]] = defaultdict(set)
+        ip_to_dates: dict[str, set[str]] = defaultdict(set)
         for r in period_rows:
             dk = _date_key(r["timestamp"])
             if dk:
                 d_views[dk] += 1
                 d_visitors[dk].add(r["ip"])
-        daily_data = [
-            {"date": day, "views": d_views[day], "visitors": len(d_visitors[day])}
-            for day in sorted(d_views.keys())
-        ]
+                ip_to_dates[r["ip"]].add(dk)
+
+        # Same-window retention: visitors on day D who also had a visit on an earlier calendar day in range.
+        returning_by_day: dict[str, int] = defaultdict(int)
+        for _ip, dates in ip_to_dates.items():
+            sd = sorted(dates)
+            for i in range(1, len(sd)):
+                returning_by_day[sd[i]] += 1
+
+        daily_data = []
+        for day in sorted(d_views.keys()):
+            v = len(d_visitors[day])
+            ret = returning_by_day.get(day, 0)
+            pct = round(100.0 * ret / v, 1) if v else 0.0
+            daily_data.append(
+                {
+                    "date": day,
+                    "views": d_views[day],
+                    "visitors": v,
+                    "returning": ret,
+                    "retention_pct": pct,
+                }
+            )
 
         # Last 24h hourly (SQLite window + same IP filter)
         hourly_counter: Counter[str] = Counter()
@@ -791,6 +811,10 @@ def _list_recipients(conn: sqlite3.Connection, audience: str, user_ids: list[int
     return out
 
 
+# Cap list payload for admin preview UI (count is always exact).
+_NEWSLETTER_PREVIEW_MAX_ROWS = 5000
+
+
 @router.post("/newsletter/preview")
 async def admin_newsletter_preview(request: Request, _admin=Depends(verify_admin)):
     body = await request.json()
@@ -804,8 +828,10 @@ async def admin_newsletter_preview(request: Request, _admin=Depends(verify_admin
     conn = get_db()
     try:
         recipients = _list_recipients(conn, audience, user_ids)
-        sample = recipients[:50]
-        return {"count": len(recipients), "sample": sample}
+        n = len(recipients)
+        truncated = n > _NEWSLETTER_PREVIEW_MAX_ROWS
+        rows = recipients[:_NEWSLETTER_PREVIEW_MAX_ROWS] if truncated else recipients
+        return {"count": n, "recipients": rows, "truncated": truncated}
     finally:
         conn.close()
 

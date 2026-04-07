@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Loader2, Users, Eye, Globe, Monitor, Smartphone, Clock, LogOut, RefreshCw, Mail, CheckCircle, XCircle, Filter, Plus, X, Copy, Send } from 'lucide-react';
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Line } from 'recharts';
 import { adminLogin, fetchAdminStats, saveAdminExcludedIps, fetchAdminUsers, updateAdminUser, deleteAdminUser, previewAdminNewsletter, sendAdminNewsletter, fetchAdminNewsletterHistory } from '../api';
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
@@ -55,7 +55,16 @@ function ChartTooltip({ active, payload, label }) {
   return (
     <div className="bg-[#1a1a2e] border border-white/10 rounded-lg px-3 py-2 text-[10px]">
       <p className="text-gray-400 mb-1">{label}</p>
-      {payload.map((p, i) => <p key={i} style={{ color: p.color || '#818cf8' }}>{p.name}: {p.value}</p>)}
+      {payload.map((p, i) => {
+        const v = p.value;
+        const isPct = p.dataKey === 'retention_pct' || (p.name && String(p.name).includes('Retention'));
+        const text = isPct && v != null ? `${v}%` : v;
+        return (
+          <p key={i} style={{ color: p.color || '#818cf8' }}>
+            {p.name}: {text}
+          </p>
+        );
+      })}
     </div>
   );
 }
@@ -145,6 +154,8 @@ export default function AdminPanel() {
   const [mailSubject, setMailSubject] = useState('');
   const [mailHtml, setMailHtml] = useState('');
   const [mailPreviewCount, setMailPreviewCount] = useState(null);
+  const [mailPreviewRecipients, setMailPreviewRecipients] = useState([]);
+  const [mailPreviewTruncated, setMailPreviewTruncated] = useState(false);
   const [mailPreviewLoading, setMailPreviewLoading] = useState(false);
   const [mailSendLoading, setMailSendLoading] = useState(false);
   const [mailSendError, setMailSendError] = useState(null);
@@ -203,6 +214,17 @@ export default function AdminPanel() {
     }
   };
 
+  const mailSelectionKey = useMemo(
+    () => `${mailAudience}:${[...mailSelectedIds].sort((a, b) => a - b).join(',')}`,
+    [mailAudience, mailSelectedIds],
+  );
+
+  useEffect(() => {
+    setMailPreviewCount(null);
+    setMailPreviewRecipients([]);
+    setMailPreviewTruncated(false);
+  }, [mailSelectionKey]);
+
   const runMailPreview = async () => {
     setMailPreviewLoading(true);
     setMailSendError(null);
@@ -210,8 +232,12 @@ export default function AdminPanel() {
       const ids = mailAudience === 'selected' ? [...mailSelectedIds] : undefined;
       const d = await previewAdminNewsletter({ audience: mailAudience, user_ids: ids });
       setMailPreviewCount(d.count);
+      setMailPreviewRecipients(Array.isArray(d.recipients) ? d.recipients : []);
+      setMailPreviewTruncated(Boolean(d.truncated));
     } catch (e) {
       setMailPreviewCount(null);
+      setMailPreviewRecipients([]);
+      setMailPreviewTruncated(false);
       setMailSendError(e.message || 'Preview failed');
     } finally {
       setMailPreviewLoading(false);
@@ -239,6 +265,8 @@ export default function AdminPanel() {
         const d = await previewAdminNewsletter({ audience: mailAudience, user_ids: ids });
         count = d.count;
         setMailPreviewCount(count);
+        setMailPreviewRecipients(Array.isArray(d.recipients) ? d.recipients : []);
+        setMailPreviewTruncated(Boolean(d.truncated));
       } catch (e) {
         setMailSendError(e.message || 'Could not resolve recipients');
         return;
@@ -316,6 +344,11 @@ export default function AdminPanel() {
     const loc = city && country ? `${city}, ${country}` : (city || country);
     return loc.includes(q);
   });
+
+  const dailyChart = (data.daily || []).map((d) => ({
+    ...d,
+    retention_pct: typeof d.retention_pct === 'number' ? d.retention_pct : 0,
+  }));
 
   return (
     <div className="space-y-5">
@@ -630,7 +663,7 @@ export default function AdminPanel() {
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 border border-white/10 text-xs text-gray-200 hover:bg-white/15 disabled:opacity-50"
               >
                 {mailPreviewLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                Refresh recipient count
+                {'Refresh list & count'}
               </button>
               <span className="text-xs text-gray-400">
                 {mailPreviewCount != null ? (
@@ -638,9 +671,38 @@ export default function AdminPanel() {
                     <strong className="text-white">{mailPreviewCount}</strong> recipient(s) match
                   </>
                 ) : (
-                  'Click refresh to count recipients'
+                  'Click refresh to load the recipient list and count'
                 )}
               </span>
+            </div>
+
+            <div className="mt-4 max-w-2xl w-full">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Who will receive this send</p>
+              <div className="h-72 max-h-[min(18rem,50vh)] overflow-y-auto overflow-x-hidden rounded-xl border border-white/10 bg-black/25 p-2 sm:p-3 shadow-inner">
+                {mailPreviewRecipients.length === 0 ? (
+                  <p className="text-[11px] text-gray-600 text-center py-8 px-2">
+                    Choose an audience above, then click <span className="text-gray-400">Refresh list & count</span> to see every email address for the current option.
+                  </p>
+                ) : (
+                  <ul className="space-y-1 text-[11px]">
+                    {mailPreviewRecipients.map((r) => (
+                      <li
+                        key={r.id}
+                        className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-b border-white/[0.04] pb-1 last:border-0 last:pb-0"
+                      >
+                        <span className="font-mono text-gray-500 shrink-0">#{r.id}</span>
+                        <span className="text-gray-200 font-mono break-all">{r.email}</span>
+                        {r.name ? <span className="text-gray-500 truncate">({r.name})</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              {mailPreviewTruncated && (
+                <p className="text-[10px] text-amber-400/90 mt-2">
+                  List shows the first 5,000 addresses; total count above is complete. Reduce audience or export from Users if you need the full list in one view.
+                </p>
+              )}
             </div>
             {mailSendError && <p className="text-xs text-red-400 mt-2">{mailSendError}</p>}
           </Section>
@@ -812,10 +874,13 @@ export default function AdminPanel() {
         <StatCard label="Registered Users" value={s.registered_users} icon={Users} color="text-pink-400" />
       </div>
 
-      {/* Views chart */}
-      <Section title="Views & Visitors Over Time">
-        <ResponsiveContainer width="100%" height={250}>
-          <AreaChart data={data.daily}>
+      {/* Views chart + retention (%) on right axis */}
+      <Section title="Views, Visitors & Retention Over Time">
+        <p className="text-[10px] text-gray-500 mb-3 leading-relaxed">
+          Retention % is the share of that day’s unique visitors (by IP) who also visited on an earlier day within this date range. First calendar day in the range is usually lower because there is no prior day in the window.
+        </p>
+        <ResponsiveContainer width="100%" height={280}>
+          <ComposedChart data={dailyChart}>
             <defs>
               <linearGradient id="adg1" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#6366f1" stopOpacity={0.2} />
@@ -828,11 +893,50 @@ export default function AdminPanel() {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" />
             <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#555' }} interval="preserveStartEnd" />
-            <YAxis tick={{ fontSize: 9, fill: '#555' }} />
+            <YAxis
+              yAxisId="left"
+              tick={{ fontSize: 9, fill: '#555' }}
+              allowDecimals={false}
+              width={36}
+            />
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              domain={[0, 100]}
+              tick={{ fontSize: 9, fill: '#c084fc' }}
+              tickFormatter={(v) => `${v}%`}
+              width={40}
+            />
             <Tooltip content={<ChartTooltip />} />
-            <Area type="monotone" dataKey="views" stroke="#6366f1" fill="url(#adg1)" strokeWidth={2} name="Views" />
-            <Area type="monotone" dataKey="visitors" stroke="#22c55e" fill="url(#adg2)" strokeWidth={2} name="Visitors" />
-          </AreaChart>
+            <Area
+              yAxisId="left"
+              type="monotone"
+              dataKey="views"
+              stroke="#6366f1"
+              fill="url(#adg1)"
+              strokeWidth={2}
+              name="Views"
+            />
+            <Area
+              yAxisId="left"
+              type="monotone"
+              dataKey="visitors"
+              stroke="#22c55e"
+              fill="url(#adg2)"
+              strokeWidth={2}
+              name="Visitors"
+            />
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="retention_pct"
+              stroke="#c084fc"
+              strokeWidth={2.5}
+              dot={false}
+              activeDot={{ r: 4, fill: '#c084fc' }}
+              name="Retention %"
+            />
+          </ComposedChart>
         </ResponsiveContainer>
       </Section>
 
