@@ -69,7 +69,7 @@ Live at [equilima.com](https://equilima.com)
 |-------|-----------|
 | Frontend | React 19, Vite, Tailwind CSS, Recharts, lightweight-charts |
 | Backend | Python, FastAPI, yfinance, ta (technical analysis), PyTorch |
-| Database | SQLite (users, analytics, interactions) |
+| Database | SQLite (users, analytics, articles, interactions) |
 | Deployment | AWS EC2, Caddy (auto-HTTPS), Let's Encrypt |
 | Auth | JWT + bcrypt, IP-based rate limiting |
 
@@ -113,6 +113,12 @@ export EQUILIMA_ADMIN_PASS=your_secure_password
 
 # Optional — auto-generated if not set
 export JWT_SECRET=your_jwt_secret_hex
+
+# Articles / Learn hub — canonical & sitemap URLs (no trailing slash)
+export EQUILIMA_PUBLIC_URL=https://equilima.com
+
+# Optional — analytics “calendar day” timezone (IANA); default America/New_York (EST/EDT)
+# export EQUILIMA_ANALYTICS_TZ=America/New_York
 ```
 
 ### Production Deployment
@@ -163,6 +169,7 @@ equilima/
 │       ├── main.py            # FastAPI app, routes, static serving
 │       ├── auth.py            # JWT auth, signup/signin, rate limiting
 │       ├── analytics.py       # Visitor tracking, admin dashboard API
+│       ├── articles.py        # Learn hub articles, SEO JSON-LD, sitemap
 │       ├── data_fetcher.py    # yfinance data + technical indicators
 │       ├── backtester.py      # Strategy backtesting engine
 │       ├── ml_model.py        # Transformer model for stock prediction
@@ -175,6 +182,7 @@ equilima/
 ├── frontend/
 │   └── src/
 │       ├── App.jsx
+│       ├── learnNavigation.js # /learn routes (pathname + hash fallback)
 │       ├── api.js             # API client
 │       └── components/
 │           ├── DashboardPanel.jsx
@@ -182,6 +190,8 @@ equilima/
 │           ├── ResearchPanel.jsx
 │           ├── ComparePanel.jsx
 │           ├── AdminPanel.jsx
+│           ├── AdminArticlesTab.jsx  # Admin → Articles tab
+│           ├── LearnLayout.jsx       # Public /learn listing & article pages
 │           ├── AuthModal.jsx
 │           ├── SnowflakeChart.jsx
 │           ├── InteractiveSnowflake.jsx
@@ -206,17 +216,118 @@ equilima/
 
 ---
 
+## Learn hub & articles (SEO)
+
+Long-form content lives in the **Learn** area: public URLs under `/learn`, data in SQLite, and APIs for the React app and crawlers. The design follows common SaaS SEO patterns: **stable URLs**, **one primary topic per article**, **hub-and-spoke clustering**, **internal links** to product surfaces, and **structured data** for rich results.
+
+### Public URLs
+
+| URL | Purpose |
+|-----|---------|
+| `/learn` | Article index (published only, newest first). |
+| `/learn/{slug}` | Single article (HTML body, meta tags, JSON-LD). |
+| `#/learn` / `#/learn/{slug}` | **Hash fallback** if the host cannot rewrite unknown paths to `index.html`; prefer pathname URLs in production. |
+
+The main app **Header** includes a **Learn** entry that navigates to `/learn`. Vite is configured with `appType: 'spa'` so dev and compatible hosts serve the SPA for these routes.
+
+**Production:** Configure the reverse proxy (e.g. Caddy) so requests to `/learn` and `/learn/*` return the same `index.html` as `/`, unless you serve the SPA another way.
+
+### Database (`articles` table)
+
+Stored in the same SQLite file as users and analytics (`~/.equilima_data/equilima.db` by default). Created automatically on backend startup.
+
+| Column | Description |
+|--------|----------------|
+| `id` | Integer primary key. |
+| `slug` | **Unique**, URL segment. Lowercase letters, numbers, hyphens only (e.g. `how-to-backtest-strategies`). |
+| `title` | Page title and **H1** on the public page. |
+| `meta_description` | Meta description for search snippets; keep it accurate and within a sensible length (~150–160 characters is a common target). |
+| `excerpt` | Short summary shown on the `/learn` listing cards. |
+| `body_html` | **Full article HTML** (trusted content — only admins can edit). Use headings (`h2`, `h3`), paragraphs, lists, and **internal links** (e.g. `/learn/other-slug`, or app paths if you expose them). |
+| `og_image_url` | Optional Open Graph / Twitter image; defaults to site `og-image` if empty. |
+| `author_name` | Shown on the article; defaults to `Equilima`. |
+| `cluster_key` | Optional **hub / topic cluster** label (e.g. `backtesting-basics`). Used for grouping in the UI and for `GET /api/articles?cluster=...`. |
+| `status` | `draft` or `published`. Only **published** rows with a non-null `published_at` are public. |
+| `published_at` | When the article went live (SQLite datetime string). Set automatically when first published if omitted. Cleared when moved back to `draft`. |
+| `created_at`, `updated_at` | Maintenance timestamps. |
+
+### Environment variables
+
+| Variable | Role |
+|----------|------|
+| `EQUILIMA_PUBLIC_URL` | **Origin** for `canonical_url`, JSON-LD `url`, and `<loc>` entries in the sitemap (no trailing slash). Default `https://equilima.com`. **Set this in production** to match your real domain. |
+
+### Public HTTP API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/articles` | List published articles. Query: `cluster` (optional) filters by `cluster_key`. |
+| GET | `/api/articles/{slug}` | One published article: `title`, `meta_description`, `excerpt`, `body_html`, `canonical_url`, **`json_ld`** (`BlogPosting`), `og_image_url`, etc. |
+| GET | `/api/sitemap-articles.xml` | XML sitemap of all published article URLs under `{EQUILIMA_PUBLIC_URL}/learn/{slug}`. |
+
+### Admin HTTP API
+
+Requires the same **admin JWT** as the rest of the dashboard (`Authorization: Bearer …` after `POST /api/admin/login`).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/admin/articles` | List all articles. Query: `q` (title/slug), `status` (`draft` / `published`), `limit`. |
+| GET | `/api/admin/articles/{id}` | Full row for editing. |
+| POST | `/api/admin/articles` | Create (JSON body: slug, title, meta fields, body_html, status, etc.). |
+| PATCH | `/api/admin/articles/{id}` | Update fields. |
+| DELETE | `/api/admin/articles/{id}` | Remove. |
+
+### Admin UI
+
+Open **`/#admin`**, sign in, then the **Articles** tab:
+
+- Search and filter the list, **New**, **Edit**, **Save**, **Delete**.
+- **Open public page** link (works when the article is **published**).
+- In-editor reminders: cluster keys, internal links, `EQUILIMA_PUBLIC_URL`, sitemap URL.
+
+### Frontend behavior (SEO in the SPA)
+
+For `/learn` and `/learn/{slug}`, the app updates **client-side**:
+
+- `document.title`
+- `<meta name="description">`
+- `<link rel="canonical">`
+- Open Graph and Twitter meta tags
+- A `<script type="application/ld+json" id="eq-article-jsonld">` block from the API’s `json_ld`
+
+Crawlers that execute JavaScript can see these after render; **all** crawlers can use **`/api/sitemap-articles.xml`** and stable URLs. For maximum parity with static HTML, you could add SSR or prerender later; the current setup is a typical SPA + sitemap compromise.
+
+### Recommended content strategy
+
+1. **Hub and spoke:** Use `cluster_key` to group related posts; link spokes to a hub and to each other where relevant.
+2. **Intent:** One main search intent per `slug`; avoid making one page compete for many unrelated queries.
+3. **Internal links:** In `body_html`, link to other `/learn/...` articles and, where useful, send readers to product areas (the article template also shows CTAs for AI Agent, Screener, and Backtesting).
+4. **Freshness:** Update `body_html` or republish when facts change; `updated_at` is maintained on save.
+
+### Submitting the sitemap
+
+Point **Google Search Console** (or similar) at:
+
+`{EQUILIMA_PUBLIC_URL}/api/sitemap-articles.xml`
+
+Or reference that URL from your root `sitemap.xml` or `robots.txt` (`Sitemap: …`) if you maintain those files elsewhere.
+
+---
+
 ## Admin Dashboard
 
 Access at `yourdomain.com/#admin`
 
 Features:
-- Daily views & visitors chart
+- Daily views & visitors chart (date buckets use **US Eastern** by default, with **daylight saving** via `America/New_York`; override with `EQUILIMA_ANALYTICS_TZ` if needed)
 - Hourly traffic distribution
 - Top pages, countries, cities, referrers
 - Device and browser breakdown (pie charts)
 - Live visitor log with IP geolocation
 - Registered user count
+- User management (verify, enable/disable, delete)
+- Newsletters / broadcast email
+- **Articles** — manage Learn hub posts, drafts, and publishing
 
 ---
 
