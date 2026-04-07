@@ -113,7 +113,12 @@ def send_email(to: str, subject: str, html_body: str):
 
     try:
         msg = MIMEMultipart("alternative")
+        # If we authenticate as one mailbox but send "From" an alias (e.g. info@),
+        # include Sender per RFC so providers don't rewrite the From header.
         msg["From"] = SMTP_FROM
+        if SMTP_FROM and SMTP_USER and SMTP_FROM.strip().lower() != SMTP_USER.strip().lower():
+            msg["Sender"] = SMTP_USER
+        msg["Reply-To"] = SMTP_FROM
         msg["To"] = to
         msg["Subject"] = subject
         msg.attach(MIMEText(html_body, "html"))
@@ -122,14 +127,14 @@ def send_email(to: str, subject: str, html_body: str):
             with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECS) as server:
                 server.ehlo()
                 server.login(SMTP_USER, SMTP_PASS)
-                server.sendmail(SMTP_FROM, to, msg.as_string())
+                server.sendmail(SMTP_USER, to, msg.as_string())
         else:
             with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECS) as server:
                 server.ehlo()
                 server.starttls()
                 server.ehlo()
                 server.login(SMTP_USER, SMTP_PASS)
-                server.sendmail(SMTP_FROM, to, msg.as_string())
+                server.sendmail(SMTP_USER, to, msg.as_string())
         return True, None
     except Exception as e:
         print(f"[EMAIL ERROR] to={to} subject={subject!r} err={e!r}")
