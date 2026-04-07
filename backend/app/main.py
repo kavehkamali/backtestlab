@@ -824,6 +824,25 @@ if STATIC_DIR.exists():
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         """Serve the React SPA for all non-API routes."""
+        # Block common scanner targets explicitly (avoid returning index.html with 200).
+        p = (full_path or "").lstrip("/")
+        low = p.lower()
+        blocked = (
+            low == ".env"
+            or low.endswith("/.env")
+            or low.startswith(".git")
+            or "/.git" in low
+            or low.startswith("wp-")
+            or "/wp-" in low
+            or low.startswith("wordpress")
+            or low.startswith("phpinfo")
+            or low.endswith("phpinfo.php")
+            or low.startswith("server-status")
+            or low.startswith("server-info")
+            or low.startswith("_profiler")
+        )
+        if blocked:
+            raise HTTPException(status_code=404, detail="Not found")
         file_path = STATIC_DIR / full_path
         if file_path.exists() and file_path.is_file():
             return FileResponse(file_path)

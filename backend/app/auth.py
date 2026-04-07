@@ -31,6 +31,7 @@ SOFT_LIMIT = 50
 HARD_LIMIT = 500
 
 SITE_URL = os.environ.get("SITE_URL", "https://equilima.com")
+REQUIRE_EMAIL_VERIFIED = os.environ.get("REQUIRE_EMAIL_VERIFIED", "").strip().lower() in {"1", "true", "yes", "on"}
 
 # Email config (set via env vars)
 SMTP_HOST = os.environ.get("SMTP_HOST", "")
@@ -248,6 +249,10 @@ class VerifyEmailRequest(BaseModel):
     token: str
 
 
+class ResendVerificationPublicRequest(BaseModel):
+    email: str
+
+
 # ─── Endpoints ───
 @router.post("/signup")
 def signup(req: SignupRequest):
@@ -344,6 +349,8 @@ def signin(req: SigninRequest):
 
         if not user["is_active"]:
             raise HTTPException(status_code=403, detail="Account is disabled")
+        if REQUIRE_EMAIL_VERIFIED and not user["email_verified"]:
+            raise HTTPException(status_code=403, detail="Email not verified. Please check your inbox or resend verification.")
 
         conn.execute("UPDATE users SET last_login = datetime('now') WHERE id = ?", (user["id"],))
         conn.commit()
@@ -428,6 +435,29 @@ def resend_verification(user=Depends(get_current_user)):
         if not email_sent:
             return {"message": "Could not send verification email. Please try again later.", "email_sent": False, "email_error": email_err}
         return {"message": "Verification email sent", "email_sent": True}
+    finally:
+        conn.close()
+
+
+@router.post("/resend-verification-public")
+def resend_verification_public(req: ResendVerificationPublicRequest):
+    """
+    Public resend endpoint that does not require login.
+    Always returns a generic success message to avoid leaking whether an email exists.
+    """
+    email = (req.email or "").strip().lower()
+    if not email or "@" not in email:
+        return {"message": "If an account with that email exists, we've sent a verification link."}
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT id, email_verified FROM users WHERE email = ?", (email,)).fetchone()
+        if not row or row["email_verified"]:
+            return {"message": "If an account with that email exists, we've sent a verification link."}
+        verification_token = secrets.token_urlsafe(32)
+        conn.execute("UPDATE users SET verification_token = ? WHERE id = ?", (verification_token, row["id"]))
+        conn.commit()
+        send_verification_email(email, verification_token)
+        return {"message": "If an account with that email exists, we've sent a verification link."}
     finally:
         conn.close()
 

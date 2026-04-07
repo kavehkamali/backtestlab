@@ -190,6 +190,17 @@ export async function resendVerification() {
   return data;
 }
 
+export async function resendVerificationPublic(email) {
+  const res = await fetch(`${BASE}/auth/resend-verification-public`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Resend failed');
+  return data;
+}
+
 export async function fetchStrategies() {
   const res = await fetch(`${BASE}/strategies`);
   if (!res.ok) throw new Error('Failed to fetch strategies');

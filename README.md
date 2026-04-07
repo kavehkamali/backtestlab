@@ -1,5 +1,11 @@
 # Equilima
 
+## Security notes (ops)
+
+- The FastAPI app serves the SPA for unknown routes; common scanner targets (e.g. `/.env`, `/.git/*`) are explicitly blocked with 404s.
+- Auth can optionally require email verification before signin by setting `REQUIRE_EMAIL_VERIFIED=true`.
+- Email sending supports Google Workspace SMTP relay (`smtp-relay.gmail.com`) by enabling `SMTP_ALLOW_ANON=true` and allowlisting the EC2 public IP in the Google Admin SMTP Relay settings.
+
 **AI-powered stock analysis platform** — screener, research, charting terminal, backtesting, and market dashboard.
 
 Live at [equilima.com](https://equilima.com)

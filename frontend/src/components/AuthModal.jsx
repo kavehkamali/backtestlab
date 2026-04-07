@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, Loader2, Eye, EyeOff, Check, AlertCircle, Mail } from 'lucide-react';
-import { signup, signin, forgotPassword, resetPassword, verifyEmail, resendVerification } from '../api';
+import { signup, signin, forgotPassword, resetPassword, verifyEmail, resendVerification, resendVerificationPublic } from '../api';
 
 function Req({ met, children }) {
   return (
@@ -257,8 +257,9 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
                   setError(null);
                   setSuccess(null);
                   try {
-                    await signin({ email, password });
-                    const r = await resendVerification();
+                    // Prefer public resend so it works even if signin requires verification.
+                    if (!emailValid) throw new Error('Enter a valid email');
+                    const r = await resendVerificationPublic(email);
                     setSuccess(r.message || 'Verification email sent');
                   } catch (e) {
                     setError(e.message || 'Failed to resend verification');
