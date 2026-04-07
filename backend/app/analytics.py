@@ -610,3 +610,115 @@ def get_stats(
         }
     finally:
         conn.close()
+
+
+# ─── Admin: user management ───
+@router.get("/users")
+def admin_list_users(q: str = "", limit: int = 200, _admin=Depends(verify_admin)):
+    conn = get_db()
+    try:
+        qn = (q or "").strip().lower()
+        lim = max(1, min(2000, int(limit)))
+        if qn:
+            rows = conn.execute(
+                """
+                SELECT id, email, name, created_at, last_login, consent_newsletter, consent_policy, is_active, email_verified, is_admin
+                FROM users
+                WHERE lower(email) LIKE ? OR lower(coalesce(name,'')) LIKE ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (f"%{qn}%", f"%{qn}%", lim),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT id, email, name, created_at, last_login, consent_newsletter, consent_policy, is_active, email_verified, is_admin
+                FROM users
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (lim,),
+            ).fetchall()
+        return {
+            "users": [
+                {
+                    "id": r["id"],
+                    "email": r["email"],
+                    "name": r["name"],
+                    "created_at": r["created_at"],
+                    "last_login": r["last_login"],
+                    "newsletter": bool(r["consent_newsletter"]),
+                    "policy": bool(r["consent_policy"]),
+                    "active": bool(r["is_active"]),
+                    "email_verified": bool(r["email_verified"]),
+                    "is_admin": bool(r["is_admin"]),
+                }
+                for r in rows
+            ]
+        }
+    finally:
+        conn.close()
+
+
+@router.patch("/users/{user_id}")
+async def admin_update_user(user_id: int, request: Request, _admin=Depends(verify_admin)):
+    body = await request.json()
+    allowed = {"active", "email_verified", "newsletter", "name"}
+    patch = {k: body.get(k) for k in allowed if k in body}
+    if not patch:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT id, is_admin FROM users WHERE id = ?", (int(user_id),)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+        if row["is_admin"]:
+            # Prevent locking yourself out accidentally via UI.
+            if "active" in patch and patch["active"] is False:
+                raise HTTPException(status_code=400, detail="Cannot disable admin user")
+
+        sets = []
+        vals = []
+        if "active" in patch:
+            sets.append("is_active = ?")
+            vals.append(1 if bool(patch["active"]) else 0)
+        if "email_verified" in patch:
+            sets.append("email_verified = ?")
+            vals.append(1 if bool(patch["email_verified"]) else 0)
+            if bool(patch["email_verified"]):
+                sets.append("verification_token = NULL")
+        if "newsletter" in patch:
+            sets.append("consent_newsletter = ?")
+            vals.append(1 if bool(patch["newsletter"]) else 0)
+            sets.append("consent_newsletter_at = datetime('now')")
+        if "name" in patch:
+            sets.append("name = ?")
+            vals.append(str(patch["name"]) if patch["name"] is not None else "")
+
+        vals.append(int(user_id))
+        conn.execute(f"UPDATE users SET {', '.join(sets)} WHERE id = ?", tuple(vals))
+        conn.commit()
+        return {"ok": True}
+    finally:
+        conn.close()
+
+
+@router.delete("/users/{user_id}")
+def admin_delete_user(user_id: int, _admin=Depends(verify_admin)):
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT id, is_admin FROM users WHERE id = ?", (int(user_id),)).fetchone()
+        if not row:
+            return {"ok": True}
+        if row["is_admin"]:
+            raise HTTPException(status_code=400, detail="Cannot delete admin user")
+        try:
+            conn.execute("UPDATE page_views SET user_id = NULL WHERE user_id = ?", (int(user_id),))
+        except Exception:
+            pass
+        conn.execute("DELETE FROM users WHERE id = ?", (int(user_id),))
+        conn.commit()
+        return {"ok": True}
+    finally:
+        conn.close()

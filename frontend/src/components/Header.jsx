@@ -8,6 +8,7 @@ const TABS = [
   { id: 'research', label: 'Research', short: 'Research' },
   { id: 'terminal', label: 'Terminal', short: 'Terminal' },
   { id: 'backtest', label: 'Backtesting', short: 'Backtest' },
+  { id: 'account', label: 'Account', short: 'Account', authOnly: true },
 ];
 
 export default function Header({ activeTab, setActiveTab, user, onSignIn, onSignUp, onSignOut }) {
@@ -29,7 +30,7 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
 
         {/* Desktop nav */}
         <nav className="hidden md:flex gap-0.5 bg-white/5 rounded-lg p-1">
-          {TABS.map(tab => (
+          {TABS.filter(t => !t.authOnly || user).map(tab => (
             <button key={tab.id} onClick={() => handleTab(tab.id)}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                 activeTab === tab.id ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-400 hover:text-gray-200'
@@ -40,7 +41,7 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
         {/* Mobile nav - scrollable tabs */}
         <nav className="md:hidden flex-1 min-w-0 overflow-x-auto no-scrollbar mx-1">
           <div className="flex gap-0.5 bg-white/5 rounded-lg p-0.5 w-max">
-            {TABS.map(tab => (
+            {TABS.filter(t => !t.authOnly || user).map(tab => (
               <button key={tab.id} onClick={() => handleTab(tab.id)}
                 className={`px-2 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-all ${
                   activeTab === tab.id ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500'

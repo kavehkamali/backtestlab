@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Loader2, Users, Eye, Globe, Monitor, Smartphone, Clock, BarChart3, LogOut, RefreshCw, Mail, CheckCircle, XCircle, Filter, Plus, X } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { adminLogin, fetchAdminStats, saveAdminExcludedIps } from '../api';
+import { adminLogin, fetchAdminStats, saveAdminExcludedIps, fetchAdminUsers, updateAdminUser, deleteAdminUser } from '../api';
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
 
@@ -94,6 +94,11 @@ export default function AdminPanel() {
   const [newIp, setNewIp] = useState('');
   const [ipFilterSaving, setIpFilterSaving] = useState(false);
   const [ipFilterError, setIpFilterError] = useState(null);
+  const [adminTab, setAdminTab] = useState('analytics'); // analytics | users
+  const [usersQ, setUsersQ] = useState('');
+  const [usersData, setUsersData] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState(null);
 
   const load = async (d) => {
     setLoading(true);
@@ -118,6 +123,20 @@ export default function AdminPanel() {
 
   const handlePeriod = (d) => { setDays(d); load(d); };
   const handleLogout = () => { localStorage.removeItem('eq_admin_token'); setAuthed(false); setData(null); };
+
+  const loadUsers = async () => {
+    setUsersLoading(true);
+    setUsersError(null);
+    try {
+      const d = await fetchAdminUsers(usersQ, 500);
+      setUsersData(d.users || []);
+    } catch (e) {
+      if (e.message === 'Session expired') setAuthed(false);
+      else setUsersError(e.message || 'Failed to load users');
+    } finally {
+      setUsersLoading(false);
+    }
+  };
 
   const addIgnoredIp = () => {
     const v = newIp.trim();
@@ -167,6 +186,20 @@ export default function AdminPanel() {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex gap-0.5 bg-white/5 rounded-lg p-0.5">
+            {[
+              { id: 'analytics', label: 'Analytics' },
+              { id: 'users', label: 'Users' },
+            ].map((t) => (
+              <button
+                key={t.id}
+                onClick={() => { setAdminTab(t.id); if (t.id === 'users') loadUsers(); }}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-medium ${adminTab === t.id ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500 hover:text-gray-300'}`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-0.5 bg-white/5 rounded-lg p-0.5">
             {[7, 14, 30, 90].map(d => (
               <button key={d} onClick={() => handlePeriod(d)}
                 className={`px-2.5 py-1 rounded-md text-[10px] font-medium ${days === d ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500 hover:text-gray-300'}`}>
@@ -183,6 +216,81 @@ export default function AdminPanel() {
         </div>
       </div>
 
+      {adminTab === 'users' && (
+        <Section title="User Management" right={<Users className="w-3.5 h-3.5 text-gray-500" />}>
+          <div className="flex flex-col sm:flex-row gap-2 sm:items-center mb-3">
+            <input
+              value={usersQ}
+              onChange={(e) => setUsersQ(e.target.value)}
+              placeholder="Search by email or name"
+              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-indigo-500/50"
+            />
+            <button
+              type="button"
+              onClick={loadUsers}
+              className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 hover:bg-white/10"
+            >
+              Refresh
+            </button>
+          </div>
+          {usersError && <p className="text-xs text-red-400 mb-2">{usersError}</p>}
+          <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+            <table className="w-full text-[11px]">
+              <thead className="sticky top-0 bg-[#0d0d14]">
+                <tr className="text-gray-500 border-b border-white/5">
+                  <th className="text-left py-2 px-2 font-medium">ID</th>
+                  <th className="text-left py-2 px-2 font-medium">Email</th>
+                  <th className="text-left py-2 px-2 font-medium">Name</th>
+                  <th className="text-center py-2 px-2 font-medium">Verified</th>
+                  <th className="text-center py-2 px-2 font-medium">Active</th>
+                  <th className="text-center py-2 px-2 font-medium">Newsletter</th>
+                  <th className="text-right py-2 px-2 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(usersData || []).map((u) => (
+                  <tr key={u.id} className="border-b border-white/[0.02] hover:bg-white/[0.02]">
+                    <td className="py-1.5 px-2 text-gray-500 font-mono">#{u.id}</td>
+                    <td className="py-1.5 px-2 text-gray-200 font-mono">{u.email}</td>
+                    <td className="py-1.5 px-2 text-gray-300">{u.name || '—'}</td>
+                    <td className="py-1.5 px-2 text-center">{u.email_verified ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400 mx-auto" /> : <XCircle className="w-3.5 h-3.5 text-gray-600 mx-auto" />}</td>
+                    <td className="py-1.5 px-2 text-center">{u.active ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400 mx-auto" /> : <XCircle className="w-3.5 h-3.5 text-red-400 mx-auto" />}</td>
+                    <td className="py-1.5 px-2 text-center">{u.newsletter ? <Mail className="w-3.5 h-3.5 text-indigo-400 mx-auto" /> : <span className="text-gray-700">—</span>}</td>
+                    <td className="py-1.5 px-2 text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={async () => { await updateAdminUser(u.id, { email_verified: !u.email_verified }); await loadUsers(); }}
+                        className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] text-gray-300 hover:bg-white/10 mr-2"
+                      >
+                        {u.email_verified ? 'Unverify' : 'Verify'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => { await updateAdminUser(u.id, { active: !u.active }); await loadUsers(); }}
+                        className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] text-gray-300 hover:bg-white/10 mr-2"
+                      >
+                        {u.active ? 'Disable' : 'Enable'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => { if (!confirm(`Delete user ${u.email}?`)) return; await deleteAdminUser(u.id); await loadUsers(); }}
+                        className="px-2 py-1 rounded bg-red-600/80 hover:bg-red-600 text-[10px] text-white"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {usersLoading && <p className="text-xs text-gray-600 text-center py-4">Loading users…</p>}
+            {!usersLoading && (!usersData || usersData.length === 0) && <p className="text-xs text-gray-600 text-center py-4">No users found</p>}
+          </div>
+        </Section>
+      )}
+
+      {adminTab !== 'analytics' ? null : (
+        <>
       {/* IP filters — excluded from all analytics & not tracked */}
       <Section
         title="Ignored IPs"
@@ -515,6 +623,8 @@ export default function AdminPanel() {
           )}
         </div>
       </Section>
+        </>
+      )}
     </div>
   );
 }

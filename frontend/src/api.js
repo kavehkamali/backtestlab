@@ -43,6 +43,47 @@ export function getStoredUser() {
   try { return JSON.parse(localStorage.getItem('eq_user')); } catch { return null; }
 }
 
+export async function fetchMe() {
+  const res = await fetch(`${BASE}/auth/me`, { headers: { ...authHeaders() } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Failed to load account');
+  localStorage.setItem('eq_user', JSON.stringify({ id: data.id, email: data.email, name: data.name }));
+  return data;
+}
+
+export async function updateMe({ name, consent_newsletter }) {
+  const res = await fetch(`${BASE}/auth/me`, {
+    method: 'PUT',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, consent_newsletter }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Update failed');
+  return data;
+}
+
+export async function changePassword(current_password, new_password) {
+  const res = await fetch(`${BASE}/auth/change-password`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ current_password, new_password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Change password failed');
+  return data;
+}
+
+export async function deleteAccount({ password, confirm }) {
+  const res = await fetch(`${BASE}/auth/me`, {
+    method: 'DELETE',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password, confirm }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Delete failed');
+  return data;
+}
+
 export async function checkInteraction() {
   const res = await fetch(`${BASE}/auth/interaction`, {
     headers: { ...authHeaders() },
@@ -112,6 +153,55 @@ export async function saveAdminExcludedIps(ips) {
   if (!res.ok) {
     if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
     throw new Error(data.detail || 'Failed to save IP filters');
+  }
+  return data;
+}
+
+export async function fetchAdminUsers(q = '', limit = 200) {
+  const token = localStorage.getItem('eq_admin_token');
+  const qp = new URLSearchParams();
+  if (q) qp.set('q', q);
+  qp.set('limit', String(limit));
+  qp.set('_', String(Date.now()));
+  const res = await fetch(`${BASE}/admin/users?${qp.toString()}`, {
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(data.detail || 'Failed to load users');
+  }
+  return data;
+}
+
+export async function updateAdminUser(userId, patch) {
+  const token = localStorage.getItem('eq_admin_token');
+  const res = await fetch(`${BASE}/admin/users/${userId}`, {
+    method: 'PATCH',
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(data.detail || 'Failed to update user');
+  }
+  return data;
+}
+
+export async function deleteAdminUser(userId) {
+  const token = localStorage.getItem('eq_admin_token');
+  const res = await fetch(`${BASE}/admin/users/${userId}`, {
+    method: 'DELETE',
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(data.detail || 'Failed to delete user');
   }
   return data;
 }

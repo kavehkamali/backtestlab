@@ -10,6 +10,7 @@ import AuthModal from './components/AuthModal';
 import AdminPanel from './components/AdminPanel';
 import AgentPanel from './components/AgentPanel';
 import ConsentBanner from './components/ConsentBanner';
+import AccountPanel from './components/AccountPanel';
 import { BarChart3 } from 'lucide-react';
 
 function App() {
@@ -153,6 +154,7 @@ function App() {
           {activeTab === 'dashboard' && <DashboardPanel />}
           {activeTab === 'screener' && <ScreenerPanel />}
           {activeTab === 'research' && <ResearchPanel />}
+          {activeTab === 'account' && user && <AccountPanel onSignedOut={() => setUser(null)} />}
           {activeTab === 'backtest' && (
             <ComparePanel
               strategies={strategies}

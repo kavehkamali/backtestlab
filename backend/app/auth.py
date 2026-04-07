@@ -31,7 +31,9 @@ SOFT_LIMIT = 50
 HARD_LIMIT = 500
 
 SITE_URL = os.environ.get("SITE_URL", "https://equilima.com")
-REQUIRE_EMAIL_VERIFIED = os.environ.get("REQUIRE_EMAIL_VERIFIED", "").strip().lower() in {"1", "true", "yes", "on"}
+# Default to requiring verification in production; can be disabled explicitly for local/dev.
+_rev = (os.environ.get("REQUIRE_EMAIL_VERIFIED", "") or "").strip().lower()
+REQUIRE_EMAIL_VERIFIED = False if _rev in {"0", "false", "no", "off"} else True
 
 # Email config (set via env vars)
 SMTP_HOST = os.environ.get("SMTP_HOST", "")
@@ -253,6 +255,21 @@ class ResendVerificationPublicRequest(BaseModel):
     email: str
 
 
+class UpdateAccountRequest(BaseModel):
+    name: str | None = None
+    consent_newsletter: bool | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class DeleteAccountRequest(BaseModel):
+    password: str
+    confirm: str
+
+
 # ─── Endpoints ───
 @router.post("/signup")
 def signup(req: SignupRequest):
@@ -468,10 +485,108 @@ def get_me(user=Depends(get_current_user)):
         raise HTTPException(status_code=401, detail="Not authenticated")
     conn = get_db()
     try:
-        row = conn.execute("SELECT id, email, name, created_at, email_verified FROM users WHERE id = ?", (user["id"],)).fetchone()
+        row = conn.execute(
+            "SELECT id, email, name, created_at, email_verified, consent_newsletter, is_active FROM users WHERE id = ?",
+            (user["id"],),
+        ).fetchone()
         if not row:
             raise HTTPException(status_code=404)
-        return {"id": row["id"], "email": row["email"], "name": row["name"], "created_at": row["created_at"], "email_verified": bool(row["email_verified"])}
+        return {
+            "id": row["id"],
+            "email": row["email"],
+            "name": row["name"],
+            "created_at": row["created_at"],
+            "email_verified": bool(row["email_verified"]),
+            "consent_newsletter": bool(row["consent_newsletter"]),
+            "is_active": bool(row["is_active"]),
+        }
+    finally:
+        conn.close()
+
+
+@router.put("/me")
+def update_me(req: UpdateAccountRequest, user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT id, name, consent_newsletter FROM users WHERE id = ?",
+            (user["id"],),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404)
+        name = req.name if req.name is not None else row["name"]
+        consent_newsletter = int(bool(req.consent_newsletter)) if req.consent_newsletter is not None else int(bool(row["consent_newsletter"]))
+        now = datetime.utcnow().isoformat()
+        conn.execute(
+            "UPDATE users SET name = ?, consent_newsletter = ?, consent_newsletter_at = ? WHERE id = ?",
+            (name, consent_newsletter, now if consent_newsletter else None, user["id"]),
+        )
+        conn.commit()
+        return {"ok": True}
+    finally:
+        conn.close()
+
+
+@router.post("/change-password")
+def change_password(req: ChangePasswordRequest, user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if len(req.new_password or "") < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT id, password_hash FROM users WHERE id = ?", (user["id"],)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404)
+        try:
+            ok = pwd_context.verify((req.current_password or "")[:72], row["password_hash"])
+        except Exception:
+            import hashlib
+            ok = row["password_hash"] == hashlib.sha256((req.current_password or "").encode()).hexdigest()
+        if not ok:
+            raise HTTPException(status_code=401, detail="Current password is incorrect")
+        try:
+            pw_hash = pwd_context.hash((req.new_password or "")[:72])
+        except Exception:
+            import hashlib
+            pw_hash = hashlib.sha256((req.new_password or "").encode()).hexdigest()
+        conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (pw_hash, user["id"]))
+        conn.commit()
+        return {"ok": True}
+    finally:
+        conn.close()
+
+
+@router.delete("/me")
+def delete_me(req: DeleteAccountRequest, user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if (req.confirm or "").strip().upper() != "DELETE":
+        raise HTTPException(status_code=400, detail="Type DELETE to confirm")
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT id, password_hash FROM users WHERE id = ?", (user["id"],)).fetchone()
+        if not row:
+            return {"ok": True}
+        try:
+            ok = pwd_context.verify((req.password or "")[:72], row["password_hash"])
+        except Exception:
+            import hashlib
+            ok = row["password_hash"] == hashlib.sha256((req.password or "").encode()).hexdigest()
+        if not ok:
+            raise HTTPException(status_code=401, detail="Password is incorrect")
+
+        # Remove user association from analytics; keep aggregate stats without retaining PII.
+        try:
+            conn.execute("UPDATE page_views SET user_id = NULL WHERE user_id = ?", (user["id"],))
+        except Exception:
+            pass
+
+        conn.execute("DELETE FROM users WHERE id = ?", (user["id"],))
+        conn.commit()
+        return {"ok": True}
     finally:
         conn.close()
 
