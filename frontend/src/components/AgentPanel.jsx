@@ -1,11 +1,40 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Send, Loader2, Bot, User, Sparkles, TrendingUp, Zap, BarChart3, Search, FileText, Trash2, PanelLeft, MessageSquare, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import {
+  Send,
+  Loader2,
+  Bot,
+  User,
+  Sparkles,
+  TrendingUp,
+  Zap,
+  BarChart3,
+  Search,
+  FileText,
+  Trash2,
+  PanelLeft,
+  MessageSquare,
+  ChevronLeft,
+  ChevronRight,
+  Lock,
+  LayoutDashboard,
+  CandlestickChart,
+  Scale,
+} from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, YAxis, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { agentHealth, fetchTerminalChart, fetchResearch, fetchAgentHistory, putAgentHistory } from '../api';
 import SnowflakeChart from './SnowflakeChart';
 import { decryptWithDek, encryptWithDek } from '../e2ee';
 
 const CHAT_STORAGE_KEY = 'eq_agent_chat_sessions_v1';
+
+/** Cross-links to other app tabs — minimal cards on the empty state */
+const EXPLORE_TABS = [
+  { id: 'dashboard', label: 'Dashboard', hint: 'Indices & breadth', Icon: LayoutDashboard },
+  { id: 'screener', label: 'Screener', hint: 'Filter & rank', Icon: Search },
+  { id: 'research', label: 'Research', hint: 'Fundamentals', Icon: FileText },
+  { id: 'terminal', label: 'Terminal', hint: 'Charts & TA', Icon: CandlestickChart },
+  { id: 'backtest', label: 'Backtest', hint: 'Test strategies', Icon: Scale },
+];
 
 // ─── Known tickers for detection ───
 const KNOWN_TICKERS = new Set(['AAPL','MSFT','GOOGL','GOOG','AMZN','NVDA','TSLA','META','JPM','V','WMT','UNH','JNJ','XOM','PG','MA','HD','CVX','MRK','ABBV','LLY','PEP','KO','COST','AVGO','MCD','CSCO','TMO','ABT','ACN','AMD','INTC','QCOM','CRM','ADBE','NFLX','DIS','BA','GE','CAT','GS','BLK','PYPL','SQ','COIN','SHOP','SNAP','UBER','ABNB','RIVN','PLTR','SOFI','NET','CRWD','DDOG','ZS','BTC','ETH','SOL','SPY','QQQ']);
@@ -672,33 +701,61 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
           {/* Scrollable thread */}
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             {!hasThread && (
-              <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 min-h-0 overflow-y-auto">
-                <div className="w-full max-w-3xl mx-auto text-center">
-                  <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-3">
-                    <Sparkles className="w-7 h-7 text-indigo-400" />
-                  </div>
-                  <h1 className="text-2xl sm:text-3xl font-semibold text-white mb-2">Equilima Agent</h1>
-                  <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">AI-powered market research assistant</p>
-                  <div className="flex items-center gap-2 justify-center mb-8">
-                    <div className={`w-2 h-2 rounded-full ${agentOnline ? 'bg-emerald-400' : agentOnline === false ? 'bg-red-400' : 'bg-yellow-400'}`} />
-                    <span className="text-[10px] text-gray-600">
-                      {agentOnline ? 'Gemma3-4B online' : agentOnline === false ? 'Agent offline' : 'Checking...'}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-3xl mx-auto text-left">
-                    {suggestions.map((s, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setInput(s)}
-                        className="text-left px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 hover:border-indigo-500/30 hover:bg-white/[0.05] transition-all group"
-                      >
-                        <div className="flex items-start gap-2">
-                          <TrendingUp className="w-3 h-3 text-gray-600 group-hover:text-indigo-400 mt-0.5 shrink-0" />
-                          <span className="text-[11px] text-gray-400 group-hover:text-gray-200">{s}</span>
-                        </div>
-                      </button>
-                    ))}
+              <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 sm:py-10 min-h-0 overflow-y-auto">
+                <div className="relative w-full max-w-3xl mx-auto text-center">
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-8 w-[min(100%,28rem)] h-40 bg-[radial-gradient(ellipse_80%_70%_at_50%_0%,rgba(99,102,241,0.14),transparent)]"
+                  />
+                  <div className="relative">
+                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-indigo-500/25 bg-indigo-500/[0.08] shadow-[0_0_48px_-12px_rgba(99,102,241,0.45)] ring-1 ring-white/5">
+                      <Sparkles className="h-8 w-8 text-indigo-300" strokeWidth={1.5} />
+                    </div>
+                    <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white mb-2">Equilima Agent</h1>
+                    <p className="text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
+                      Ask in plain language — then use the rest of Equilima for charts, screeners, and tests.
+                    </p>
+                    <div className="flex items-center justify-center gap-2 mt-4 mb-8">
+                      <span className={`inline-block h-1.5 w-1.5 rounded-full ${agentOnline ? 'bg-emerald-400' : agentOnline === false ? 'bg-red-400' : 'bg-amber-400'}`} />
+                      <span className="text-[11px] text-gray-500 tabular-nums">
+                        {agentOnline ? 'Model online' : agentOnline === false ? 'Agent offline' : 'Checking…'}
+                      </span>
+                    </div>
+
+                    <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-gray-600 mb-3">Explore Equilima</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-8 text-left">
+                      {EXPLORE_TABS.map(({ id, label, hint, Icon }) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => onNavigate?.(id)}
+                          className="group rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2.5 transition hover:border-indigo-500/30 hover:bg-indigo-500/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+                        >
+                          <Icon className="h-4 w-4 text-indigo-400/90 mb-1.5 opacity-90 group-hover:opacity-100" strokeWidth={1.75} />
+                          <div className="text-[11px] font-medium text-white leading-snug">{label}</div>
+                          <div className="text-[10px] text-gray-500 group-hover:text-gray-400 leading-snug">{hint}</div>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="border-t border-white/[0.06] pt-6">
+                      <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-gray-600 mb-3">Try asking</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
+                        {suggestions.map((s, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setInput(s)}
+                            className="text-left px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:border-indigo-500/30 hover:bg-white/[0.05] transition-all group"
+                          >
+                            <div className="flex items-start gap-2.5">
+                              <TrendingUp className="w-3.5 h-3.5 text-gray-500 group-hover:text-indigo-400 mt-0.5 shrink-0 transition-colors" />
+                              <span className="text-[11px] text-gray-400 group-hover:text-gray-200 leading-snug">{s}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
