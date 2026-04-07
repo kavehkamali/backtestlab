@@ -579,9 +579,15 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
   ];
 
   return (
-    <div className="flex h-[calc(100vh-52px)] sm:h-[calc(100vh-60px)] max-w-6xl mx-auto">
-      {/* Left: chat history */}
-      <div className={`${sidebarCollapsed ? 'w-12' : 'w-72'} shrink-0 border-r border-white/5 bg-white/[0.01]`}>
+    <div
+      className={`flex h-[calc(100vh-52px)] sm:h-[calc(100vh-60px)] w-full min-w-0 -mx-3 sm:-mx-6 gap-4 lg:gap-8 transition-[gap] duration-200 ${
+        sidebarCollapsed ? 'lg:gap-10' : ''
+      }`}
+    >
+      {/* Left: chat history — flush to content column left */}
+      <div
+        className={`${sidebarCollapsed ? 'w-12' : 'w-72'} shrink-0 border-r border-white/5 bg-white/[0.01] rounded-r-lg`}
+      >
         <div className="h-full flex flex-col">
           <div className="px-3 py-3 flex items-center justify-between gap-2 border-b border-white/5">
             <button
@@ -660,10 +666,10 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
         </div>
       </div>
 
-      {/* Right: chat + composer */}
-      <div className="flex-1 min-w-0 flex flex-col">
+      {/* Main: input + answers — spaced from sidebar; grows wide when sidebar collapsed */}
+      <div className="flex-1 min-w-0 flex flex-col pr-3 sm:pr-6 min-h-0">
         {/* Input area — top */}
-        <div className="shrink-0 px-4 pt-4 pb-2">
+        <div className={`shrink-0 pt-4 pb-2 pl-0 ${sidebarCollapsed ? 'pr-1' : 'pr-2'}`}>
         {locked && (
           <div className="mb-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-start gap-2">
@@ -736,8 +742,12 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
 
       {/* Suggestions */}
       {messages.length === 0 && (
-        <div className="px-4 pt-2 pb-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-lg mx-auto">
+        <div className={`pt-2 pb-4 ${sidebarCollapsed ? 'pr-1' : 'pr-2'}`}>
+          <div
+            className={`grid grid-cols-1 sm:grid-cols-2 gap-2 mx-auto transition-[max-width] duration-200 ${
+              sidebarCollapsed ? 'max-w-4xl' : 'max-w-lg'
+            }`}
+          >
             {suggestions.map((s, i) => (
               <button key={i} onClick={() => setInput(s)}
                 className="text-left px-3 py-2.5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-indigo-500/30 hover:bg-white/[0.04] transition-all group">
@@ -755,7 +765,12 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
       {(messages.length > 0 || loading) && (
         <div className="flex-1 min-h-0 relative">
           <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0a0a0f] to-transparent z-10 pointer-events-none" />
-          <div ref={scrollRef} className="h-full overflow-y-auto px-4 py-4 space-y-4">
+          <div
+            ref={scrollRef}
+            className={`h-full overflow-y-auto py-4 space-y-4 mx-auto w-full transition-[max-width,padding] duration-200 ${
+              sidebarCollapsed ? 'max-w-[min(100%,80rem)] px-1 sm:px-2' : 'max-w-3xl px-1 sm:px-3'
+            }`}
+          >
             {messages.map((msg, i) => <Message key={i} msg={msg} onNavigate={onNavigate} />)}
 
             {loading && streamingText && (
@@ -788,7 +803,7 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
         </div>
       )}
 
-      <div className="shrink-0 px-4 pb-2">
+      <div className={`shrink-0 pb-2 ${sidebarCollapsed ? 'pr-1' : 'pr-2'}`}>
         <p className="text-[9px] text-gray-700 text-center">Powered by Gemma3 · Not financial advice</p>
       </div>
       </div>
