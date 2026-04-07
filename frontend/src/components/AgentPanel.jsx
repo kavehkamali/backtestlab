@@ -10,7 +10,7 @@ import {
   BarChart3,
   Search,
   FileText,
-  Trash2,
+  SquarePen,
   PanelLeft,
   MessageSquare,
   ChevronLeft,
@@ -392,7 +392,11 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
   const streamTickerRef = useRef('');
   const [hydrated, setHydrated] = useState(false);
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Mobile: start with sidebar folded so the thread gets the space; desktop: expanded.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 767px)').matches;
+  });
   const [sessions, setSessions] = useState([newSession('New chat')]);
   const [activeSessionId, setActiveSessionId] = useState(null);
 
@@ -616,11 +620,15 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
       {/* Left rail — ChatGPT-style: fixed width, flush to viewport edge, no rounding */}
       <aside
         className={`${
-          sidebarCollapsed ? 'w-[52px]' : 'w-[260px]'
+          sidebarCollapsed ? 'w-11 sm:w-[52px]' : 'w-[260px]'
         } shrink-0 flex flex-col border-r border-white/[0.08] bg-[#0c0c0f] h-full min-h-0`}
       >
         <div className="h-full flex flex-col min-h-0">
-          <div className="px-2.5 py-3 flex items-center justify-between gap-2 border-b border-white/[0.06]">
+          <div
+            className={`px-2 py-2.5 sm:px-2.5 sm:py-3 flex items-center gap-2 border-b border-white/[0.06] ${
+              sidebarCollapsed ? 'justify-center' : 'justify-between'
+            }`}
+          >
             <button
               type="button"
               onClick={() => setSidebarCollapsed((v) => !v)}
@@ -639,9 +647,10 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
               <button
                 type="button"
                 onClick={createNewChat}
-                className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/[0.14] text-xs text-white font-medium border border-white/10"
+                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5"
+                title="New chat"
               >
-                New
+                <SquarePen className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -682,18 +691,6 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
             </div>
           )}
 
-          {sidebarCollapsed && (
-            <div className="flex-1 flex items-start justify-center pt-3">
-              <button
-                type="button"
-                onClick={createNewChat}
-                className="p-2 rounded-lg bg-white/10 hover:bg-white/[0.14] text-white border border-white/10"
-                title="New chat"
-              >
-                <MessageSquare className="w-4 h-4" />
-              </button>
-            </div>
-          )}
         </div>
       </aside>
 
@@ -863,10 +860,10 @@ export default function AgentPanel({ onNavigate, user, dek, onRequireUnlock }) {
                     onClick={() => {
                       createNewChat();
                     }}
-                    className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
+                    className="ml-auto p-2 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
                     title="New chat"
                   >
-                    <Trash2 className="w-3 h-3" /> New chat
+                    <SquarePen className="w-4 h-4" />
                   </button>
                 )}
               </div>
