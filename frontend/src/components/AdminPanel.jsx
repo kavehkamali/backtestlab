@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Loader2, Users, Eye, Globe, Monitor, Smartphone, Clock, LogOut, RefreshCw, Mail, CheckCircle, XCircle, Filter, Plus, X, Copy, Send } from 'lucide-react';
 import { Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Line } from 'recharts';
 import { adminLogin, fetchAdminStats, saveAdminExcludedIps, fetchAdminUsers, updateAdminUser, deleteAdminUser, previewAdminNewsletter, sendAdminNewsletter, fetchAdminNewsletterHistory } from '../api';
+import AdminArticlesTab from './AdminArticlesTab';
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
 
@@ -142,7 +143,7 @@ export default function AdminPanel() {
   const [newIp, setNewIp] = useState('');
   const [ipFilterSaving, setIpFilterSaving] = useState(false);
   const [ipFilterError, setIpFilterError] = useState(null);
-  const [adminTab, setAdminTab] = useState('analytics'); // analytics | users | email
+  const [adminTab, setAdminTab] = useState('analytics'); // analytics | users | email | articles
   const [usersQ, setUsersQ] = useState('');
   const [usersData, setUsersData] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -357,14 +358,30 @@ export default function AdminPanel() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold text-white">
-              {adminTab === 'analytics' ? 'Analytics' : adminTab === 'users' ? 'User management' : 'Email & newsletters'}
+              {adminTab === 'analytics'
+                ? 'Analytics'
+                : adminTab === 'users'
+                  ? 'User management'
+                  : adminTab === 'articles'
+                    ? 'Articles & Learn hub'
+                    : 'Email & newsletters'}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
               {adminTab === 'analytics'
-                ? 'Visitor tracking and insights'
+                ? (
+                    <>
+                      Visitor tracking and insights. Dates, “today”, and hourly buckets use{' '}
+                      <span className="text-gray-400">
+                        {data.analytics_tz_abbrev ? `${data.analytics_tz_abbrev} (${data.analytics_timezone || 'America/New_York'})` : (data.analytics_timezone || 'US Eastern')}
+                      </span>
+                      — daylight saving included.
+                    </>
+                  )
                 : adminTab === 'users'
                   ? 'Search accounts, verify email, enable or disable users'
-                  : 'Draft with ChatGPT using the instructions below, choose recipients, send and verify delivery'}
+                  : adminTab === 'articles'
+                    ? 'SEO articles at /learn — hub-and-spoke clusters, meta, JSON-LD, sitemap'
+                    : 'Draft with ChatGPT using the instructions below, choose recipients, send and verify delivery'}
             </p>
           </div>
           <button
@@ -388,6 +405,7 @@ export default function AdminPanel() {
               { id: 'analytics', label: 'Analytics' },
               { id: 'users', label: 'Users' },
               { id: 'email', label: 'Newsletters' },
+              { id: 'articles', label: 'Articles' },
             ].map((t) => (
               <button
                 key={t.id}
@@ -795,6 +813,8 @@ export default function AdminPanel() {
           </Section>
         </div>
       )}
+
+      {adminTab === 'articles' && <AdminArticlesTab setAuthed={setAuthed} />}
 
       {adminTab !== 'analytics' ? null : (
         <>

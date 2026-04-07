@@ -10,8 +10,9 @@ import html as html_module
 import os
 import re
 import ipaddress
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 from collections import Counter, defaultdict
 
 from fastapi import APIRouter, HTTPException, Request, Depends, Response
@@ -237,14 +238,19 @@ def _make_ip_excluder(excluded: list[str], literals: list[str]):
     return is_excluded
 
 
-def _date_key(ts: str | None) -> str | None:
-    if not ts:
-        return None
-    s = str(ts).strip().replace("T", " ")
-    return s[:10] if len(s) >= 10 else None
+def _analytics_tz() -> ZoneInfo:
+    """US Eastern by default; DST handled by IANA zone rules (EST/EDT). Override with EQUILIMA_ANALYTICS_TZ."""
+    name = (os.environ.get("EQUILIMA_ANALYTICS_TZ") or "America/New_York").strip() or "America/New_York"
+    try:
+        return ZoneInfo(name)
+    except Exception:
+        return ZoneInfo("America/New_York")
 
 
-def _parse_ts_datetime(ts: str | None) -> datetime | None:
+def _parse_ts_utc_naive(ts: str | None) -> datetime | None:
+    """
+    Parse page_views.timestamp as naive UTC wall time (SQLite datetime('now') is UTC).
+    """
     if not ts:
         return None
     s = str(ts).strip().replace("T", " ").replace("Z", "")
@@ -262,6 +268,20 @@ def _parse_ts_datetime(ts: str | None) -> datetime | None:
         return datetime.fromisoformat(str(ts).replace("Z", "+00:00").split("+")[0])
     except ValueError:
         return None
+
+
+def _date_key_et(ts: str | None) -> str | None:
+    """Calendar date YYYY-MM-DD in analytics timezone (DST-aware)."""
+    dt = _parse_ts_utc_naive(ts)
+    if not dt:
+        return None
+    aware = dt.replace(tzinfo=timezone.utc)
+    return aware.astimezone(_analytics_tz()).date().isoformat()
+
+
+def _parse_ts_datetime(ts: str | None) -> datetime | None:
+    """Naive UTC instant from stored timestamp (for code that expects UTC components)."""
+    return _parse_ts_utc_naive(ts)
 
 
 def _client_ip_for_storage(raw: str | None) -> str:
@@ -442,7 +462,13 @@ def get_stats(
         recent_days_i = max(1, min(3650, recent_days_i))
         recent_limit_i = max(10, min(5000, recent_limit_i))
 
-        since = (datetime.utcnow() - timedelta(days=days_i)).strftime("%Y-%m-%d")
+        tz = _analytics_tz()
+        now_et = datetime.now(tz)
+        # Inclusive calendar-day window in Eastern (DST-aware); convert start midnight ET → UTC for SQL.
+        start_date_et = now_et.date() - timedelta(days=days_i - 1)
+        start_utc = datetime.combine(start_date_et, time.min, tzinfo=tz).astimezone(timezone.utc)
+        period_start_sql = start_utc.strftime("%Y-%m-%d %H:%M:%S")
+
         excluded = _load_excluded_ips(conn)
         host_only = [e for e in excluded if not _is_network_exclusion(str(e))]
         excluded_literals = _resolve_excluded_ip_literals(conn, host_only)
@@ -453,10 +479,10 @@ def get_stats(
         for row in conn.execute(
             """
             SELECT ip, timestamp, tab, session_id, user_agent, country, city, referer, path, user_id
-            FROM page_views WHERE date(timestamp) >= date(?)
+            FROM page_views WHERE timestamp >= ?
             ORDER BY timestamp ASC
             """,
-            (since,),
+            (period_start_sql,),
         ):
             if is_excluded(row["ip"]):
                 continue
@@ -470,7 +496,7 @@ def get_stats(
         d_visitors: dict[str, set[str]] = defaultdict(set)
         ip_to_dates: dict[str, set[str]] = defaultdict(set)
         for r in period_rows:
-            dk = _date_key(r["timestamp"])
+            dk = _date_key_et(r["timestamp"])
             if dk:
                 d_views[dk] += 1
                 d_visitors[dk].add(r["ip"])
@@ -498,19 +524,20 @@ def get_stats(
                 }
             )
 
-        # Last 24h hourly (SQLite window + same IP filter)
+        # Last 24 hours ending now in Eastern; bucket by local hour (DST-aware).
+        hourly_cutoff_utc = (now_et - timedelta(hours=24)).astimezone(timezone.utc).replace(tzinfo=None)
+        hourly_cutoff_sql = hourly_cutoff_utc.strftime("%Y-%m-%d %H:%M:%S")
         hourly_counter: Counter[str] = Counter()
         for row in conn.execute(
-            """
-            SELECT ip, timestamp FROM page_views
-            WHERE datetime(timestamp) >= datetime('now', '-1 day')
-            """,
+            "SELECT ip, timestamp FROM page_views WHERE timestamp >= ? ORDER BY timestamp",
+            (hourly_cutoff_sql,),
         ):
             if is_excluded(row["ip"]):
                 continue
-            dt = _parse_ts_datetime(row["timestamp"])
+            dt = _parse_ts_utc_naive(row["timestamp"])
             if dt:
-                hourly_counter[f"{dt.hour:02d}:00"] += 1
+                dt_et = dt.replace(tzinfo=timezone.utc).astimezone(tz)
+                hourly_counter[f"{dt_et.hour:02d}:00"] += 1
         hourly_data = [{"hour": h, "views": c} for h, c in sorted(hourly_counter.items())]
 
         tab_counts = Counter(
@@ -569,22 +596,23 @@ def get_stats(
             else:
                 browsers["Other"] += 1
 
-        today_key = datetime.utcnow().strftime("%Y-%m-%d")
-        today_rows = [r for r in period_rows if _date_key(r["timestamp"]) == today_key]
+        today_key = now_et.date().isoformat()
+        today_rows = [r for r in period_rows if _date_key_et(r["timestamp"]) == today_key]
         today_views = len(today_rows)
         today_visitors = len({r["ip"] for r in today_rows})
 
         recent_data = []
-        recent_cutoff = f"-{recent_days_i} day"
+        recent_cutoff_utc = (now_et - timedelta(days=recent_days_i)).astimezone(timezone.utc).replace(tzinfo=None)
+        recent_cutoff_sql = recent_cutoff_utc.strftime("%Y-%m-%d %H:%M:%S")
         for row in conn.execute(
             """
             SELECT ip, path, tab, country, city, user_agent, timestamp, user_id
             FROM page_views
-            WHERE datetime(timestamp) >= datetime('now', ?)
+            WHERE timestamp >= ?
             ORDER BY timestamp DESC
             LIMIT 20000
             """,
-            (recent_cutoff,),
+            (recent_cutoff_sql,),
         ):
             if is_excluded(row["ip"]):
                 continue
@@ -599,7 +627,11 @@ def get_stats(
 
         # Registered users
         users_count = conn.execute("SELECT COUNT(*) as c FROM users").fetchone()["c"]
-        users_today = conn.execute("SELECT COUNT(*) as c FROM users WHERE DATE(created_at) = DATE('now')").fetchone()["c"]
+        today_et_date = now_et.date()
+        users_today = 0
+        for urow in conn.execute("SELECT created_at FROM users WHERE created_at IS NOT NULL"):
+            if _date_key_et(urow["created_at"]) == today_et_date.isoformat():
+                users_today += 1
         users_list = conn.execute("""
             SELECT id, email, name, created_at, last_login, consent_policy, consent_newsletter, is_active
             FROM users ORDER BY created_at DESC
@@ -618,6 +650,8 @@ def get_stats(
             "period_days": days_i,
             "recent_days": recent_days_i,
             "recent_limit": recent_limit_i,
+            "analytics_timezone": str(tz),
+            "analytics_tz_abbrev": now_et.tzname(),
             "ignored_ips": excluded,
             "ignored_canonical": ignored_canonical,
             "summary": {

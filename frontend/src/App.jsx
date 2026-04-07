@@ -12,12 +12,15 @@ import AdminPanel from './components/AdminPanel';
 import AgentPanel from './components/AgentPanel';
 import ConsentBanner from './components/ConsentBanner';
 import AccountPanel from './components/AccountPanel';
+import LearnLayout from './components/LearnLayout';
+import { getLearnRoute } from './learnNavigation';
 import { bootstrapAgentE2EE, fetchAgentE2EEMeta, rewrapAgentE2EE } from './api';
 import { createAndWrapDek, unwrapDek, wrapExistingDek } from './e2ee';
 
 function App() {
   const [strategies, setStrategies] = useState([]);
   const [isAdmin, setIsAdmin] = useState(window.location.hash === '#admin');
+  const [learnRoute, setLearnRoute] = useState(() => getLearnRoute());
   const [activeTab, setActiveTab] = useState('agent');
 
   // Listen for hash changes
@@ -25,6 +28,16 @@ function App() {
     const handler = () => setIsAdmin(window.location.hash === '#admin');
     window.addEventListener('hashchange', handler);
     return () => window.removeEventListener('hashchange', handler);
+  }, []);
+
+  useEffect(() => {
+    const syncLearn = () => setLearnRoute(getLearnRoute());
+    window.addEventListener('popstate', syncLearn);
+    window.addEventListener('hashchange', syncLearn);
+    return () => {
+      window.removeEventListener('popstate', syncLearn);
+      window.removeEventListener('hashchange', syncLearn);
+    };
   }, []);
   const [compareResults, setCompareResults] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -145,6 +158,25 @@ function App() {
 
   const isTerminal = activeTab === 'terminal';
 
+  // Learn hub (/learn, /learn/:slug, or #/learn …) — SEO articles
+  if (learnRoute && !isAdmin) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] overflow-x-hidden">
+        <LearnLayout route={learnRoute} setActiveTab={setActiveTab} />
+        {showAuth && (
+          <AuthModal
+            mode={authMode}
+            message={authMessage}
+            forced={forceAuth}
+            onClose={forceAuth ? undefined : () => setShowAuth(false)}
+            onAuth={handleAuth}
+          />
+        )}
+        <ConsentBanner />
+      </div>
+    );
+  }
+
   // Admin panel — hidden route via #admin
   if (isAdmin) {
     return (
@@ -181,6 +213,10 @@ function App() {
         onSignIn={() => { setAuthMode('signin'); setAuthMessage(''); setShowAuth(true); }}
         onSignUp={() => { setAuthMode('signup'); setAuthMessage(''); setShowAuth(true); }}
         onSignOut={handleSignout}
+        onOpenLearn={() => {
+          window.history.pushState({}, '', '/learn');
+          window.dispatchEvent(new PopStateEvent('popstate'));
+        }}
       />
 
       {isTerminal && <TerminalPanel />}

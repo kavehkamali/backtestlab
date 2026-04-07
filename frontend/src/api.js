@@ -255,6 +255,105 @@ export async function fetchAdminNewsletterHistory(limit = 30) {
   return data;
 }
 
+// ─── Public articles (SEO / Learn hub) ───
+export async function fetchPublishedArticles(cluster = '') {
+  const qp = new URLSearchParams();
+  if (cluster) qp.set('cluster', cluster);
+  const q = qp.toString();
+  const res = await fetch(`${BASE}/articles${q ? `?${q}` : ''}`, { cache: 'no-store' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Failed to load articles');
+  return data;
+}
+
+export async function fetchPublishedArticle(slug) {
+  const res = await fetch(`${BASE}/articles/${encodeURIComponent(slug)}`, { cache: 'no-store' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Article not found');
+  return data;
+}
+
+// ─── Admin articles ───
+export async function fetchAdminArticles({ q = '', status = '', limit = 200 } = {}) {
+  const token = localStorage.getItem('eq_admin_token');
+  const qp = new URLSearchParams();
+  if (q) qp.set('q', q);
+  if (status) qp.set('status', status);
+  qp.set('limit', String(limit));
+  qp.set('_', String(Date.now()));
+  const res = await fetch(`${BASE}/admin/articles?${qp.toString()}`, {
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(data.detail || 'Failed to load articles');
+  }
+  return data;
+}
+
+export async function fetchAdminArticle(id) {
+  const token = localStorage.getItem('eq_admin_token');
+  const res = await fetch(`${BASE}/admin/articles/${id}`, {
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(data.detail || 'Failed to load article');
+  }
+  return data;
+}
+
+export async function createAdminArticle(body) {
+  const token = localStorage.getItem('eq_admin_token');
+  const res = await fetch(`${BASE}/admin/articles`, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(typeof data.detail === 'string' ? data.detail : 'Create failed');
+  }
+  return data;
+}
+
+export async function patchAdminArticle(id, body) {
+  const token = localStorage.getItem('eq_admin_token');
+  const res = await fetch(`${BASE}/admin/articles/${id}`, {
+    method: 'PATCH',
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(typeof data.detail === 'string' ? data.detail : 'Save failed');
+  }
+  return data;
+}
+
+export async function deleteAdminArticle(id) {
+  const token = localStorage.getItem('eq_admin_token');
+  const res = await fetch(`${BASE}/admin/articles/${id}`, {
+    method: 'DELETE',
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(data.detail || 'Delete failed');
+  }
+  return data;
+}
+
 // ─── AI Agent ───
 export async function agentChat(message, ticker = '') {
   const res = await fetch(`${BASE}/agent/chat`, {

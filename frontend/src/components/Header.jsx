@@ -8,6 +8,7 @@ import {
   Mail,
   FileText,
   Shield,
+  BookOpen,
 } from 'lucide-react';
 
 const TABS = [
@@ -156,9 +157,13 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
   );
 }
 
-export default function Header({ activeTab, setActiveTab, user, onSignIn, onSignUp, onSignOut }) {
+export default function Header({ activeTab, setActiveTab, user, onSignIn, onSignUp, onSignOut, onOpenLearn }) {
   const handleTab = (id) => {
     setActiveTab(id);
+  };
+
+  const openLearn = () => {
+    if (onOpenLearn) onOpenLearn();
   };
 
   return (
@@ -176,22 +181,34 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
           <h1 className="text-base sm:text-lg font-semibold tracking-tight text-white">Equilima</h1>
         </div>
 
-        <nav className="hidden md:flex gap-0.5 bg-white/5 rounded-lg p-1">
-          {TABS.map((tab) => (
+        <nav className="hidden md:flex items-center gap-1">
+          <div className="flex gap-0.5 bg-white/5 rounded-lg p-1">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => handleTab(tab.id)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  activeTab === tab.id ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          {onOpenLearn && (
             <button
-              key={tab.id}
-              onClick={() => handleTab(tab.id)}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                activeTab === tab.id ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-400 hover:text-gray-200'
-              }`}
+              type="button"
+              onClick={openLearn}
+              className="ml-1 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-sm font-medium text-gray-400 hover:text-indigo-300 hover:bg-white/5 border border-transparent hover:border-white/10"
             >
-              {tab.label}
+              <BookOpen className="w-3.5 h-3.5" />
+              Learn
             </button>
-          ))}
+          )}
         </nav>
 
         <nav className="md:hidden flex-1 min-w-0 overflow-x-auto no-scrollbar mx-1">
-          <div className="flex gap-0.5 bg-white/5 rounded-lg p-0.5 w-max">
+          <div className="flex gap-0.5 bg-white/5 rounded-lg p-0.5 w-max items-center">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
@@ -203,6 +220,15 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
                 {tab.short}
               </button>
             ))}
+            {onOpenLearn && (
+              <button
+                type="button"
+                onClick={openLearn}
+                className="px-2 py-1 rounded-md text-[11px] font-medium text-gray-500 whitespace-nowrap"
+              >
+                Learn
+              </button>
+            )}
           </div>
         </nav>
 
