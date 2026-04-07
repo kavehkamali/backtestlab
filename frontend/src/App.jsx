@@ -151,7 +151,7 @@ function App() {
             <AgentPanel onNavigate={(tab, ticker) => {
               setActiveTab(tab);
               if (ticker) window.__equilima_nav_ticker = ticker;
-            }} />
+            }} user={user} />
           </div>
           <div className={activeTab === 'dashboard' ? '' : 'hidden'}>
             <DashboardPanel />

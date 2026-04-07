@@ -5,6 +5,50 @@ import { agentHealth, fetchTerminalChart, fetchResearch } from '../api';
 import SnowflakeChart from './SnowflakeChart';
 
 const CHAT_STORAGE_KEY = 'eq_agent_chat_sessions_v1';
+const ENC_STORAGE_PREFIX = 'eq_agent_chat_sessions_enc_v1';
+const ENC_KEY_PREFIX = 'eq_agent_chat_key_v1';
+
+function _b64encode(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+
+function _b64decode(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+async function _getOrCreateUserKey(userId) {
+  const keyName = `${ENC_KEY_PREFIX}:${userId}`;
+  const existing = localStorage.getItem(keyName);
+  if (existing) {
+    const jwk = JSON.parse(existing);
+    return crypto.subtle.importKey('jwk', jwk, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+  }
+  const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+  const jwk = await crypto.subtle.exportKey('jwk', key);
+  localStorage.setItem(keyName, JSON.stringify(jwk));
+  return crypto.subtle.importKey('jwk', jwk, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+}
+
+async function _encryptForUser(userId, value) {
+  const key = await _getOrCreateUserKey(userId);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const pt = new TextEncoder().encode(JSON.stringify(value));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, pt));
+  return { v: 1, alg: 'AES-GCM', iv: _b64encode(iv), ct: _b64encode(ct) };
+}
+
+async function _decryptForUser(userId, blob) {
+  const key = await _getOrCreateUserKey(userId);
+  const iv = _b64decode(blob.iv);
+  const ct = _b64decode(blob.ct);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+  return JSON.parse(new TextDecoder().decode(new Uint8Array(pt)));
+}
 
 // ─── Known tickers for detection ───
 const KNOWN_TICKERS = new Set(['AAPL','MSFT','GOOGL','GOOG','AMZN','NVDA','TSLA','META','JPM','V','WMT','UNH','JNJ','XOM','PG','MA','HD','CVX','MRK','ABBV','LLY','PEP','KO','COST','AVGO','MCD','CSCO','TMO','ABT','ACN','AMD','INTC','QCOM','CRM','ADBE','NFLX','DIS','BA','GE','CAT','GS','BLK','PYPL','SQ','COIN','SHOP','SNAP','UBER','ABNB','RIVN','PLTR','SOFI','NET','CRWD','DDOG','ZS','BTC','ETH','SOL','SPY','QQQ']);
@@ -348,7 +392,7 @@ function newSession(title = 'New chat') {
 }
 
 // ─── Main ───
-export default function AgentPanel({ onNavigate }) {
+export default function AgentPanel({ onNavigate, user }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('quick');
@@ -360,22 +404,8 @@ export default function AgentPanel({ onNavigate }) {
   const streamTickerRef = useRef('');
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sessions, setSessions] = useState(() => {
-    try {
-      const raw = localStorage.getItem(CHAT_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      if (Array.isArray(parsed) && parsed.length) return parsed;
-    } catch {}
-    return [newSession('New chat')];
-  });
-  const [activeSessionId, setActiveSessionId] = useState(() => {
-    try {
-      const raw = localStorage.getItem(CHAT_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      if (Array.isArray(parsed) && parsed.length) return parsed[0].id;
-    } catch {}
-    return null;
-  });
+  const [sessions, setSessions] = useState([newSession('New chat')]);
+  const [activeSessionId, setActiveSessionId] = useState(null);
 
   const activeSession = useMemo(() => {
     const s = sessions.find((x) => x.id === activeSessionId) || sessions[0];
@@ -384,12 +414,92 @@ export default function AgentPanel({ onNavigate }) {
 
   const messages = activeSession?.messages || [];
 
-  // Persist sessions
+  // Load sessions (encrypted if signed in; plaintext if not)
   useEffect(() => {
-    try {
-      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(sessions.slice(0, 50)));
-    } catch {}
-  }, [sessions]);
+    let cancelled = false;
+    const load = async () => {
+      // Signed-in: prefer encrypted storage (per-user). Also migrate any plaintext history.
+      if (user?.id) {
+        const encKey = `${ENC_STORAGE_PREFIX}:${user.id}`;
+        const rawEnc = localStorage.getItem(encKey);
+        if (rawEnc) {
+          try {
+            const blob = JSON.parse(rawEnc);
+            const value = await _decryptForUser(user.id, blob);
+            if (!cancelled && Array.isArray(value) && value.length) {
+              setSessions(value);
+              setActiveSessionId(value[0]?.id || null);
+              return;
+            }
+          } catch {
+            // If decrypt fails (key rotated/cleared), fall through to new chat
+          }
+        }
+
+        // Migrate plaintext if present
+        try {
+          const rawPlain = localStorage.getItem(CHAT_STORAGE_KEY);
+          const parsedPlain = rawPlain ? JSON.parse(rawPlain) : null;
+          if (Array.isArray(parsedPlain) && parsedPlain.length) {
+            const blob = await _encryptForUser(user.id, parsedPlain.slice(0, 50));
+            localStorage.setItem(encKey, JSON.stringify(blob));
+            localStorage.removeItem(CHAT_STORAGE_KEY);
+            if (!cancelled) {
+              setSessions(parsedPlain.slice(0, 50));
+              setActiveSessionId(parsedPlain[0]?.id || null);
+              return;
+            }
+          }
+        } catch {}
+
+        if (!cancelled) {
+          const s = newSession('New chat');
+          setSessions([s]);
+          setActiveSessionId(s.id);
+        }
+        return;
+      }
+
+      // Signed-out: use plaintext storage
+      try {
+        const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : null;
+        if (!cancelled && Array.isArray(parsed) && parsed.length) {
+          setSessions(parsed);
+          setActiveSessionId(parsed[0]?.id || null);
+          return;
+        }
+      } catch {}
+      if (!cancelled) {
+        const s = newSession('New chat');
+        setSessions([s]);
+        setActiveSessionId(s.id);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  // Persist sessions (encrypted if signed in; plaintext if not)
+  useEffect(() => {
+    let cancelled = false;
+    const persist = async () => {
+      const payload = sessions.slice(0, 50);
+      if (user?.id) {
+        try {
+          const encKey = `${ENC_STORAGE_PREFIX}:${user.id}`;
+          const blob = await _encryptForUser(user.id, payload);
+          if (!cancelled) localStorage.setItem(encKey, JSON.stringify(blob));
+        } catch {}
+      } else {
+        try {
+          localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(payload));
+        } catch {}
+      }
+    };
+    persist();
+    return () => { cancelled = true; };
+  }, [sessions, user?.id]);
 
   // Ensure active session id
   useEffect(() => {
