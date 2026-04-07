@@ -21,7 +21,7 @@ import {
   Coins,
 } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, YAxis, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
-import { agentHealth, fetchTerminalChart, fetchResearch, fetchAgentHistory, putAgentHistory } from '../api';
+import { fetchTerminalChart, fetchResearch, fetchAgentHistory, putAgentHistory } from '../api';
 import SnowflakeChart from './SnowflakeChart';
 import { decryptWithDek, encryptWithDek } from '../e2ee';
 
@@ -388,7 +388,6 @@ export default function AgentPanel({ onNavigate, user, dek }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('quick');
-  const [agentOnline, setAgentOnline] = useState(null);
   const [streamingText, setStreamingText] = useState('');
   const [lastRun, setLastRun] = useState(null); // { mode, url, elapsedMs }
   const scrollRef = useRef(null);
@@ -607,7 +606,6 @@ export default function AgentPanel({ onNavigate, user, dek }) {
     setLastRun(null);
   };
 
-  useEffect(() => { agentHealth().then(d => setAgentOnline(d.status === 'ok')); }, []);
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, streamingText]);
@@ -751,18 +749,15 @@ export default function AgentPanel({ onNavigate, user, dek }) {
                     <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-indigo-500/25 bg-indigo-500/[0.08] shadow-[0_0_48px_-12px_rgba(99,102,241,0.45)] ring-1 ring-white/5">
                       <Sparkles className="h-8 w-8 text-indigo-300" strokeWidth={1.5} />
                     </div>
-                    <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white mb-2">Equilima Agent</h1>
-                    <p className="text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
-                      Ask in plain language — then use the rest of Equilima for charts, screeners, and tests.
+                    <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white mb-3">Equilima Agent</h1>
+                    <p className="text-sm text-gray-500 max-w-xl mx-auto leading-snug">
+                      Plain-language questions — then charts, screeners, and backtests in Equilima.
                     </p>
-                    <div className="flex items-center justify-center gap-2 mt-4 mb-8">
-                      <span className={`inline-block h-1.5 w-1.5 rounded-full ${agentOnline ? 'bg-emerald-400' : agentOnline === false ? 'bg-red-400' : 'bg-amber-400'}`} />
-                      <span className="text-[11px] text-gray-500 tabular-nums">
-                        {agentOnline ? 'Model online' : agentOnline === false ? 'Agent offline' : 'Checking…'}
-                      </span>
-                    </div>
+                    <p className="text-sm font-semibold text-gray-200 max-w-xl mx-auto mt-3 leading-snug">
+                      For research and education only — not investment advice. We are not financial advisors and do not offer personalized guidance.
+                    </p>
 
-                    <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-gray-600 mb-3">Explore Equilima</p>
+                    <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-gray-600 mb-3 mt-10">Explore Equilima</p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-8 text-left">
                       {EXPLORE_TABS.map(({ id, label, hint, Icon }) => (
                         <button
