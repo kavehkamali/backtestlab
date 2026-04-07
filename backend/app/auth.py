@@ -12,6 +12,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -256,8 +257,8 @@ class ResendVerificationPublicRequest(BaseModel):
 
 
 class UpdateAccountRequest(BaseModel):
-    name: str | None = None
-    consent_newsletter: bool | None = None
+    name: Optional[str] = None
+    consent_newsletter: Optional[bool] = None
 
 
 class ChangePasswordRequest(BaseModel):
