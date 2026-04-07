@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Users, Eye, Globe, Monitor, Smartphone, Clock, BarChart3, LogOut, RefreshCw, Mail, CheckCircle, XCircle, Filter, Plus, X } from 'lucide-react';
+import { Loader2, Users, Eye, Globe, Monitor, Smartphone, Clock, LogOut, RefreshCw, Mail, CheckCircle, XCircle, Filter, Plus, X } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { adminLogin, fetchAdminStats, saveAdminExcludedIps, fetchAdminUsers, updateAdminUser, deleteAdminUser } from '../api';
 
@@ -61,7 +61,14 @@ function AdminLogin({ onLogin }) {
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="bg-white/[0.03] border border-white/5 rounded-2xl p-8 w-full max-w-sm">
         <div className="text-center mb-6">
-          <BarChart3 className="w-8 h-8 text-indigo-400 mx-auto mb-2" />
+          <img
+            src="/logo-mark.svg"
+            alt=""
+            width={32}
+            height={32}
+            className="w-8 h-8 mx-auto mb-2"
+            aria-hidden
+          />
           <h2 className="text-lg font-bold text-white">Admin Dashboard</h2>
           <p className="text-xs text-gray-500">Enter admin credentials</p>
         </div>

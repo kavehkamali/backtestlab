@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import {
-  BarChart3,
   User,
   LogOut,
   ChevronDown,
@@ -165,7 +164,14 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
     <header className="border-b border-white/5 overflow-visible relative z-40">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 shrink-0">
-          <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400" />
+          <img
+            src="/logo-mark.svg"
+            alt=""
+            width={24}
+            height={24}
+            className="w-5 h-5 sm:w-6 sm:h-6 shrink-0"
+            aria-hidden
+          />
           <h1 className="text-base sm:text-lg font-semibold tracking-tight text-white">Equilima</h1>
         </div>
 
