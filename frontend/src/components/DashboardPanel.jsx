@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
-import { AreaChart, Area, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { fetchMarketOverview, fetchNews } from '../api';
 
 const PERIODS = [
@@ -77,6 +77,19 @@ function Pct({ value }) {
 function fmtPrice(v) {
   if (v >= 10000) return v.toLocaleString('en-US', { maximumFractionDigits: 0 });
   return v.toFixed(2);
+}
+
+/** Minimal hero chart Y ticks (indices, VIX, large caps) */
+function formatHeroAxisY(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '';
+  const a = Math.abs(n);
+  if (a >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
+  if (a >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (a >= 1e4) return `${(n / 1e3).toFixed(1)}k`;
+  if (a >= 100) return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  if (a >= 1) return n.toFixed(n >= 10 ? 1 : 2);
+  return n.toFixed(2);
 }
 function fmtCap(v) {
   if (!v) return '—';
@@ -239,16 +252,34 @@ export default function DashboardPanel() {
                       {change != null ? `${up ? '+' : ''}${change}%` : '—'}
                     </div>
                   </div>
-                  <ResponsiveContainer width="100%" height={120}>
-                    <AreaChart data={chartData}>
+                  <ResponsiveContainer width="100%" height={132}>
+                    <AreaChart data={chartData} margin={{ top: 4, right: 2, left: 4, bottom: 4 }}>
                       <defs>
                         <linearGradient id={h.gradId} x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor={up ? '#22c55e' : '#ef4444'} stopOpacity={0.15} />
                           <stop offset="100%" stopColor={up ? '#22c55e' : '#ef4444'} stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#ffffff04" />
-                      <YAxis domain={['auto', 'auto']} hide />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#ffffff06" vertical={false} />
+                      <XAxis
+                        dataKey="i"
+                        type="number"
+                        domain={['dataMin', 'dataMax']}
+                        tickCount={4}
+                        tick={{ fontSize: 9, fill: 'rgba(148,163,184,0.65)' }}
+                        tickLine={false}
+                        axisLine={{ stroke: 'rgba(255,255,255,0.06)' }}
+                        tickFormatter={(x) => Math.round(Number(x))}
+                      />
+                      <YAxis
+                        domain={['auto', 'auto']}
+                        tickCount={4}
+                        width={40}
+                        tick={{ fontSize: 9, fill: 'rgba(148,163,184,0.65)' }}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={formatHeroAxisY}
+                      />
                       <Tooltip content={<HeroTooltip />} />
                       <Area type="monotone" dataKey="price" stroke={up ? '#22c55e' : '#ef4444'} fill={`url(#${h.gradId})`} strokeWidth={2} dot={false} />
                     </AreaChart>
