@@ -38,6 +38,8 @@ SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASS = os.environ.get("SMTP_PASS", "")
 SMTP_FROM = os.environ.get("SMTP_FROM", "noreply@equilima.com")
+SMTP_USE_SSL = os.environ.get("SMTP_USE_SSL", "").strip().lower() in {"1", "true", "yes", "on"}
+SMTP_TIMEOUT_SECS = float(os.environ.get("SMTP_TIMEOUT_SECS", "10"))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 security = HTTPBearer(auto_error=False)
@@ -100,11 +102,14 @@ init_db()
 
 # ─── Email sending ───
 def send_email(to: str, subject: str, html_body: str):
-    """Send email via SMTP. Falls back to logging if SMTP not configured."""
-    if not SMTP_HOST or not SMTP_USER:
-        print(f"[EMAIL] To: {to} | Subject: {subject}")
-        print(f"[EMAIL] Body: {html_body[:200]}")
-        return False
+    """
+    Send email via SMTP.
+
+    Returns (ok, error_message). If SMTP isn't configured, returns (False, "not_configured").
+    """
+    if not SMTP_HOST or not SMTP_USER or not SMTP_PASS:
+        print(f"[EMAIL NOT CONFIGURED] To: {to} | Subject: {subject}")
+        return False, "not_configured"
 
     try:
         msg = MIMEMultipart("alternative")
@@ -113,14 +118,22 @@ def send_email(to: str, subject: str, html_body: str):
         msg["Subject"] = subject
         msg.attach(MIMEText(html_body, "html"))
 
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASS)
-            server.sendmail(SMTP_FROM, to, msg.as_string())
-        return True
+        if SMTP_USE_SSL or SMTP_PORT == 465:
+            with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECS) as server:
+                server.ehlo()
+                server.login(SMTP_USER, SMTP_PASS)
+                server.sendmail(SMTP_FROM, to, msg.as_string())
+        else:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECS) as server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                server.login(SMTP_USER, SMTP_PASS)
+                server.sendmail(SMTP_FROM, to, msg.as_string())
+        return True, None
     except Exception as e:
-        print(f"[EMAIL ERROR] {e}")
-        return False
+        print(f"[EMAIL ERROR] to={to} subject={subject!r} err={e!r}")
+        return False, "send_failed"
 
 
 def send_verification_email(email: str, token: str):
@@ -133,7 +146,7 @@ def send_verification_email(email: str, token: str):
         <p style="color: #666; font-size: 12px; margin-top: 20px;">Or copy this link: {link}</p>
         <p style="color: #666; font-size: 12px;">This link expires in 24 hours.</p>
     </div>"""
-    send_email(email, "Verify your Equilima account", html)
+    return send_email(email, "Verify your Equilima account", html)
 
 
 def send_reset_email(email: str, token: str):
@@ -146,7 +159,7 @@ def send_reset_email(email: str, token: str):
         <p style="color: #666; font-size: 12px; margin-top: 20px;">Or copy this link: {link}</p>
         <p style="color: #666; font-size: 12px;">This link expires in 1 hour. If you didn't request this, ignore this email.</p>
     </div>"""
-    send_email(email, "Reset your Equilima password", html)
+    return send_email(email, "Reset your Equilima password", html)
 
 
 # ─── JWT ───
@@ -265,13 +278,19 @@ def signup(req: SignupRequest):
         token = create_token(user["id"], user["email"])
 
         # Send verification email
-        send_verification_email(req.email.lower(), verification_token)
+        email_sent, email_err = send_verification_email(req.email.lower(), verification_token)
 
         return {
             "token": token,
             "user": {"id": user["id"], "email": user["email"], "name": user["name"]},
-            "message": "Account created. Please check your email to verify your account.",
+            "message": (
+                "Account created. Please check your email to verify your account."
+                if email_sent
+                else "Account created, but we could not send the verification email. Please use 'Resend verification' after signing in."
+            ),
             "email_verified": False,
+            "email_sent": bool(email_sent),
+            "email_error": email_err,
         }
     except HTTPException:
         raise
@@ -342,8 +361,9 @@ def forgot_password(req: ForgotPasswordRequest):
                      (reset_token, expires, user["id"]))
         conn.commit()
 
-        send_reset_email(user["email"], reset_token)
-        return {"message": "If an account with that email exists, we've sent a password reset link."}
+        email_sent, _ = send_reset_email(user["email"], reset_token)
+        # Still avoid revealing whether email exists or not, and whether sending succeeded.
+        return {"message": "If an account with that email exists, we've sent a password reset link.", "email_sent": bool(email_sent)}
     finally:
         conn.close()
 
@@ -392,8 +412,10 @@ def resend_verification(user=Depends(get_current_user)):
         verification_token = secrets.token_urlsafe(32)
         conn.execute("UPDATE users SET verification_token = ? WHERE id = ?", (verification_token, user["id"]))
         conn.commit()
-        send_verification_email(row["email"], verification_token)
-        return {"message": "Verification email sent"}
+        email_sent, email_err = send_verification_email(row["email"], verification_token)
+        if not email_sent:
+            return {"message": "Could not send verification email. Please try again later.", "email_sent": False, "email_error": email_err}
+        return {"message": "Verification email sent", "email_sent": True}
     finally:
         conn.close()
 

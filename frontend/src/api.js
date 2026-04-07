@@ -185,7 +185,9 @@ export async function resendVerification() {
   const res = await fetch(`${BASE}/auth/resend-verification`, {
     headers: { 'Authorization': `Bearer ${token}` },
   });
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Resend failed');
+  return data;
 }
 
 export async function fetchStrategies() {

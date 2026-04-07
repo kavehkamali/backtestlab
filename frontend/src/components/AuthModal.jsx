@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, Loader2, Eye, EyeOff, Check, AlertCircle, Mail } from 'lucide-react';
-import { signup, signin, forgotPassword, resetPassword, verifyEmail } from '../api';
+import { signup, signin, forgotPassword, resetPassword, verifyEmail, resendVerification } from '../api';
 
 function Req({ met, children }) {
   return (
@@ -36,6 +36,7 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [resetToken, setResetToken] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const passwordValid = password.length >= 8;
@@ -103,7 +104,11 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
     try {
       if (mode === 'signup') {
         const data = await signup({ email, password, name, consent_policy: consentPolicy, consent_newsletter: consentNewsletter });
-        setSuccess('Account created! Check your email to verify your account.');
+        if (data.email_sent === false) {
+          setSuccess('Account created, but verification email could not be sent. You can resend after signing in.');
+        } else {
+          setSuccess('Account created! Check your email to verify your account.');
+        }
         setTimeout(() => onAuth(data.user), 1500);
       } else {
         const data = await signin({ email, password });
@@ -240,6 +245,32 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
               <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-start gap-2">
                 <Check className="w-4 h-4 shrink-0 mt-0.5" /><span>{success}</span>
               </div>
+            )}
+
+            {/* Resend verification helper */}
+            {mode === 'signin' && (
+              <button
+                type="button"
+                disabled={resendLoading}
+                onClick={async () => {
+                  setResendLoading(true);
+                  setError(null);
+                  setSuccess(null);
+                  try {
+                    await signin({ email, password });
+                    const r = await resendVerification();
+                    setSuccess(r.message || 'Verification email sent');
+                  } catch (e) {
+                    setError(e.message || 'Failed to resend verification');
+                  } finally {
+                    setResendLoading(false);
+                  }
+                }}
+                className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-50 text-gray-200 font-medium py-2.5 rounded-lg transition-colors text-sm"
+              >
+                {resendLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                Resend verification email
+              </button>
             )}
 
             {/* Submit */}
