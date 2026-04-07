@@ -29,9 +29,9 @@ const CHAT_STORAGE_KEY = 'eq_agent_chat_sessions_v1';
 
 /** Cross-links to other app tabs — minimal cards on the empty state */
 const EXPLORE_TABS = [
+  { id: 'research', label: 'Research', hint: 'Fundamentals', Icon: FileText },
   { id: 'dashboard', label: 'Dashboard', hint: 'Indices & breadth', Icon: LayoutDashboard },
   { id: 'screener', label: 'Screener', hint: 'Filter & rank', Icon: Search },
-  { id: 'research', label: 'Research', hint: 'Fundamentals', Icon: FileText },
   { id: 'terminal', label: 'Terminal', hint: 'Charts & TA', Icon: CandlestickChart },
   { id: 'backtest', label: 'Backtest', hint: 'Test strategies', Icon: Scale },
 ];
