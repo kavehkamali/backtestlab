@@ -750,8 +750,8 @@ export default function AgentPanel({ onNavigate, user, dek }) {
                       <Sparkles className="h-8 w-8 text-indigo-300" strokeWidth={1.5} />
                     </div>
                     <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white mb-3">Equilima Agent</h1>
-                    <p className="text-sm text-gray-500 max-w-xl mx-auto leading-snug">
-                      Plain-language questions — then charts, screeners, and backtests in Equilima.
+                    <p className="text-sm text-gray-500 max-w-md mx-auto leading-snug">
+                      Ask naturally, explore charts, screeners, and backtests.
                     </p>
                     <p className="text-sm font-semibold text-gray-200 max-w-xl mx-auto mt-3 leading-snug">
                       For research and education only — not investment advice. We are not financial advisors and do not offer personalized guidance.
