@@ -9,6 +9,7 @@ import Header from './components/Header';
 import AuthModal from './components/AuthModal';
 import AdminPanel from './components/AdminPanel';
 import AgentPanel from './components/AgentPanel';
+import ConsentBanner from './components/ConsentBanner';
 import { BarChart3 } from 'lucide-react';
 
 function App() {
@@ -173,6 +174,8 @@ function App() {
           onAuth={handleAuth}
         />
       )}
+
+      <ConsentBanner />
     </div>
   );
 }
