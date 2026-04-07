@@ -311,6 +311,7 @@ function Message({ msg, onNavigate }) {
 
 // ─── Streaming fetch ───
 async function streamAgent(url, body, onToken) {
+  const started = performance.now();
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -330,7 +331,7 @@ async function streamAgent(url, body, onToken) {
     onToken(revealed, data.ticker || '');
     await new Promise(r => setTimeout(r, 12));
   }
-  return data;
+  return { data, elapsedMs: Math.round(performance.now() - started) };
 }
 
 // ─── Main ───
@@ -341,6 +342,7 @@ export default function AgentPanel({ onNavigate }) {
   const [mode, setMode] = useState('quick');
   const [agentOnline, setAgentOnline] = useState(null);
   const [streamingText, setStreamingText] = useState('');
+  const [lastRun, setLastRun] = useState(null); // { mode, url, elapsedMs }
   const scrollRef = useRef(null);
   const streamTextRef = useRef('');
   const streamTickerRef = useRef('');
@@ -359,14 +361,16 @@ export default function AgentPanel({ onNavigate }) {
     setStreamingText('');
     streamTextRef.current = '';
     streamTickerRef.current = '';
+    setLastRun(null);
 
     try {
       const url = mode === 'full' ? '/api/agent/chat' : '/api/agent/quick';
-      await streamAgent(url, { message: msg }, (text, ticker) => {
+      const { data, elapsedMs } = await streamAgent(url, { message: msg, _client_mode: mode }, (text, ticker) => {
         streamTextRef.current = text;
         streamTickerRef.current = ticker;
         setStreamingText(text);
       });
+      setLastRun({ mode, url, elapsedMs });
       setMessages(prev => [...prev, { role: 'assistant', content: streamTextRef.current, ticker: streamTickerRef.current }]);
     } catch (e) {
       setMessages(prev => [...prev, { role: 'assistant', content: `**Error:** ${e.message}` }]);
@@ -415,6 +419,11 @@ export default function AgentPanel({ onNavigate }) {
             </button>
           </div>
           <span className="text-[9px] text-gray-600">{mode === 'quick' ? 'Fast response' : 'Multi-agent deep analysis'}</span>
+          {lastRun && !loading && (
+            <span className="text-[9px] text-gray-700">
+              {lastRun.mode === 'full' ? 'Full' : 'Quick'} via <span className="font-mono">{lastRun.url}</span> · {(lastRun.elapsedMs / 1000).toFixed(1)}s
+            </span>
+          )}
           {messages.length > 0 && !loading && (
             <button onClick={() => { setMessages([]); setStreamingText(''); }}
               className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
