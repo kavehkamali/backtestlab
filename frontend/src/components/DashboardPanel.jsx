@@ -12,6 +12,8 @@ const PERIODS = [
   { id: 'YTD', label: 'YTD', key: 'YTD' },
   { id: '1Y', label: '1Y', key: '1Y' },
   { id: '2Y', label: '2Y', key: '2Y' },
+  { id: '5Y', label: '5Y', key: '5Y' },
+  { id: '10Y', label: '10Y', key: '10Y' },
 ];
 
 // Map period key to approximate number of trading days to show in sparklines
@@ -24,6 +26,8 @@ const PERIOD_DAYS = {
   'YTD': 180,
   '1Y': 252,
   '2Y': 504,
+  '5Y': 1260,
+  '10Y': 2520,
 };
 
 function pickSparkline(item, periodKey) {

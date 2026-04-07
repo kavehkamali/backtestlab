@@ -710,7 +710,7 @@ def _market_overview_compute():
         cat_data = []
         for name, symbol in tickers.items():
             try:
-                df = fetch_price_cached(symbol, period="2y", interval="1d")
+                df = fetch_price_cached(symbol, period="10y", interval="1d")
                 if len(df) < 2:
                     continue
 
@@ -721,7 +721,7 @@ def _market_overview_compute():
 
                 # Period returns
                 changes = {}
-                for label, days in [("1W", 5), ("1M", 21), ("3M", 63), ("6M", 126), ("YTD", None), ("1Y", 252), ("2Y", 504)]:
+                for label, days in [("1W", 5), ("1M", 21), ("3M", 63), ("6M", 126), ("YTD", None), ("1Y", 252), ("2Y", 504), ("5Y", 1260), ("10Y", 2520)]:
                     if label == "YTD":
                         # Find first trading day of year
                         year_start = df[df.index.year == df.index[-1].year]
@@ -804,7 +804,7 @@ def _crypto_compute():
     results = []
     for name, symbol in CRYPTO_TICKERS:
         try:
-            df = fetch_price_cached(symbol, period="2y")
+            df = fetch_price_cached(symbol, period="10y")
             if len(df) < 2:
                 continue
 
@@ -822,7 +822,7 @@ def _crypto_compute():
             vol_24h = float(volume.iloc[-1]) * price if volume.iloc[-1] else None
 
             changes = {}
-            for label, days in [("1D", 1), ("1W", 7), ("1M", 30), ("3M", 90), ("6M", 180), ("YTD", None), ("1Y", 365), ("2Y", 730)]:
+            for label, days in [("1D", 1), ("1W", 7), ("1M", 30), ("3M", 90), ("6M", 180), ("YTD", None), ("1Y", 365), ("2Y", 730), ("5Y", 1825), ("10Y", 3650)]:
                 if label == "YTD":
                     year_start = df[df.index.year == df.index[-1].year]
                     if len(year_start) > 0:

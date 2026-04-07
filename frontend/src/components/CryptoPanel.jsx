@@ -12,6 +12,8 @@ const PERIODS = [
   { id: 'YTD', label: 'YTD', key: 'YTD' },
   { id: '1Y', label: '1Y', key: '1Y' },
   { id: '2Y', label: '2Y', key: '2Y' },
+  { id: '5Y', label: '5Y', key: '5Y' },
+  { id: '10Y', label: '10Y', key: '10Y' },
 ];
 
 // Calendar-day counts for daily crypto candles (24/7 markets)
@@ -24,6 +26,8 @@ const PERIOD_DAYS = {
   'YTD': 180,
   '1Y': 365,
   '2Y': 730,
+  '5Y': 1825,
+  '10Y': 3650,
 };
 
 function sliceSparkline(data, periodKey) {
