@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchStrategies, compareStrategies, getStoredUser, signout, checkInteraction, trackPageView } from './api';
 import DashboardPanel from './components/DashboardPanel';
+import CryptoPanel from './components/CryptoPanel';
 import ComparePanel from './components/ComparePanel';
 import ScreenerPanel from './components/ScreenerPanel';
 import ResearchPanel from './components/ResearchPanel';
@@ -219,8 +220,11 @@ function App() {
               }}
             />
           </div>
-          <div className={activeTab === 'dashboard' ? '' : 'hidden'}>
+          <div className={activeTab === 'markets' ? '' : 'hidden'}>
             <DashboardPanel />
+          </div>
+          <div className={activeTab === 'crypto' ? '' : 'hidden'}>
+            <CryptoPanel />
           </div>
           <div className={activeTab === 'screener' ? '' : 'hidden'}>
             <ScreenerPanel />

@@ -710,7 +710,7 @@ def _market_overview_compute():
         cat_data = []
         for name, symbol in tickers.items():
             try:
-                df = fetch_price_cached(symbol, period="1y")
+                df = fetch_price_cached(symbol, period="2y")
                 if len(df) < 2:
                     continue
 
@@ -721,7 +721,7 @@ def _market_overview_compute():
 
                 # Period returns
                 changes = {}
-                for label, days in [("1W", 5), ("1M", 21), ("3M", 63), ("6M", 126), ("YTD", None), ("1Y", 252)]:
+                for label, days in [("1W", 5), ("1M", 21), ("3M", 63), ("6M", 126), ("YTD", None), ("1Y", 252), ("2Y", 504)]:
                     if label == "YTD":
                         # Find first trading day of year
                         year_start = df[df.index.year == df.index[-1].year]
@@ -780,7 +780,7 @@ def _crypto_compute():
     results = []
     for name, symbol in CRYPTO_TICKERS:
         try:
-            df = fetch_price_cached(symbol, period="6mo")
+            df = fetch_price_cached(symbol, period="2y")
             if len(df) < 2:
                 continue
 
@@ -798,11 +798,16 @@ def _crypto_compute():
             vol_24h = float(volume.iloc[-1]) * price if volume.iloc[-1] else None
 
             changes = {}
-            for label, days in [("1h", None), ("1D", 1), ("1W", 7), ("1M", 30), ("3M", 90), ("6M", 180)]:
-                if days and len(close) > days:
+            for label, days in [("1D", 1), ("1W", 7), ("1M", 30), ("3M", 90), ("6M", 180), ("YTD", None), ("1Y", 365), ("2Y", 730)]:
+                if label == "YTD":
+                    year_start = df[df.index.year == df.index[-1].year]
+                    if len(year_start) > 0:
+                        changes["YTD"] = round((price / float(year_start["close"].iloc[0]) - 1) * 100, 2)
+                elif days and len(close) > days:
                     changes[label] = round((price / float(close.iloc[-days - 1]) - 1) * 100, 2)
 
-            spark = [round(float(v), 2) for v in close.iloc[-30:].tolist()]
+            # Full history sparkline (frontend slices by period, same as market overview)
+            spark = [round(float(v), 2) for v in close.tolist()]
 
             results.append({
                 "name": name,

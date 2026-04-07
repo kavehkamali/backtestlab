@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Loader2, TrendingUp, TrendingDown, ExternalLink, Clock } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { fetchMarketOverview, fetchCrypto, fetchNews } from '../api';
+import { useState, useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
+import { AreaChart, Area, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { fetchMarketOverview, fetchNews } from '../api';
 
 const PERIODS = [
   { id: '1D', label: '1D', key: null },
@@ -11,24 +11,25 @@ const PERIODS = [
   { id: '6M', label: '6M', key: '6M' },
   { id: 'YTD', label: 'YTD', key: 'YTD' },
   { id: '1Y', label: '1Y', key: '1Y' },
+  { id: '2Y', label: '2Y', key: '2Y' },
 ];
 
-// Map period key to approximate number of trading days to show
+// Map period key to approximate number of trading days to show in sparklines
 const PERIOD_DAYS = {
-  null: 1,    // 1D — show last 5 points
+  null: 2, // 1D — last two daily closes (distinct from 1W’s five sessions)
   '1W': 5,
   '1M': 21,
   '3M': 63,
   '6M': 126,
-  'YTD': 180, // approximate
+  'YTD': 180,
   '1Y': 252,
+  '2Y': 504,
 };
 
 function sliceSparkline(data, periodKey) {
   if (!data?.length) return data;
-  const days = PERIOD_DAYS[periodKey] || 60;
-  // For 1D, show last 5 data points
-  const n = periodKey === null ? Math.min(5, data.length) : Math.min(days, data.length);
+  const days = PERIOD_DAYS[periodKey] ?? 60;
+  const n = Math.min(days, data.length);
   return data.slice(-n);
 }
 
@@ -47,7 +48,8 @@ function Sparkline({ data, height = 32 }) {
   if (!data?.length) return null;
   const w = 200; // viewBox width, SVG scales to container
   const min = Math.min(...data), max = Math.max(...data), range = max - min || 1;
-  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${height - ((v - min) / range) * height}`).join(' ');
+  const denom = Math.max(data.length - 1, 1);
+  const pts = data.map((v, i) => `${(i / denom) * w},${height - ((v - min) / range) * height}`).join(' ');
   return <svg viewBox={`0 0 ${w} ${height}`} className="w-full" style={{ height }}><polyline fill="none" stroke={data[data.length - 1] >= data[0] ? '#22c55e' : '#ef4444'} strokeWidth="2" points={pts} /></svg>;
 }
 function Pct({ value }) {
@@ -130,19 +132,6 @@ function SectorHeatmap({ sectors, period }) {
   );
 }
 
-function CryptoRow({ coin, period }) {
-  const change = period ? (coin.changes?.[period] ?? coin.change_1d) : coin.change_1d;
-  const up = change >= 0;
-  return (
-    <div className="flex items-center gap-3 py-2 border-b border-white/[0.03] last:border-0">
-      <div className="w-16 text-xs font-bold text-white">{coin.symbol}</div>
-      <div className="flex-1 text-xs text-gray-400">{fmtPrice(coin.price)}</div>
-      <div className={`text-xs font-mono ${up ? 'text-emerald-400' : 'text-red-400'}`}>{up ? '+' : ''}{change}%</div>
-      <div className="text-[10px] text-gray-500">{fmtCap(coin.market_cap)}</div>
-    </div>
-  );
-}
-
 function Section({ title, children, right }) {
   return (
     <div>
@@ -157,42 +146,47 @@ function Section({ title, children, right }) {
 
 export default function DashboardPanel() {
   const [market, setMarket] = useState(null);
-  const [crypto, setCrypto] = useState(null);
   const [news, setNews] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState(null); // null = 1D
+  const [period, setPeriod] = useState('1Y');
 
   useEffect(() => {
-    Promise.all([
-      fetchMarketOverview().catch(() => null),
-      fetchCrypto().catch(() => null),
-      fetchNews('^GSPC,^IXIC,AAPL,MSFT,NVDA,TSLA,AMZN').catch(() => null),
-    ]).then(([m, c, n]) => {
-      setMarket(m);
-      setCrypto(c);
-      setNews(n);
-    }).finally(() => setLoading(false));
+    Promise.all([fetchMarketOverview().catch(() => null), fetchNews('^GSPC,^IXIC,AAPL,MSFT,NVDA,TSLA,AMZN').catch(() => null)]).then(
+      ([m, n]) => {
+        setMarket(m);
+        setNews(n);
+      }
+    ).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="flex items-center justify-center h-64 text-gray-500"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading dashboard...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64 text-gray-500">
+        <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading market overview...
+      </div>
+    );
+  }
 
-  const cryptoCoins = (crypto?.coins || []).slice(0, 10);
   const articles = (news?.articles || []).slice(0, 8);
 
   const activePeriodKey = PERIODS.find(p => p.key === period)?.key ?? null;
-  const activePeriodLabel = PERIODS.find(p => p.key === period)?.label ?? '1D';
+  const activePeriodLabel = PERIODS.find(p => p.key === period)?.label ?? '1Y';
 
   return (
     <div className="space-y-6">
       {/* Period Toggle */}
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-white">Market Overview</h2>
-        <div className="flex gap-0.5 bg-white/5 rounded-lg p-0.5">
-          {PERIODS.map(p => (
-            <button key={p.id} onClick={() => setPeriod(p.key)}
+        <div className="flex gap-0.5 bg-white/5 rounded-lg p-0.5 flex-wrap justify-end">
+          {PERIODS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setPeriod(p.key)}
               className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
-                activePeriodKey === p.key ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500 hover:text-gray-300'
-              }`}>
+                period === p.key ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
               {p.label}
             </button>
           ))}
@@ -263,64 +257,66 @@ export default function DashboardPanel() {
         </Section>
       )}
 
-      {/* 3-column */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Commodities + Bonds + Currencies */}
+      {/* Commodities, rates, housing + news (crypto has its own tab) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-5">
           {market?.commodities && (
             <Section title="Commodities">
               <div className="grid grid-cols-2 gap-2">
-                {market.commodities.map(item => <MarketCard key={item.symbol} item={item} period={activePeriodKey} />)}
+                {market.commodities.map((item) => (
+                  <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
+                ))}
               </div>
             </Section>
           )}
           {market?.bonds && (
             <Section title="Bonds & Yields">
               <div className="grid grid-cols-2 gap-2">
-                {market.bonds.map(item => <MarketCard key={item.symbol} item={item} period={activePeriodKey} />)}
+                {market.bonds.map((item) => (
+                  <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
+                ))}
               </div>
             </Section>
           )}
           {market?.currencies && (
             <Section title="Currencies">
               <div className="grid grid-cols-2 gap-2">
-                {market.currencies.map(item => <MarketCard key={item.symbol} item={item} period={activePeriodKey} />)}
+                {market.currencies.map((item) => (
+                  <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
+                ))}
+              </div>
+            </Section>
+          )}
+          {market?.housing && (
+            <Section title="Housing & Real Estate">
+              <div className="grid grid-cols-2 gap-2">
+                {market.housing.map((item) => (
+                  <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
+                ))}
               </div>
             </Section>
           )}
         </div>
 
-        {/* Crypto */}
-        <div>
-          <Section title="Crypto">
-            <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3">
-              {cryptoCoins.map(coin => <CryptoRow key={coin.symbol} coin={coin} period={activePeriodKey} />)}
-            </div>
-          </Section>
-          {market?.housing && (
-            <div className="mt-5">
-              <Section title="Housing & Real Estate">
-                <div className="grid grid-cols-2 gap-2">
-                  {market.housing.map(item => <MarketCard key={item.symbol} item={item} period={activePeriodKey} />)}
-                </div>
-              </Section>
-            </div>
-          )}
-        </div>
-
-        {/* News */}
         <div>
           <Section title="Market News">
             <div className="space-y-2">
               {articles.map((a, i) => (
-                <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
-                  className="block bg-white/[0.02] border border-white/5 rounded-lg p-2.5 hover:bg-white/[0.04] hover:border-white/10 transition-all group">
+                <a
+                  key={i}
+                  href={a.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block bg-white/[0.02] border border-white/5 rounded-lg p-2.5 hover:bg-white/[0.04] hover:border-white/10 transition-all group"
+                >
                   <div className="text-[11px] font-medium text-gray-200 group-hover:text-white line-clamp-2">{a.title}</div>
                   <div className="flex items-center gap-2 mt-1 text-[9px] text-gray-500">
                     {a.source && <span>{a.source}</span>}
                     <span>{timeAgo(a.date)} ago</span>
                     {a.tickers?.slice(0, 3).map((t, j) => (
-                      <span key={j} className="px-1 rounded bg-white/5 text-indigo-400 text-[8px]">{t}</span>
+                      <span key={j} className="px-1 rounded bg-white/5 text-indigo-400 text-[8px]">
+                        {t}
+                      </span>
                     ))}
                   </div>
                 </a>

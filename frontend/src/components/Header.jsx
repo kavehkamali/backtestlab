@@ -13,8 +13,9 @@ import {
 const TABS = [
   { id: 'agent', label: 'AI Agent', short: 'AI' },
   { id: 'research', label: 'Research', short: 'Research' },
-  { id: 'dashboard', label: 'Dashboard', short: 'Dash' },
   { id: 'screener', label: 'Screener', short: 'Screen' },
+  { id: 'crypto', label: 'Crypto', short: 'Crypto' },
+  { id: 'markets', label: 'Market overview', short: 'Markets' },
   { id: 'terminal', label: 'Terminal', short: 'Terminal' },
   { id: 'backtest', label: 'Backtesting', short: 'Backtest' },
 ];

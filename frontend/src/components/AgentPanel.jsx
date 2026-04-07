@@ -19,6 +19,7 @@ import {
   LayoutDashboard,
   CandlestickChart,
   Scale,
+  Coins,
 } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, YAxis, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { agentHealth, fetchTerminalChart, fetchResearch, fetchAgentHistory, putAgentHistory } from '../api';
@@ -30,8 +31,9 @@ const CHAT_STORAGE_KEY = 'eq_agent_chat_sessions_v1';
 /** Cross-links to other app tabs — minimal cards on the empty state */
 const EXPLORE_TABS = [
   { id: 'research', label: 'Research', hint: 'Fundamentals', Icon: FileText },
-  { id: 'dashboard', label: 'Dashboard', hint: 'Indices & breadth', Icon: LayoutDashboard },
+  { id: 'markets', label: 'Market overview', hint: 'Indices & breadth', Icon: LayoutDashboard },
   { id: 'screener', label: 'Screener', hint: 'Filter & rank', Icon: Search },
+  { id: 'crypto', label: 'Crypto', hint: 'Digital assets', Icon: Coins },
   { id: 'terminal', label: 'Terminal', hint: 'Charts & TA', Icon: CandlestickChart },
   { id: 'backtest', label: 'Backtest', hint: 'Test strategies', Icon: Scale },
 ];
