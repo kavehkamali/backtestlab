@@ -51,7 +51,7 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
     'w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm text-gray-200 hover:bg-white/[0.06] rounded-lg transition-colors';
 
   return (
-    <div className="relative" ref={rootRef}>
+    <div className="relative z-[200]" ref={rootRef}>
       <button
         type="button"
         id="user-menu-button"
@@ -75,7 +75,7 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
           id="user-menu"
           role="menu"
           aria-labelledby="user-menu-button"
-          className="absolute right-0 mt-1.5 w-56 py-1.5 rounded-xl bg-[#12121a] border border-white/10 shadow-xl shadow-black/40 z-[60]"
+          className="absolute right-0 top-full mt-1.5 w-56 py-1.5 rounded-xl bg-[#12121a] border border-white/10 shadow-xl shadow-black/40 z-[300]"
         >
           <div className="px-3 py-2 border-b border-white/[0.06]">
             <p className="text-[11px] text-gray-500 uppercase tracking-wide">Signed in</p>
@@ -162,7 +162,7 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
   };
 
   return (
-    <header className="border-b border-white/5 overflow-hidden">
+    <header className="border-b border-white/5 overflow-visible relative z-40">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 shrink-0">
           <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400" />
@@ -199,7 +199,7 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
           </div>
         </nav>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0 relative z-[200]">
           {user ? (
             <UserMenu user={user} setActiveTab={setActiveTab} onSignOut={onSignOut} />
           ) : (
