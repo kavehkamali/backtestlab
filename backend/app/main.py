@@ -10,6 +10,7 @@ import pandas as pd
 import math
 import json
 from dataclasses import asdict
+import time
 
 from .data_fetcher import fetch_stock_data, add_technical_indicators, fetch_multiple, DEFAULT_INDICES
 from .backtester import BacktestConfig, StrategyType, run_backtest
@@ -27,11 +28,53 @@ app.include_router(analytics_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "https://equilima.com", "http://equilima.com"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "https://equilima.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ─── Minimal in-memory rate limiting (per IP, per endpoint) ───
+_RATE_STATE: dict[tuple[str, str], list[float]] = {}
+
+
+def _rate_limit_ok(ip: str, key: str, max_requests: int, window_secs: int) -> bool:
+    now = time.time()
+    k = (ip or "", key)
+    arr = _RATE_STATE.get(k, [])
+    cutoff = now - float(window_secs)
+    arr = [t for t in arr if t >= cutoff]
+    if len(arr) >= max_requests:
+        _RATE_STATE[k] = arr
+        return False
+    arr.append(now)
+    _RATE_STATE[k] = arr
+    return True
+
+
+@app.middleware("http")
+async def _auth_rate_limit_mw(request: Request, call_next):
+    path = request.url.path or ""
+    if path.startswith("/api/auth/") or path == "/api/admin/login":
+        ip = request.client.host if request.client else ""
+        xff = request.headers.get("x-forwarded-for")
+        if xff:
+            ip = xff.split(",")[0].strip() or ip
+
+        # conservative defaults; tune as needed
+        limits = {
+            "/api/auth/signin": (30, 60),
+            "/api/auth/signup": (10, 60),
+            "/api/auth/forgot-password": (10, 60),
+            "/api/auth/resend-verification-public": (10, 60),
+            "/api/admin/login": (20, 60),
+        }
+        if path in limits:
+            mx, win = limits[path]
+            if not _rate_limit_ok(ip, path, mx, win):
+                return JSONResponse({"detail": "Too many requests. Please try again shortly."}, status_code=429)
+    return await call_next(request)
 
 
 class BacktestRequest(BaseModel):
