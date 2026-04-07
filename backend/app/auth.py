@@ -40,6 +40,7 @@ SMTP_PASS = (os.environ.get("SMTP_PASS", "") or "").replace(" ", "")
 SMTP_FROM = os.environ.get("SMTP_FROM", "noreply@equilima.com")
 SMTP_USE_SSL = os.environ.get("SMTP_USE_SSL", "").strip().lower() in {"1", "true", "yes", "on"}
 SMTP_TIMEOUT_SECS = float(os.environ.get("SMTP_TIMEOUT_SECS", "10"))
+SMTP_ALLOW_ANON = os.environ.get("SMTP_ALLOW_ANON", "").strip().lower() in {"1", "true", "yes", "on"}
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 security = HTTPBearer(auto_error=False)
@@ -107,7 +108,10 @@ def send_email(to: str, subject: str, html_body: str):
 
     Returns (ok, error_message). If SMTP isn't configured, returns (False, "not_configured").
     """
-    if not SMTP_HOST or not SMTP_USER or not SMTP_PASS:
+    if not SMTP_HOST:
+        print(f"[EMAIL NOT CONFIGURED] To: {to} | Subject: {subject}")
+        return False, "not_configured"
+    if (not SMTP_USER or not SMTP_PASS) and not SMTP_ALLOW_ANON:
         print(f"[EMAIL NOT CONFIGURED] To: {to} | Subject: {subject}")
         return False, "not_configured"
 
@@ -123,18 +127,21 @@ def send_email(to: str, subject: str, html_body: str):
         msg["Subject"] = subject
         msg.attach(MIMEText(html_body, "html"))
 
+        do_login = bool(SMTP_USER and SMTP_PASS)
         if SMTP_USE_SSL or SMTP_PORT == 465:
             with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECS) as server:
                 server.ehlo()
-                server.login(SMTP_USER, SMTP_PASS)
-                server.sendmail(SMTP_USER, to, msg.as_string())
+                if do_login:
+                    server.login(SMTP_USER, SMTP_PASS)
+                server.sendmail(SMTP_USER or SMTP_FROM, to, msg.as_string())
         else:
             with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=SMTP_TIMEOUT_SECS) as server:
                 server.ehlo()
                 server.starttls()
                 server.ehlo()
-                server.login(SMTP_USER, SMTP_PASS)
-                server.sendmail(SMTP_USER, to, msg.as_string())
+                if do_login:
+                    server.login(SMTP_USER, SMTP_PASS)
+                server.sendmail(SMTP_USER or SMTP_FROM, to, msg.as_string())
         return True, None
     except Exception as e:
         print(f"[EMAIL ERROR] to={to} subject={subject!r} err={e!r}")
