@@ -18,6 +18,7 @@ from .terminal import router as terminal_router
 from .research import router as research_router
 from .auth import router as auth_router
 from .analytics import router as analytics_router
+from .agent_history import router as agent_history_router
 from .shared_cache import get_or_compute, get_cached_or_refresh_bg, SCREENER_TTL, DASHBOARD_TTL, CRYPTO_TTL, RESEARCH_TTL, cache_stats
 
 app = FastAPI(title="Stock Backtesting Dashboard API")
@@ -25,6 +26,7 @@ app.include_router(terminal_router)
 app.include_router(research_router)
 app.include_router(auth_router)
 app.include_router(analytics_router)
+app.include_router(agent_history_router)
 
 app.add_middleware(
     CORSMiddleware,

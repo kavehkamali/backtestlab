@@ -14,7 +14,7 @@ function Section({ title, children, right }) {
   );
 }
 
-export default function AccountPanel({ onSignedOut }) {
+export default function AccountPanel({ onSignedOut, onPasswordChanged }) {
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -69,6 +69,9 @@ export default function AccountPanel({ onSignedOut }) {
     setOk(null);
     try {
       await changePassword(currentPw, newPw);
+      try {
+        await onPasswordChanged?.(currentPw, newPw);
+      } catch {}
       setOk('Password updated');
       setCurrentPw('');
       setNewPw('');

@@ -109,10 +109,11 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
         } else {
           setSuccess('Account created! Check your email to verify your account.');
         }
-        setTimeout(() => onAuth(data.user), 1500);
+        const pw = password;
+        setTimeout(() => onAuth(data.user, { password: pw, mode: 'signup' }), 1500);
       } else {
         const data = await signin({ email, password });
-        onAuth(data.user);
+        onAuth(data.user, { password, mode: 'signin' });
       }
     } catch (err) {
       setError(err.message);
