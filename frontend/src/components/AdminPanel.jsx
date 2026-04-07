@@ -87,6 +87,9 @@ export default function AdminPanel() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [days, setDays] = useState(30);
+  const [recentDays, setRecentDays] = useState(7);
+  const [recentLimit, setRecentLimit] = useState(200);
+  const [recentCityFilter, setRecentCityFilter] = useState('');
   const [ignoredDraft, setIgnoredDraft] = useState([]);
   const [newIp, setNewIp] = useState('');
   const [ipFilterSaving, setIpFilterSaving] = useState(false);
@@ -95,7 +98,11 @@ export default function AdminPanel() {
   const load = async (d) => {
     setLoading(true);
     try {
-      const stats = await fetchAdminStats(d || days);
+      const stats = await fetchAdminStats({
+        days: d || days,
+        recentDays,
+        recentLimit,
+      });
       setData(stats);
       setIgnoredDraft(Array.isArray(stats.ignored_ips) ? [...stats.ignored_ips] : []);
       setIpFilterError(null);
@@ -141,6 +148,14 @@ export default function AdminPanel() {
   if (!data) return null;
 
   const s = data.summary;
+  const recentRows = (data.recent_visitors || []).filter((v) => {
+    const q = recentCityFilter.trim().toLowerCase();
+    if (!q) return true;
+    const city = (v.city || '').toLowerCase();
+    const country = (v.country || '').toLowerCase();
+    const loc = city && country ? `${city}, ${country}` : (city || country);
+    return loc.includes(q);
+  });
 
   return (
     <div className="space-y-5">
@@ -420,7 +435,40 @@ export default function AdminPanel() {
       </Section>
 
       {/* Recent Visitors */}
-      <Section title="Recent Visitors (Live)">
+      <Section
+        title="Recent Visitors (Live)"
+        right={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <input
+              type="text"
+              value={recentCityFilter}
+              onChange={(e) => setRecentCityFilter(e.target.value)}
+              placeholder="Filter by city (e.g. richmond)"
+              className="w-44 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-[11px] focus:outline-none focus:border-indigo-500/50"
+            />
+            <select
+              value={recentDays}
+              onChange={(e) => { const v = Number(e.target.value); setRecentDays(v); load(); }}
+              className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-white text-[11px] focus:outline-none focus:border-indigo-500/50"
+              title="Show recent visitors from last N days"
+            >
+              {[1, 2, 3, 7, 14, 30, 90].map((d) => (
+                <option key={d} value={d}>{d}D</option>
+              ))}
+            </select>
+            <select
+              value={recentLimit}
+              onChange={(e) => { const v = Number(e.target.value); setRecentLimit(v); load(); }}
+              className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-white text-[11px] focus:outline-none focus:border-indigo-500/50"
+              title="Max rows to show"
+            >
+              {[50, 200, 500, 1000, 2000].map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </div>
+        }
+      >
         <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
           <table className="w-full text-[11px]">
             <thead className="sticky top-0 bg-[#0d0d14]">
@@ -434,10 +482,19 @@ export default function AdminPanel() {
               </tr>
             </thead>
             <tbody>
-              {data.recent_visitors.map((v, i) => (
+              {recentRows.map((v, i) => (
                 <tr key={i} className="border-b border-white/[0.02] hover:bg-white/[0.02]">
                   <td className="py-1.5 px-2 text-gray-400 whitespace-nowrap">{v.timestamp?.slice(5, 16)}</td>
-                  <td className="py-1.5 px-2 text-gray-500 font-mono">{v.ip}</td>
+                  <td className="py-1.5 px-2 text-gray-500 font-mono">
+                    <button
+                      type="button"
+                      onClick={() => setIgnoredDraft((p) => (p.includes(v.ip) ? p : [...p, v.ip]))}
+                      className="text-left hover:text-white"
+                      title="Click to add this IP to Ignored IPs draft"
+                    >
+                      {v.ip}
+                    </button>
+                  </td>
                   <td className="py-1.5 px-2 text-gray-300">
                     {v.city && v.country ? `${v.city}, ${v.country}` : v.country || '—'}
                   </td>
@@ -453,6 +510,9 @@ export default function AdminPanel() {
               ))}
             </tbody>
           </table>
+          {recentRows.length === 0 && (
+            <p className="text-xs text-gray-600 text-center py-4">No recent visitors match that city filter</p>
+          )}
         </div>
       </Section>
     </div>

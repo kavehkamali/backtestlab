@@ -401,12 +401,35 @@ async def admin_login(request: Request):
 
 # ─── Analytics dashboard data ───
 @router.get("/stats")
-def get_stats(response: Response, days: int = 30, _admin=Depends(verify_admin)):
+def get_stats(
+    response: Response,
+    days: int = 30,
+    recent_days: int = 7,
+    recent_limit: int = 200,
+    _admin=Depends(verify_admin),
+):
     """Full analytics dashboard data."""
     response.headers["Cache-Control"] = "no-store, private, max-age=0"
     conn = get_db()
     try:
-        since = (datetime.utcnow() - timedelta(days=int(days))).strftime("%Y-%m-%d")
+        try:
+            days_i = int(days)
+        except Exception:
+            days_i = 30
+        try:
+            recent_days_i = int(recent_days)
+        except Exception:
+            recent_days_i = 7
+        try:
+            recent_limit_i = int(recent_limit)
+        except Exception:
+            recent_limit_i = 200
+
+        days_i = max(1, min(3650, days_i))
+        recent_days_i = max(1, min(3650, recent_days_i))
+        recent_limit_i = max(10, min(5000, recent_limit_i))
+
+        since = (datetime.utcnow() - timedelta(days=days_i)).strftime("%Y-%m-%d")
         excluded = _load_excluded_ips(conn)
         host_only = [e for e in excluded if not _is_network_exclusion(str(e))]
         excluded_literals = _resolve_excluded_ip_literals(conn, host_only)
@@ -519,11 +542,16 @@ def get_stats(response: Response, days: int = 30, _admin=Depends(verify_admin)):
         today_visitors = len({r["ip"] for r in today_rows})
 
         recent_data = []
+        recent_cutoff = f"-{recent_days_i} day"
         for row in conn.execute(
             """
             SELECT ip, path, tab, country, city, user_agent, timestamp, user_id
-            FROM page_views ORDER BY timestamp DESC LIMIT 3000
+            FROM page_views
+            WHERE datetime(timestamp) >= datetime('now', ?)
+            ORDER BY timestamp DESC
+            LIMIT 20000
             """,
+            (recent_cutoff,),
         ):
             if is_excluded(row["ip"]):
                 continue
@@ -533,7 +561,7 @@ def get_stats(response: Response, days: int = 30, _admin=Depends(verify_admin)):
                 "timestamp": row["timestamp"], "user_id": row["user_id"],
                 "device": "Mobile" if any(m in (row["user_agent"] or "").lower() for m in ["mobile", "iphone", "android"]) else "Desktop",
             })
-            if len(recent_data) >= 50:
+            if len(recent_data) >= recent_limit_i:
                 break
 
         # Registered users
@@ -554,7 +582,9 @@ def get_stats(response: Response, days: int = 30, _admin=Depends(verify_admin)):
         )
 
         return {
-            "period_days": days,
+            "period_days": days_i,
+            "recent_days": recent_days_i,
+            "recent_limit": recent_limit_i,
             "ignored_ips": excluded,
             "ignored_canonical": ignored_canonical,
             "summary": {

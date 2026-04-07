@@ -76,9 +76,20 @@ export async function adminLogin(username, password) {
   return data;
 }
 
-export async function fetchAdminStats(days = 30) {
+export async function fetchAdminStats(daysOrOpts = 30) {
   const token = localStorage.getItem('eq_admin_token');
-  const res = await fetch(`${BASE}/admin/stats?days=${days}&_=${Date.now()}`, {
+  const opts = (typeof daysOrOpts === 'object' && daysOrOpts) ? daysOrOpts : { days: daysOrOpts };
+  const days = opts.days ?? 30;
+  const recentDays = opts.recentDays ?? opts.recent_days;
+  const recentLimit = opts.recentLimit ?? opts.recent_limit;
+
+  const qp = new URLSearchParams();
+  qp.set('days', String(days));
+  if (recentDays != null) qp.set('recent_days', String(recentDays));
+  if (recentLimit != null) qp.set('recent_limit', String(recentLimit));
+  qp.set('_', String(Date.now()));
+
+  const res = await fetch(`${BASE}/admin/stats?${qp.toString()}`, {
     cache: 'no-store',
     headers: { 'Authorization': `Bearer ${token}` },
   });
