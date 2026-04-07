@@ -41,8 +41,8 @@ def _is_fresh(path: Path, ttl: int) -> bool:
     return age < ttl
 
 
-def get_cached_prices(symbol: str, period: str = "2y") -> pd.DataFrame:
-    path = _cache_path(PRICE_CACHE_DIR, f"{symbol}_{period}")
+def get_cached_prices(symbol: str, period: str = "2y", interval: str = "1d") -> pd.DataFrame:
+    path = _cache_path(PRICE_CACHE_DIR, f"{symbol}_{period}_{interval}")
     if _is_fresh(path, PRICE_TTL):
         try:
             return pickle.loads(path.read_bytes())
@@ -51,8 +51,8 @@ def get_cached_prices(symbol: str, period: str = "2y") -> pd.DataFrame:
     return None
 
 
-def set_cached_prices(symbol: str, df: pd.DataFrame, period: str = "2y"):
-    path = _cache_path(PRICE_CACHE_DIR, f"{symbol}_{period}")
+def set_cached_prices(symbol: str, df: pd.DataFrame, period: str = "2y", interval: str = "1d"):
+    path = _cache_path(PRICE_CACHE_DIR, f"{symbol}_{period}_{interval}")
     path.write_bytes(pickle.dumps(df))
 
 
@@ -71,20 +71,20 @@ def set_cached_fundamentals(symbol: str, data: dict):
     path.write_bytes(pickle.dumps(data))
 
 
-def fetch_price_cached(symbol: str, period: str = "2y") -> pd.DataFrame:
+def fetch_price_cached(symbol: str, period: str = "2y", interval: str = "1d") -> pd.DataFrame:
     """Fetch price data with cache."""
-    cached = get_cached_prices(symbol, period)
+    cached = get_cached_prices(symbol, period, interval)
     if cached is not None:
         return cached
 
     ticker = yf.Ticker(symbol)
-    df = ticker.history(period=period)
+    df = ticker.history(period=period, interval=interval)
     if df.empty:
         raise ValueError(f"No data for {symbol}")
     df.index = df.index.tz_localize(None)
     df = df[["Open", "High", "Low", "Close", "Volume"]]
     df.columns = ["open", "high", "low", "close", "volume"]
-    set_cached_prices(symbol, df, period)
+    set_cached_prices(symbol, df, period, interval)
     return df
 
 
@@ -131,7 +131,7 @@ def fetch_fundamentals_cached(symbol: str) -> dict:
         return {"name": symbol, "sector": "", "industry": ""}
 
 
-def batch_fetch_prices(symbols: list, period: str = "2y") -> dict:
+def batch_fetch_prices(symbols: list, period: str = "2y", interval: str = "1d") -> dict:
     """
     Batch fetch prices. Uses yf.download for uncached symbols (much faster).
     """
@@ -140,7 +140,7 @@ def batch_fetch_prices(symbols: list, period: str = "2y") -> dict:
 
     # Check cache first
     for s in symbols:
-        cached = get_cached_prices(s, period)
+        cached = get_cached_prices(s, period, interval)
         if cached is not None:
             result[s] = cached
         else:
@@ -152,15 +152,15 @@ def batch_fetch_prices(symbols: list, period: str = "2y") -> dict:
     # Batch download uncached
     try:
         if len(uncached) == 1:
-            df = yf.download(uncached[0], period=period, progress=False, threads=True)
+            df = yf.download(uncached[0], period=period, interval=interval, progress=False, threads=True)
             if not df.empty:
                 df.index = df.index.tz_localize(None)
                 df = df[["Open", "High", "Low", "Close", "Volume"]]
                 df.columns = ["open", "high", "low", "close", "volume"]
                 result[uncached[0]] = df
-                set_cached_prices(uncached[0], df, period)
+                set_cached_prices(uncached[0], df, period, interval)
         else:
-            data = yf.download(uncached, period=period, group_by="ticker", progress=False, threads=True)
+            data = yf.download(uncached, period=period, interval=interval, group_by="ticker", progress=False, threads=True)
             if data.empty:
                 return result
             for s in uncached:
@@ -171,14 +171,14 @@ def batch_fetch_prices(symbols: list, period: str = "2y") -> dict:
                         df.index = df.index.tz_localize(None)
                         if len(df) > 0:
                             result[s] = df
-                            set_cached_prices(s, df, period)
+                            set_cached_prices(s, df, period, interval)
                 except Exception:
                     continue
     except Exception:
         # Fallback to individual downloads
         for s in uncached:
             try:
-                result[s] = fetch_price_cached(s, period)
+                result[s] = fetch_price_cached(s, period, interval)
             except Exception:
                 continue
 

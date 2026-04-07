@@ -710,7 +710,7 @@ def _market_overview_compute():
         cat_data = []
         for name, symbol in tickers.items():
             try:
-                df = fetch_price_cached(symbol, period="2y")
+                df = fetch_price_cached(symbol, period="2y", interval="1d")
                 if len(df) < 2:
                     continue
 
@@ -730,8 +730,30 @@ def _market_overview_compute():
                     elif len(close) > days:
                         changes[label] = round((price / float(close.iloc[-days - 1]) - 1) * 100, 2)
 
-                # Full 1Y sparkline (frontend slices by period)
+                # Daily sparkline (frontend slices by period)
                 spark = [round(float(v), 2) for v in close.tolist()]
+
+                # 1D intraday sparkline (15m closes)
+                spark_1d = None
+                try:
+                    intraday = fetch_price_cached(symbol, period="1d", interval="15m")
+                    if len(intraday) > 1:
+                        spark_1d = [round(float(v), 2) for v in intraday["close"].tolist()]
+                except Exception:
+                    spark_1d = None
+
+                # 1W open+close per day (alternating points: open, close, ...)
+                spark_1w = None
+                try:
+                    tail = df.tail(5)
+                    if len(tail) > 0:
+                        oc = []
+                        for _, row in tail.iterrows():
+                            oc.append(round(float(row["open"]), 2))
+                            oc.append(round(float(row["close"]), 2))
+                        spark_1w = oc
+                except Exception:
+                    spark_1w = None
 
                 cat_data.append({
                     "name": name,
@@ -740,6 +762,8 @@ def _market_overview_compute():
                     "change_1d": round(change_1d, 2),
                     "changes": changes,
                     "sparkline": spark,
+                    "sparkline_1d": spark_1d,
+                    "sparkline_1w": spark_1w,
                 })
             except Exception:
                 continue

@@ -26,8 +26,21 @@ const PERIOD_DAYS = {
   '2Y': 504,
 };
 
+function pickSparkline(item, periodKey) {
+  if (!item) return null;
+  // 1D: use intraday (15m) closes if available
+  if (periodKey === null) return item.sparkline_1d?.length ? item.sparkline_1d : item.sparkline;
+  // 1W: use open+close per day if available
+  if (periodKey === '1W') return item.sparkline_1w?.length ? item.sparkline_1w : item.sparkline;
+  return item.sparkline;
+}
+
 function sliceSparkline(data, periodKey) {
   if (!data?.length) return data;
+  // For 1W open/close series, we already have exactly what we want (5 days * 2 points)
+  if (periodKey === '1W') return data;
+  // For 1D intraday series, show the full session we received
+  if (periodKey === null) return data;
   const days = PERIOD_DAYS[periodKey] ?? 60;
   const n = Math.min(days, data.length);
   return data.slice(-n);
@@ -84,6 +97,8 @@ function getChange(item, period) {
 function MarketCard({ item, period }) {
   const change = getChange(item, period);
   const up = change != null && change >= 0;
+  const rawSpark = pickSparkline(item, period);
+  const sparkData = sliceSparkline(rawSpark, period);
   return (
     <div className="bg-white/[0.03] border border-white/5 rounded-xl p-3 hover:border-white/10 transition-all overflow-hidden min-w-0">
       <div className="flex items-start justify-between mb-1.5">
@@ -93,7 +108,7 @@ function MarketCard({ item, period }) {
         </div>
       </div>
       <div className={`text-sm font-bold ${change == null ? 'text-gray-400' : up ? 'text-emerald-400' : 'text-red-400'}`}>{fmtPrice(item.price)}</div>
-      <div className="mt-1.5"><Sparkline data={sliceSparkline(item.sparkline, period)} height={28} /></div>
+      <div className="mt-1.5"><Sparkline data={sparkData} height={28} /></div>
       {/* Show other periods as context */}
       <div className="flex gap-2 mt-1.5 flex-wrap">
         {PERIODS.filter(p => p.id !== '1D' && p.key !== period).slice(0, 3).map(p => {
@@ -205,7 +220,7 @@ export default function DashboardPanel() {
             {heroItems.map(h => {
               const item = market.indices.find(i => i.symbol === h.symbol);
               if (!item) return null;
-              const spark = sliceSparkline(item.sparkline, activePeriodKey);
+              const spark = sliceSparkline(pickSparkline(item, activePeriodKey), activePeriodKey);
               const chartData = spark.map((v, i) => ({ i, price: v }));
               const change = getChange(item, activePeriodKey);
               const up = change != null && change >= 0;
