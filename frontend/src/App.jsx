@@ -173,18 +173,45 @@ function App() {
       {isTerminal && <TerminalPanel />}
 
       {!isTerminal && (
-        <main className="max-w-7xl mx-auto px-3 sm:px-6 pb-8 sm:pb-12 mt-2 sm:mt-4">
+        <main
+          className={
+            activeTab === 'agent'
+              ? 'w-full max-w-none px-0 pb-0 mt-2 sm:mt-4 min-h-0'
+              : 'max-w-7xl mx-auto px-3 sm:px-6 pb-8 sm:pb-12 mt-2 sm:mt-4'
+          }
+        >
           {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+            <div
+              className={
+                activeTab === 'agent'
+                  ? 'max-w-7xl mx-auto px-3 sm:px-6 mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm'
+                  : 'mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm'
+              }
+            >
               {error}
             </div>
           )}
-          {/* Keep panels mounted so their internal state persists when switching tabs */} 
-          <div className={activeTab === 'agent' ? '' : 'hidden'}>
-            <AgentPanel onNavigate={(tab, ticker) => {
-              setActiveTab(tab);
-              if (ticker) window.__equilima_nav_ticker = ticker;
-            }} user={user} dek={agentDek} onRequireUnlock={() => { setAuthMode('signin'); setAuthMessage('Sign in again to unlock encrypted chat history'); setShowAuth(true); }} />
+          {/* Agent: full-width ChatGPT-style shell; other tabs stay in max-w-7xl */}
+          <div
+            className={
+              activeTab === 'agent'
+                ? 'block w-full h-[calc(100vh-52px)] sm:h-[calc(100vh-60px)] min-h-0'
+                : 'hidden'
+            }
+          >
+            <AgentPanel
+              onNavigate={(tab, ticker) => {
+                setActiveTab(tab);
+                if (ticker) window.__equilima_nav_ticker = ticker;
+              }}
+              user={user}
+              dek={agentDek}
+              onRequireUnlock={() => {
+                setAuthMode('signin');
+                setAuthMessage('Sign in again to unlock encrypted chat history');
+                setShowAuth(true);
+              }}
+            />
           </div>
           <div className={activeTab === 'dashboard' ? '' : 'hidden'}>
             <DashboardPanel />
