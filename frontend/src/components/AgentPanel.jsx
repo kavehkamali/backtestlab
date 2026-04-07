@@ -740,7 +740,7 @@ export default function AgentPanel({ onNavigate, user, dek }) {
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             {!hasThread && (
               <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 sm:py-10 min-h-0 overflow-y-auto">
-                <div className="relative w-full max-w-3xl mx-auto text-center">
+                <div className="relative w-full max-w-3xl lg:max-w-6xl mx-auto text-center">
                   <div
                     aria-hidden
                     className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-8 w-[min(100%,28rem)] h-40 bg-[radial-gradient(ellipse_80%_70%_at_50%_0%,rgba(99,102,241,0.14),transparent)]"
@@ -758,13 +758,13 @@ export default function AgentPanel({ onNavigate, user, dek }) {
                     </p>
 
                     <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-gray-600 mb-3 mt-10">Explore Equilima</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-8 text-left">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-8 text-left">
                       {EXPLORE_TABS.map(({ id, label, hint, Icon }) => (
                         <button
                           key={id}
                           type="button"
                           onClick={() => onNavigate?.(id)}
-                          className="group rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2.5 transition hover:border-indigo-500/30 hover:bg-indigo-500/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+                          className="group min-w-0 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2.5 lg:px-2.5 lg:py-2 transition hover:border-indigo-500/30 hover:bg-indigo-500/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
                         >
                           <Icon className="h-4 w-4 text-indigo-400/90 mb-1.5 opacity-90 group-hover:opacity-100" strokeWidth={1.75} />
                           <div className="text-[11px] font-medium text-white leading-snug">{label}</div>
