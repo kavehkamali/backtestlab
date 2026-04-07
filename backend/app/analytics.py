@@ -6,6 +6,7 @@ Stores in SQLite. Admin-only access.
 
 import sqlite3
 import json
+import html as html_module
 import os
 import re
 import ipaddress
@@ -70,6 +71,18 @@ def init_analytics_db():
 
         CREATE TABLE IF NOT EXISTS analytics_excluded_ips (
             ip TEXT PRIMARY KEY
+        );
+
+        CREATE TABLE IF NOT EXISTS newsletter_send_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sent_at TEXT DEFAULT (datetime('now')),
+            kind TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            audience TEXT NOT NULL,
+            recipient_count INTEGER NOT NULL,
+            ok_count INTEGER NOT NULL,
+            fail_count INTEGER NOT NULL,
+            failed_emails TEXT
         );
     """)
     conn.commit()
@@ -720,5 +733,195 @@ def admin_delete_user(user_id: int, _admin=Depends(verify_admin)):
         conn.execute("DELETE FROM users WHERE id = ?", (int(user_id),))
         conn.commit()
         return {"ok": True}
+    finally:
+        conn.close()
+
+
+# ─── Admin: newsletter / broadcast email ───
+_ALLOWED_AUDIENCES = frozenset({"newsletter_subscribers", "all_active", "selected"})
+_ALLOWED_KINDS = frozenset({"newsletter", "welcome", "other"})
+
+
+def _personalize_html(html_body: str, name: str, email: str) -> str:
+    safe_name = html_module.escape(name or "")
+    safe_email = html_module.escape(email or "")
+    parts = (name or "").strip().split()
+    first = parts[0] if parts else ""
+    safe_first = html_module.escape(first)
+    s = html_body
+    for a, b in (
+        ("{{name}}", safe_name),
+        ("{{email}}", safe_email),
+        ("{{first_name}}", safe_first),
+        ("{name}", safe_name),
+        ("{email}", safe_email),
+        ("{first_name}", safe_first),
+    ):
+        s = s.replace(a, b)
+    return s
+
+
+def _list_recipients(conn: sqlite3.Connection, audience: str, user_ids: list[int] | None) -> list[dict]:
+    base = """
+        SELECT id, email, name FROM users
+        WHERE is_admin = 0 AND is_active = 1 AND email_verified = 1
+    """
+    if audience == "newsletter_subscribers":
+        rows = conn.execute(base + " AND consent_newsletter = 1 ORDER BY id").fetchall()
+    elif audience == "all_active":
+        rows = conn.execute(base + " ORDER BY id").fetchall()
+    elif audience == "selected":
+        if not user_ids:
+            raise HTTPException(status_code=400, detail="user_ids required for selected audience")
+        placeholders = ",".join("?" * len(user_ids))
+        rows = conn.execute(
+            base + f" AND id IN ({placeholders}) ORDER BY id",
+            tuple(int(x) for x in user_ids),
+        ).fetchall()
+    else:
+        raise HTTPException(status_code=400, detail="invalid audience")
+    seen: set[str] = set()
+    out: list[dict] = []
+    for r in rows:
+        em = (r["email"] or "").strip().lower()
+        if not em or em in seen:
+            continue
+        seen.add(em)
+        out.append({"id": r["id"], "email": r["email"], "name": (r["name"] or "")})
+    return out
+
+
+@router.post("/newsletter/preview")
+async def admin_newsletter_preview(request: Request, _admin=Depends(verify_admin)):
+    body = await request.json()
+    audience = (body.get("audience") or "newsletter_subscribers").strip()
+    if audience not in _ALLOWED_AUDIENCES:
+        raise HTTPException(status_code=400, detail="invalid audience")
+    raw_ids = body.get("user_ids")
+    user_ids = None
+    if raw_ids is not None:
+        user_ids = [int(x) for x in raw_ids] if isinstance(raw_ids, list) else []
+    conn = get_db()
+    try:
+        recipients = _list_recipients(conn, audience, user_ids)
+        sample = recipients[:50]
+        return {"count": len(recipients), "sample": sample}
+    finally:
+        conn.close()
+
+
+@router.post("/newsletter/send")
+async def admin_newsletter_send(request: Request, _admin=Depends(verify_admin)):
+    from .auth import send_email
+
+    body = await request.json()
+    kind = (body.get("kind") or "other").strip()
+    if kind not in _ALLOWED_KINDS:
+        raise HTTPException(status_code=400, detail="invalid kind")
+    subject = (body.get("subject") or "").strip()
+    html_body = body.get("html_body") or ""
+    if not subject:
+        raise HTTPException(status_code=400, detail="subject required")
+    if not (html_body and str(html_body).strip()):
+        raise HTTPException(status_code=400, detail="html_body required")
+    audience = (body.get("audience") or "newsletter_subscribers").strip()
+    if audience not in _ALLOWED_AUDIENCES:
+        raise HTTPException(status_code=400, detail="invalid audience")
+    raw_ids = body.get("user_ids")
+    user_ids = None
+    if raw_ids is not None:
+        user_ids = [int(x) for x in raw_ids] if isinstance(raw_ids, list) else []
+
+    conn = get_db()
+    try:
+        recipients = _list_recipients(conn, audience, user_ids)
+    finally:
+        conn.close()
+
+    if not recipients:
+        raise HTTPException(status_code=400, detail="No recipients match the current filters")
+
+    failures: list[dict] = []
+    ok_count = 0
+    for r in recipients:
+        personalized = _personalize_html(str(html_body), r["name"], r["email"])
+        ok, err = send_email(r["email"], subject, personalized)
+        if ok:
+            ok_count += 1
+        else:
+            failures.append({"email": r["email"], "error": err or "send_failed"})
+
+    fail_count = len(failures)
+    failed_json = json.dumps(failures) if failures else None
+
+    conn = get_db()
+    try:
+        cur = conn.execute(
+            """
+            INSERT INTO newsletter_send_log
+            (kind, subject, audience, recipient_count, ok_count, fail_count, failed_emails)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                kind,
+                subject,
+                audience,
+                len(recipients),
+                ok_count,
+                fail_count,
+                failed_json,
+            ),
+        )
+        conn.commit()
+        log_id = cur.lastrowid
+    finally:
+        conn.close()
+
+    return {
+        "log_id": log_id,
+        "recipient_count": len(recipients),
+        "ok_count": ok_count,
+        "fail_count": fail_count,
+        "failures": failures,
+        "verified": fail_count == 0,
+    }
+
+
+@router.get("/newsletter/history")
+def admin_newsletter_history(limit: int = 30, _admin=Depends(verify_admin)):
+    lim = max(1, min(100, int(limit)))
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            """
+            SELECT id, sent_at, kind, subject, audience, recipient_count, ok_count, fail_count, failed_emails
+            FROM newsletter_send_log
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (lim,),
+        ).fetchall()
+        out = []
+        for r in rows:
+            failed = []
+            if r["failed_emails"]:
+                try:
+                    failed = json.loads(r["failed_emails"])
+                except Exception:
+                    failed = []
+            out.append(
+                {
+                    "id": r["id"],
+                    "sent_at": r["sent_at"],
+                    "kind": r["kind"],
+                    "subject": r["subject"],
+                    "audience": r["audience"],
+                    "recipient_count": r["recipient_count"],
+                    "ok_count": r["ok_count"],
+                    "fail_count": r["fail_count"],
+                    "failures": failed,
+                }
+            )
+        return {"sends": out}
     finally:
         conn.close()

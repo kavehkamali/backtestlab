@@ -206,6 +206,55 @@ export async function deleteAdminUser(userId) {
   return data;
 }
 
+export async function previewAdminNewsletter({ audience, user_ids }) {
+  const token = localStorage.getItem('eq_admin_token');
+  const res = await fetch(`${BASE}/admin/newsletter/preview`, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audience, user_ids: user_ids ?? undefined }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(typeof data.detail === 'string' ? data.detail : 'Preview failed');
+  }
+  return data;
+}
+
+export async function sendAdminNewsletter({ kind, subject, html_body, audience, user_ids }) {
+  const token = localStorage.getItem('eq_admin_token');
+  const res = await fetch(`${BASE}/admin/newsletter/send`, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind, subject, html_body, audience, user_ids: user_ids ?? undefined }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(typeof data.detail === 'string' ? data.detail : 'Send failed');
+  }
+  return data;
+}
+
+export async function fetchAdminNewsletterHistory(limit = 30) {
+  const token = localStorage.getItem('eq_admin_token');
+  const qp = new URLSearchParams();
+  qp.set('limit', String(limit));
+  qp.set('_', String(Date.now()));
+  const res = await fetch(`${BASE}/admin/newsletter/history?${qp.toString()}`, {
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(data.detail || 'Failed to load send history');
+  }
+  return data;
+}
+
 // ─── AI Agent ───
 export async function agentChat(message, ticker = '') {
   const res = await fetch(`${BASE}/agent/chat`, {

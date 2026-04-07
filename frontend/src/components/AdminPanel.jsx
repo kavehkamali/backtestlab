@@ -1,9 +1,41 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Users, Eye, Globe, Monitor, Smartphone, Clock, LogOut, RefreshCw, Mail, CheckCircle, XCircle, Filter, Plus, X } from 'lucide-react';
+import { Loader2, Users, Eye, Globe, Monitor, Smartphone, Clock, LogOut, RefreshCw, Mail, CheckCircle, XCircle, Filter, Plus, X, Copy, Send } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { adminLogin, fetchAdminStats, saveAdminExcludedIps, fetchAdminUsers, updateAdminUser, deleteAdminUser } from '../api';
+import { adminLogin, fetchAdminStats, saveAdminExcludedIps, fetchAdminUsers, updateAdminUser, deleteAdminUser, previewAdminNewsletter, sendAdminNewsletter, fetchAdminNewsletterHistory } from '../api';
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
+
+const LLM_INSTRUCTIONS = {
+  newsletter: `You are helping draft an HTML email for Equilima (a product for investors).
+
+Write a single cohesive HTML fragment for the email body (no full <html> document required; use simple tags like <p>, <h2>, <ul>, <a href="...">). Tone: professional, concise, trustworthy.
+
+Include:
+- A short subject line suggestion on the first line as: Subject: ...
+- Then the HTML body only.
+
+Use these placeholders where personalization is needed (the server will replace them): {{name}}, {{email}}, {{first_name}}
+
+Topics to cover this send (fill in by the admin elsewhere): product updates, market insight, or community news.`,
+  welcome: `You are helping draft a welcome HTML email for a new Equilima user.
+
+Write a single cohesive HTML fragment for the email body (no full <html> document required). Tone: warm, clear, onboarding-focused.
+
+Include:
+- Subject line on the first line as: Subject: ...
+- Then the HTML body with a welcome message, what they can do next, and support contact if relevant.
+
+Placeholders for the server: {{name}}, {{email}}, {{first_name}}`,
+  other: `You are drafting a one-off HTML email from the Equilima team.
+
+Write:
+- Subject line on the first line as: Subject: ...
+- Then the HTML body (fragment with <p>, <h2>, <ul>, links as needed).
+
+Placeholders: {{name}}, {{email}}, {{first_name}}
+
+Follow the admin's intent (announcement, reminder, survey, etc.) in a professional tone.`,
+};
 
 function StatCard({ label, value, sub, icon: Icon, color = 'text-indigo-400' }) {
   return (
@@ -101,11 +133,25 @@ export default function AdminPanel() {
   const [newIp, setNewIp] = useState('');
   const [ipFilterSaving, setIpFilterSaving] = useState(false);
   const [ipFilterError, setIpFilterError] = useState(null);
-  const [adminTab, setAdminTab] = useState('analytics'); // analytics | users
+  const [adminTab, setAdminTab] = useState('analytics'); // analytics | users | email
   const [usersQ, setUsersQ] = useState('');
   const [usersData, setUsersData] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState(null);
+
+  const [mailKind, setMailKind] = useState('newsletter'); // newsletter | welcome | other
+  const [mailAudience, setMailAudience] = useState('newsletter_subscribers');
+  const [mailSelectedIds, setMailSelectedIds] = useState(() => new Set());
+  const [mailSubject, setMailSubject] = useState('');
+  const [mailHtml, setMailHtml] = useState('');
+  const [mailPreviewCount, setMailPreviewCount] = useState(null);
+  const [mailPreviewLoading, setMailPreviewLoading] = useState(false);
+  const [mailSendLoading, setMailSendLoading] = useState(false);
+  const [mailSendError, setMailSendError] = useState(null);
+  const [mailSendResult, setMailSendResult] = useState(null);
+  const [mailHistory, setMailHistory] = useState([]);
+  const [mailHistoryLoading, setMailHistoryLoading] = useState(false);
+  const [mailCopyHint, setMailCopyHint] = useState(null);
 
   const load = async (d) => {
     setLoading(true);
@@ -145,6 +191,92 @@ export default function AdminPanel() {
     }
   };
 
+  const loadNewsletterHistory = async () => {
+    setMailHistoryLoading(true);
+    try {
+      const d = await fetchAdminNewsletterHistory(40);
+      setMailHistory(d.sends || []);
+    } catch (e) {
+      if (e.message === 'Session expired') setAuthed(false);
+    } finally {
+      setMailHistoryLoading(false);
+    }
+  };
+
+  const runMailPreview = async () => {
+    setMailPreviewLoading(true);
+    setMailSendError(null);
+    try {
+      const ids = mailAudience === 'selected' ? [...mailSelectedIds] : undefined;
+      const d = await previewAdminNewsletter({ audience: mailAudience, user_ids: ids });
+      setMailPreviewCount(d.count);
+    } catch (e) {
+      setMailPreviewCount(null);
+      setMailSendError(e.message || 'Preview failed');
+    } finally {
+      setMailPreviewLoading(false);
+    }
+  };
+
+  const copyLlmInstruction = async () => {
+    try {
+      await navigator.clipboard.writeText(LLM_INSTRUCTIONS[mailKind]);
+      setMailCopyHint('Copied to clipboard');
+      setTimeout(() => setMailCopyHint(null), 2500);
+    } catch {
+      setMailCopyHint('Could not copy');
+      setTimeout(() => setMailCopyHint(null), 2500);
+    }
+  };
+
+  const handleSendMail = async () => {
+    setMailSendError(null);
+    setMailSendResult(null);
+    let count = mailPreviewCount;
+    if (count == null) {
+      try {
+        const ids = mailAudience === 'selected' ? [...mailSelectedIds] : undefined;
+        const d = await previewAdminNewsletter({ audience: mailAudience, user_ids: ids });
+        count = d.count;
+        setMailPreviewCount(count);
+      } catch (e) {
+        setMailSendError(e.message || 'Could not resolve recipients');
+        return;
+      }
+    }
+    if (!count) {
+      setMailSendError('No recipients match the current filters.');
+      return;
+    }
+    if (!mailSubject.trim()) {
+      setMailSendError('Add a subject line.');
+      return;
+    }
+    if (!mailHtml.trim()) {
+      setMailSendError('Add HTML body content.');
+      return;
+    }
+    if (!window.confirm(`Send this email to ${count} recipient(s)?`)) return;
+    setMailSendLoading(true);
+    try {
+      const ids = mailAudience === 'selected' ? [...mailSelectedIds] : undefined;
+      const res = await sendAdminNewsletter({
+        kind: mailKind,
+        subject: mailSubject.trim(),
+        html_body: mailHtml,
+        audience: mailAudience,
+        user_ids: ids,
+      });
+      setMailSendResult(res);
+      await loadNewsletterHistory();
+    } catch (e) {
+      if (e.message === 'Session expired') setAuthed(false);
+      else setMailSendError(e.message || 'Send failed');
+    } finally {
+      setMailSendLoading(false);
+    }
+  };
+
   const addIgnoredIp = () => {
     const v = newIp.trim();
     if (!v) return;
@@ -173,6 +305,8 @@ export default function AdminPanel() {
   if (loading && !data) return <div className="flex items-center justify-center h-64 text-gray-500"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading analytics...</div>;
   if (!data) return null;
 
+  const mailEligible = (usersData || []).filter((u) => u.active && u.email_verified && !u.is_admin);
+
   const s = data.summary;
   const recentRows = (data.recent_visitors || []).filter((v) => {
     const q = recentCityFilter.trim().toLowerCase();
@@ -190,12 +324,14 @@ export default function AdminPanel() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold text-white">
-              {adminTab === 'analytics' ? 'Analytics' : 'User management'}
+              {adminTab === 'analytics' ? 'Analytics' : adminTab === 'users' ? 'User management' : 'Email & newsletters'}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
               {adminTab === 'analytics'
                 ? 'Visitor tracking and insights'
-                : 'Search accounts, verify email, enable or disable users'}
+                : adminTab === 'users'
+                  ? 'Search accounts, verify email, enable or disable users'
+                  : 'Draft with ChatGPT using the instructions below, choose recipients, send and verify delivery'}
             </p>
           </div>
           <button
@@ -208,15 +344,17 @@ export default function AdminPanel() {
           </button>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col gap-3 min-w-0">
+          {/* Own row so Analytics range controls never squeeze the tab strip (third tab was clipping on narrow viewports with overflow-x-hidden). */}
           <div
-            className="flex gap-0.5 bg-white/5 rounded-lg p-0.5 w-fit"
+            className="flex flex-wrap gap-0.5 bg-white/5 rounded-lg p-0.5 w-full sm:w-fit max-w-full"
             role="tablist"
             aria-label="Admin section"
           >
             {[
               { id: 'analytics', label: 'Analytics' },
               { id: 'users', label: 'Users' },
+              { id: 'email', label: 'Newsletters' },
             ].map((t) => (
               <button
                 key={t.id}
@@ -226,8 +364,12 @@ export default function AdminPanel() {
                 onClick={() => {
                   setAdminTab(t.id);
                   if (t.id === 'users') loadUsers();
+                  if (t.id === 'email') {
+                    loadUsers();
+                    loadNewsletterHistory();
+                  }
                 }}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium min-w-[5.5rem] ${
+                className={`px-3 py-1.5 rounded-md text-xs font-medium min-w-[5.5rem] flex-1 sm:flex-none text-center ${
                   adminTab === t.id ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500 hover:text-gray-300'
                 }`}
               >
@@ -238,7 +380,7 @@ export default function AdminPanel() {
 
           {adminTab === 'analytics' && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] text-gray-600 uppercase tracking-wide hidden sm:inline">Range</span>
+              <span className="text-[10px] text-gray-600 uppercase tracking-wide">Range</span>
               <div className="flex gap-0.5 bg-white/5 rounded-lg p-0.5">
                 {[7, 14, 30, 90].map((d) => (
                   <button
@@ -337,6 +479,259 @@ export default function AdminPanel() {
             {!usersLoading && (!usersData || usersData.length === 0) && <p className="text-xs text-gray-600 text-center py-4">No users found</p>}
           </div>
         </Section>
+      )}
+
+      {adminTab === 'email' && (
+        <div className="space-y-4">
+          <Section title="Message type" right={<Mail className="w-3.5 h-3.5 text-gray-500" />}>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {[
+                { id: 'newsletter', label: 'Newsletter' },
+                { id: 'welcome', label: 'Welcome' },
+                { id: 'other', label: 'Other' },
+              ].map((k) => (
+                <button
+                  key={k.id}
+                  type="button"
+                  onClick={() => setMailKind(k.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${
+                    mailKind === k.id
+                      ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300'
+                      : 'bg-white/5 border-white/10 text-gray-400 hover:text-gray-300'
+                  }`}
+                >
+                  {k.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-500 mb-2">
+              Copy the block below into ChatGPT (or another LLM). Use the reply as your HTML body; set the subject line in the next section. The server replaces{' '}
+              <code className="text-gray-400">{'{{name}}'}</code>, <code className="text-gray-400">{'{{email}}'}</code>, and{' '}
+              <code className="text-gray-400">{'{{first_name}}'}</code> for each user.
+            </p>
+            <textarea
+              readOnly
+              value={LLM_INSTRUCTIONS[mailKind]}
+              rows={10}
+              className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-gray-300 font-mono leading-relaxed resize-y min-h-[140px]"
+            />
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <button
+                type="button"
+                onClick={copyLlmInstruction}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 border border-white/10 text-xs text-gray-200 hover:bg-white/15"
+              >
+                <Copy className="w-3.5 h-3.5" /> Copy instructions
+              </button>
+              {mailCopyHint && <span className="text-[10px] text-emerald-400">{mailCopyHint}</span>}
+            </div>
+          </Section>
+
+          <Section title="Subject & HTML body">
+            <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1">Subject</label>
+            <input
+              type="text"
+              value={mailSubject}
+              onChange={(e) => setMailSubject(e.target.value)}
+              placeholder="e.g. April update from Equilima"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm mb-3 focus:outline-none focus:border-indigo-500/50"
+            />
+            <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1">HTML body</label>
+            <textarea
+              value={mailHtml}
+              onChange={(e) => setMailHtml(e.target.value)}
+              placeholder="<p>Hi {{first_name}},</p><p>...</p>"
+              rows={12}
+              className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-gray-200 font-mono leading-relaxed resize-y min-h-[180px] focus:outline-none focus:border-indigo-500/50"
+            />
+          </Section>
+
+          <Section title="Recipients">
+            <div className="space-y-2 mb-3">
+              {[
+                { id: 'newsletter_subscribers', label: 'Newsletter subscribers', sub: 'Opted in, verified, active (excludes admins)' },
+                { id: 'all_active', label: 'All verified users', sub: 'Every active verified non-admin account' },
+                { id: 'selected', label: 'Selected users only', sub: 'Pick accounts below (verified, active, non-admin)' },
+              ].map((a) => (
+                <label
+                  key={a.id}
+                  className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer ${
+                    mailAudience === a.id ? 'border-indigo-500/40 bg-indigo-500/10' : 'border-white/10 bg-white/[0.02]'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="mailAudience"
+                    checked={mailAudience === a.id}
+                    onChange={() => setMailAudience(a.id)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="text-xs text-gray-200 block">{a.label}</span>
+                    <span className="text-[10px] text-gray-500">{a.sub}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            {mailAudience === 'selected' && (
+              <div className="mb-3">
+                <div className="flex flex-wrap gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setMailSelectedIds(new Set(mailEligible.map((u) => u.id)))}
+                    className="text-[10px] px-2 py-1 rounded bg-white/5 border border-white/10 text-gray-400 hover:text-gray-200"
+                  >
+                    Select all listed
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMailSelectedIds(new Set())}
+                    className="text-[10px] px-2 py-1 rounded bg-white/5 border border-white/10 text-gray-400 hover:text-gray-200"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="max-h-48 overflow-y-auto border border-white/10 rounded-lg p-2 space-y-1">
+                  {usersLoading && <p className="text-[10px] text-gray-500">Loading users…</p>}
+                  {!usersLoading &&
+                    mailEligible.map((u) => (
+                      <label key={u.id} className="flex items-center gap-2 text-[11px] text-gray-300 cursor-pointer hover:bg-white/5 rounded px-1 py-0.5">
+                        <input
+                          type="checkbox"
+                          checked={mailSelectedIds.has(u.id)}
+                          onChange={() => {
+                            setMailSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(u.id)) next.delete(u.id);
+                              else next.add(u.id);
+                              return next;
+                            });
+                          }}
+                        />
+                        <span className="font-mono text-gray-400">#{u.id}</span>
+                        <span className="text-gray-200">{u.email}</span>
+                        {u.name ? <span className="text-gray-500 truncate">({u.name})</span> : null}
+                      </label>
+                    ))}
+                  {!usersLoading && mailEligible.length === 0 && (
+                    <p className="text-[10px] text-gray-500">No eligible users. Refresh the user list from the Users tab or adjust accounts.</p>
+                  )}
+                </div>
+                <p className="text-[10px] text-gray-600 mt-1">Selected: {mailSelectedIds.size}</p>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={runMailPreview}
+                disabled={mailPreviewLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 border border-white/10 text-xs text-gray-200 hover:bg-white/15 disabled:opacity-50"
+              >
+                {mailPreviewLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                Refresh recipient count
+              </button>
+              <span className="text-xs text-gray-400">
+                {mailPreviewCount != null ? (
+                  <>
+                    <strong className="text-white">{mailPreviewCount}</strong> recipient(s) match
+                  </>
+                ) : (
+                  'Click refresh to count recipients'
+                )}
+              </span>
+            </div>
+            {mailSendError && <p className="text-xs text-red-400 mt-2">{mailSendError}</p>}
+          </Section>
+
+          <Section title="Send" right={<Send className="w-3.5 h-3.5 text-gray-500" />}>
+            <p className="text-[11px] text-gray-500 mb-3">
+              Sends use your configured SMTP (same as verification emails). Each recipient gets a personalized body if you used placeholders. After sending, check the result and the history table for success vs failure counts.
+            </p>
+            <button
+              type="button"
+              onClick={handleSendMail}
+              disabled={mailSendLoading}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-sm font-medium text-white"
+            >
+              {mailSendLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Send email
+            </button>
+            {mailSendResult && (
+              <div
+                className={`mt-4 p-3 rounded-lg border text-[11px] ${
+                  mailSendResult.verified
+                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                    : 'border-amber-500/40 bg-amber-500/10 text-amber-100'
+                }`}
+              >
+                <p className="font-medium mb-1">
+                  {mailSendResult.verified ? 'Send completed — all deliveries reported OK' : 'Send finished with some failures'}
+                </p>
+                <p className="text-gray-300">
+                  Log #{mailSendResult.log_id}: {mailSendResult.ok_count} ok / {mailSendResult.fail_count} failed of{' '}
+                  {mailSendResult.recipient_count} recipients.
+                </p>
+                {mailSendResult.failures?.length > 0 && (
+                  <ul className="mt-2 list-disc list-inside text-amber-200/90 space-y-0.5">
+                    {mailSendResult.failures.map((f, i) => (
+                      <li key={i}>
+                        {f.email}: {f.error}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </Section>
+
+          <Section title="Recent sends (verification)">
+            <div className="flex justify-end mb-2">
+              <button
+                type="button"
+                onClick={loadNewsletterHistory}
+                disabled={mailHistoryLoading}
+                className="text-[10px] px-2 py-1 rounded bg-white/5 border border-white/10 text-gray-400 hover:text-gray-200"
+              >
+                {mailHistoryLoading ? 'Loading…' : 'Refresh history'}
+              </button>
+            </div>
+            <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
+              <table className="w-full text-[11px]">
+                <thead className="sticky top-0 bg-[#0d0d14]">
+                  <tr className="text-gray-500 border-b border-white/5">
+                    <th className="text-left py-2 px-2 font-medium">When</th>
+                    <th className="text-left py-2 px-2 font-medium">Kind</th>
+                    <th className="text-left py-2 px-2 font-medium">Subject</th>
+                    <th className="text-left py-2 px-2 font-medium">Audience</th>
+                    <th className="text-right py-2 px-2 font-medium">OK / Fail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(mailHistory || []).map((row) => (
+                    <tr key={row.id} className="border-b border-white/[0.02]">
+                      <td className="py-1.5 px-2 text-gray-400 whitespace-nowrap">{row.sent_at || '—'}</td>
+                      <td className="py-1.5 px-2 text-gray-300">{row.kind}</td>
+                      <td className="py-1.5 px-2 text-gray-200 max-w-[200px] truncate" title={row.subject}>
+                        {row.subject}
+                      </td>
+                      <td className="py-1.5 px-2 text-gray-500">{row.audience}</td>
+                      <td className="py-1.5 px-2 text-right">
+                        <span className="text-emerald-400">{row.ok_count}</span>
+                        <span className="text-gray-600"> / </span>
+                        <span className={row.fail_count > 0 ? 'text-amber-400' : 'text-gray-500'}>{row.fail_count}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!mailHistoryLoading && (!mailHistory || mailHistory.length === 0) && (
+                <p className="text-xs text-gray-600 text-center py-6">No sends logged yet</p>
+              )}
+            </div>
+          </Section>
+        </div>
       )}
 
       {adminTab !== 'analytics' ? null : (
