@@ -98,15 +98,12 @@ def _seed_learn_ai_agent_articles(conn: sqlite3.Connection) -> None:
 
 def _seed_learn_tool_hubs(conn: sqlite3.Connection) -> None:
     """
-    One-time import of Equilima topic hub articles (5 per category × 5 categories).
-    Remove eq_app_seeds row equilima_learn_tool_hubs_v1 to force re-import from manifest/files.
+    Sync Equilima topic hub articles from data/learn_tool_hubs (manifest + HTML).
+    Upserts by slug so regenerated long-form content deploys on restart. Skips rows
+    where slug exists but cluster_key is not an Equilima —* hub (avoids clobbering admin retargets).
     """
     manifest_path = _LEARN_TOOL_HUBS_DATA / "manifest.json"
     if not manifest_path.is_file():
-        return
-    if conn.execute(
-        "SELECT 1 FROM eq_app_seeds WHERE seed_id = ?", (_LEARN_TOOL_HUBS_SEED_ID,)
-    ).fetchone():
         return
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -115,25 +112,14 @@ def _seed_learn_tool_hubs(conn: sqlite3.Connection) -> None:
     articles = manifest.get("articles")
     if not isinstance(articles, list):
         return
-    expected_slugs: list[str] = []
-    for row in articles:
-        if not isinstance(row, dict):
-            continue
-        s = (row.get("slug") or "").strip().lower()
-        t = (row.get("title") or "").strip()
-        if s and t:
-            expected_slugs.append(s)
-    if not expected_slugs:
-        return
     base_time = datetime(2026, 4, 20, 12, 0, 0, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     for i, row in enumerate(articles):
         if not isinstance(row, dict):
             continue
         slug = (row.get("slug") or "").strip().lower()
         title = (row.get("title") or "").strip()
         if not slug or not title:
-            continue
-        if conn.execute("SELECT 1 FROM articles WHERE slug = ?", (slug,)).fetchone():
             continue
         body_path = _LEARN_TOOL_HUBS_DATA / f"{slug}.html"
         if not body_path.is_file():
@@ -143,37 +129,50 @@ def _seed_learn_tool_hubs(conn: sqlite3.Connection) -> None:
         excerpt = (row.get("excerpt") or "").strip()
         cluster_key = (row.get("cluster_key") or "").strip()
         published_at = (base_time + timedelta(hours=i)).strftime("%Y-%m-%d %H:%M:%S")
-        now = published_at
+        existing = conn.execute(
+            "SELECT cluster_key FROM articles WHERE slug = ?", (slug,)
+        ).fetchone()
+        if existing:
+            prev_ck = (existing[0] or "").strip()
+            if prev_ck and not prev_ck.startswith("Equilima —"):
+                continue
+            conn.execute(
+                """
+                UPDATE articles SET
+                    title = ?, meta_description = ?, excerpt = ?, body_html = ?,
+                    cluster_key = ?, status = 'published', updated_at = ?
+                WHERE slug = ?
+                """,
+                (title, meta_description, excerpt, body_html, cluster_key, now, slug),
+            )
+        else:
+            conn.execute(
+                """
+                INSERT INTO articles (
+                    slug, title, meta_description, excerpt, body_html, og_image_url,
+                    author_name, cluster_key, status, published_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?)
+                """,
+                (
+                    slug,
+                    title,
+                    meta_description,
+                    excerpt,
+                    body_html,
+                    None,
+                    "Equilima Research",
+                    cluster_key,
+                    published_at,
+                    now,
+                ),
+            )
+    if not conn.execute(
+        "SELECT 1 FROM eq_app_seeds WHERE seed_id = ?", (_LEARN_TOOL_HUBS_SEED_ID,)
+    ).fetchone():
         conn.execute(
-            """
-            INSERT INTO articles (
-                slug, title, meta_description, excerpt, body_html, og_image_url,
-                author_name, cluster_key, status, published_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?)
-            """,
-            (
-                slug,
-                title,
-                meta_description,
-                excerpt,
-                body_html,
-                None,
-                "Equilima Research",
-                cluster_key,
-                published_at,
-                now,
-            ),
+            "INSERT OR REPLACE INTO eq_app_seeds (seed_id, applied_at) VALUES (?, ?)",
+            (_LEARN_TOOL_HUBS_SEED_ID, now),
         )
-    all_present = all(
-        conn.execute("SELECT 1 FROM articles WHERE slug = ?", (s,)).fetchone() for s in expected_slugs
-    )
-    if not all_present:
-        return
-    applied = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    conn.execute(
-        "INSERT OR REPLACE INTO eq_app_seeds (seed_id, applied_at) VALUES (?, ?)",
-        (_LEARN_TOOL_HUBS_SEED_ID, applied),
-    )
 
 
 def init_articles_db():

@@ -214,26 +214,60 @@ export default function LearnLayout({ route, setActiveTab }) {
 
   const groupedList = useMemo(() => groupArticlesByCluster(filteredList), [filteredList]);
 
+  const useMediumArticleChrome =
+    route.kind === 'article' && article?.cluster_key?.startsWith('Equilima —');
+
+  const shellClass = useMediumArticleChrome
+    ? 'learn-article-shell min-h-screen'
+    : 'min-h-screen bg-[#0a0a0f] text-gray-200';
+  const headerClass = useMediumArticleChrome
+    ? 'learn-article-shell-header sticky top-0 z-50'
+    : 'border-b border-white/10 bg-[#0a0a0f]/95 backdrop-blur-sm sticky top-0 z-50';
+  const backBtnClass = useMediumArticleChrome
+    ? 'flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors'
+    : 'flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors';
+  const navAllClass = useMediumArticleChrome
+    ? 'px-2 py-1 rounded-md text-indigo-700 hover:bg-black/[0.04]'
+    : 'px-2 py-1 rounded-md text-indigo-300 hover:bg-white/5';
+
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-gray-200">
-      <header className="border-b border-white/10 bg-[#0a0a0f]/95 backdrop-blur-sm sticky top-0 z-50">
+    <div className={shellClass}>
+      <header className={headerClass}>
         <div className="max-w-4xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => openAppTab('agent')}
-            className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
-          >
+          <button type="button" onClick={() => openAppTab('agent')} className={backBtnClass}>
             <ArrowLeft className="w-4 h-4" />
             Back to Equilima
           </button>
           <nav className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-            <button type="button" onClick={() => navigateLearn()} className="px-2 py-1 rounded-md text-indigo-300 hover:bg-white/5">
+            <button type="button" onClick={() => navigateLearn()} className={navAllClass}>
               All articles
             </button>
-            <span className="text-gray-600 hidden sm:inline">|</span>
+            <span className={useMediumArticleChrome ? 'text-neutral-300 hidden sm:inline' : 'text-gray-600 hidden sm:inline'}>
+              |
+            </span>
             <span className="text-gray-600 sm:hidden w-full" />
             {TOPIC_NAV_ORDER.map((topic) => {
               const active = route.kind === 'index' && route.topic === topic;
+              if (useMediumArticleChrome) {
+                return (
+                  <button
+                    key={topic}
+                    type="button"
+                    onClick={() => navigateLearnTopic(topic)}
+                    className={`px-2 py-1 rounded-md hover:bg-black/[0.04] ${
+                      topic === 'research'
+                        ? active
+                          ? 'text-indigo-800 font-semibold bg-indigo-100'
+                          : 'text-indigo-700 font-semibold'
+                        : active
+                          ? 'text-neutral-900 font-medium bg-neutral-100'
+                          : 'text-neutral-600 hover:text-neutral-900'
+                    }`}
+                  >
+                    {TOPIC_LABELS[topic]}
+                  </button>
+                );
+              }
               return (
                 <button
                   key={topic}
@@ -257,7 +291,13 @@ export default function LearnLayout({ route, setActiveTab }) {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-10 pb-20">
+      <main
+        className={
+          useMediumArticleChrome
+            ? 'max-w-4xl mx-auto px-4 py-10 pb-24'
+            : 'max-w-4xl mx-auto px-4 py-10 pb-20'
+        }
+      >
         {route.kind === 'index' && (
           <>
             <div className="flex items-start gap-3 mb-8">
@@ -331,47 +371,104 @@ export default function LearnLayout({ route, setActiveTab }) {
 
         {route.kind === 'article' && (
           <>
-            {loading && <p className="text-gray-500 text-sm">Loading…</p>}
-            {error && <p className="text-red-400 text-sm">{error}</p>}
+            {loading && (
+              <p className={useMediumArticleChrome ? 'text-neutral-500 text-sm' : 'text-gray-500 text-sm'}>Loading…</p>
+            )}
+            {error && <p className="text-red-600 text-sm">{error}</p>}
             {article && (
               <article>
-                <p className="text-xs text-indigo-400/90 uppercase tracking-wider mb-2">{article.cluster_key || 'Article'}</p>
-                <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-4">{article.title}</h1>
-                <p className="text-sm text-gray-500 mb-8">
-                  {article.author_name && <span>{article.author_name}</span>}
-                  {article.published_at && (
-                    <span className="ml-2">· {article.published_at.slice(0, 10)}</span>
-                  )}
-                </p>
-                <div className={proseClass} dangerouslySetInnerHTML={{ __html: article.body_html }} />
-
-                <aside className="mt-12 p-5 rounded-xl border border-indigo-500/20 bg-indigo-500/5">
-                  <p className="text-sm font-medium text-white mb-3">Try it in Equilima</p>
-                  <p className="text-xs text-gray-500 mb-4">Product-led CTAs — link from your article body to these tools for SEO internal linking.</p>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openAppTab('agent')}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" /> AI Agent
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openAppTab('screener')}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-gray-200 text-xs font-medium border border-white/10"
-                    >
-                      <LayoutGrid className="w-3.5 h-3.5" /> Screener
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openAppTab('backtest')}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-gray-200 text-xs font-medium border border-white/10"
-                    >
-                      <LineChart className="w-3.5 h-3.5" /> Backtesting
-                    </button>
-                  </div>
-                </aside>
+                {useMediumArticleChrome ? (
+                  <>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-2 font-sans">
+                      {article.cluster_key || 'Article'}
+                    </p>
+                    <h1 className="text-[2.75rem] sm:text-[2.75rem] font-bold text-black tracking-tight mb-3 leading-[1.08] font-sans">
+                      {article.title}
+                    </h1>
+                    <p className="text-sm text-neutral-500 mb-10 font-sans">
+                      {article.author_name && <span>{article.author_name}</span>}
+                      {article.published_at && (
+                        <span className="ml-2">· {article.published_at.slice(0, 10)}</span>
+                      )}
+                    </p>
+                    <div className="learn-article-reading" dangerouslySetInnerHTML={{ __html: article.body_html }} />
+                    <aside className="mt-14 max-w-[728px] mx-auto p-6 rounded-xl border border-neutral-200 bg-white shadow-sm">
+                      <p className="text-sm font-semibold text-neutral-900 mb-1 font-sans">Try it in Equilima</p>
+                      <p className="text-xs text-neutral-500 mb-4 font-sans">
+                        Open the app to apply these ideas with live data.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openAppTab('agent')}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium font-sans"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" /> AI Agent
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openAppTab('screener')}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-neutral-300 text-neutral-800 hover:bg-neutral-50 text-xs font-medium font-sans"
+                        >
+                          <LayoutGrid className="w-3.5 h-3.5" /> Screener
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openAppTab('backtest')}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-neutral-300 text-neutral-800 hover:bg-neutral-50 text-xs font-medium font-sans"
+                        >
+                          <LineChart className="w-3.5 h-3.5" /> Backtesting
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openAppTab('markets')}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-neutral-300 text-neutral-800 hover:bg-neutral-50 text-xs font-medium font-sans"
+                        >
+                          Markets
+                        </button>
+                      </div>
+                    </aside>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs text-indigo-400/90 uppercase tracking-wider mb-2">{article.cluster_key || 'Article'}</p>
+                    <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-4">{article.title}</h1>
+                    <p className="text-sm text-gray-500 mb-8">
+                      {article.author_name && <span>{article.author_name}</span>}
+                      {article.published_at && (
+                        <span className="ml-2">· {article.published_at.slice(0, 10)}</span>
+                      )}
+                    </p>
+                    <div className={proseClass} dangerouslySetInnerHTML={{ __html: article.body_html }} />
+                    <aside className="mt-12 p-5 rounded-xl border border-indigo-500/20 bg-indigo-500/5">
+                      <p className="text-sm font-medium text-white mb-3">Try it in Equilima</p>
+                      <p className="text-xs text-gray-500 mb-4">Product-led CTAs — link from your article body to these tools for SEO internal linking.</p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openAppTab('agent')}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" /> AI Agent
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openAppTab('screener')}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-gray-200 text-xs font-medium border border-white/10"
+                        >
+                          <LayoutGrid className="w-3.5 h-3.5" /> Screener
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openAppTab('backtest')}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-gray-200 text-xs font-medium border border-white/10"
+                        >
+                          <LineChart className="w-3.5 h-3.5" /> Backtesting
+                        </button>
+                      </div>
+                    </aside>
+                  </>
+                )}
               </article>
             )}
           </>
