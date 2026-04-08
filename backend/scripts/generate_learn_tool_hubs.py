@@ -30,7 +30,7 @@ OUT = ROOT / "data" / "learn_tool_hubs"
 
 MIN_WORDS = 1500
 
-# Unsplash — free to use under Unsplash License; attribution in caption (https://unsplash.com/license)
+# Unsplash — Unsplash License; attribution in caption. IDs verified for images.unsplash.com CDN (ixlib per Unsplash guidelines).
 UNSPLASH_PHOTOS: list[tuple[str, str, str]] = [
     ("1611974789855-9c2a0a7236a3", "Austin Distel", "https://unsplash.com/@austindistel"),
     ("1551288049-bebda4e38f71", "Luke Chesser", "https://unsplash.com/@lukechesser"),
@@ -39,8 +39,12 @@ UNSPLASH_PHOTOS: list[tuple[str, str, str]] = [
     ("1559526324-593bc073d938", "Maxim Hopman", "https://unsplash.com/@nampoh"),
     ("1642543492481-44e81e391fb9", "Behnam Norouzi", "https://unsplash.com/@behy_studio"),
     ("1639762681485-074b7f938ba0", "Kanchanara", "https://unsplash.com/@kanchanara"),
-    ("1553729459-efe8ef8ff86f", "Micheile Henderson", "https://unsplash.com/@micheile"),
+    ("1522071820081-009f0129c71c", "Annie Spratt", "https://unsplash.com/@anniespratt"),
 ]
+
+
+def _unsplash_src(photo_id: str, w: int = 2000) -> str:
+    return f"https://images.unsplash.com/photo-{photo_id}?ixlib=rb-4.1.0&auto=format&fit=crop&w={w}&q=82"
 
 
 def word_count(html: str) -> int:
@@ -77,11 +81,11 @@ def disclaimer_block() -> str:
 def hero_figure(slug: str, title: str) -> str:
     h = int(hashlib.md5(slug.encode(), usedforsecurity=False).hexdigest(), 16)
     pid, photographer, profile = UNSPLASH_PHOTOS[h % len(UNSPLASH_PHOTOS)]
-    src = f"https://images.unsplash.com/photo-{pid}?auto=format&fit=crop&w=1600&q=82"
+    src = _unsplash_src(pid, 2000)
     alt = f"Illustrative finance and markets imagery for: {title[:80]}"
     return f"""
 <figure class="eq-figure my-10">
-<img class="eq-figure-img w-full rounded-lg shadow-md" src="{src}" alt="{alt}" width="1600" height="900" loading="lazy" decoding="async" />
+<img class="eq-figure-img w-full rounded-lg shadow-md" src="{src}" alt="{alt}" width="2000" height="1333" loading="lazy" decoding="async" />
 <figcaption class="eq-caption mt-2 text-sm text-neutral-500">Photo by <a href="{profile}?utm_source=equilima&amp;utm_medium=referral" rel="noopener noreferrer" class="eq-a">{photographer}</a> on <a href="https://unsplash.com/?utm_source=equilima&amp;utm_medium=referral" rel="noopener noreferrer" class="eq-a">Unsplash</a> (Unsplash License — free use).</figcaption>
 </figure>
 """.strip()
@@ -90,7 +94,7 @@ def hero_figure(slug: str, title: str) -> str:
 def takeaways_box(cluster: str, bullets: list[str]) -> str:
     bli = "".join(f'<li class="eq-li">{b}</li>' for b in bullets)
     return f"""
-<div class="eq-takeaways rounded-xl border border-violet-200 bg-violet-50/80 p-6 mb-10">
+<div class="eq-takeaways rounded-2xl p-6 sm:p-7 mb-10">
 <p class="eq-kicker text-xs font-semibold uppercase tracking-wider text-violet-800 mb-1">{cluster}</p>
 <h2 class="eq-h2 text-xl font-bold text-neutral-900 mb-4">Key takeaways</h2>
 <ul class="eq-ul list-disc pl-5 space-y-3 text-[17px] leading-relaxed text-neutral-800">{bli}</ul>

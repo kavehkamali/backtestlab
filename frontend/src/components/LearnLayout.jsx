@@ -216,6 +216,7 @@ export default function LearnLayout({ route, setActiveTab }) {
 
   const useMediumArticleChrome =
     route.kind === 'article' && article?.cluster_key?.startsWith('Equilima —');
+  const wideArticleLayout = route.kind === 'article';
 
   const shellClass = useMediumArticleChrome
     ? 'learn-article-shell min-h-screen'
@@ -233,7 +234,13 @@ export default function LearnLayout({ route, setActiveTab }) {
   return (
     <div className={shellClass}>
       <header className={headerClass}>
-        <div className="max-w-4xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div
+          className={
+            wideArticleLayout
+              ? 'max-w-5xl xl:max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3'
+              : 'max-w-4xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3'
+          }
+        >
           <button type="button" onClick={() => openAppTab('agent')} className={backBtnClass}>
             <ArrowLeft className="w-4 h-4" />
             Back to Equilima
@@ -293,8 +300,8 @@ export default function LearnLayout({ route, setActiveTab }) {
 
       <main
         className={
-          useMediumArticleChrome
-            ? 'max-w-4xl mx-auto px-4 py-10 pb-24'
+          wideArticleLayout
+            ? 'max-w-5xl xl:max-w-6xl mx-auto px-4 sm:px-6 py-10 pb-24'
             : 'max-w-4xl mx-auto px-4 py-10 pb-20'
         }
       >
@@ -379,50 +386,50 @@ export default function LearnLayout({ route, setActiveTab }) {
               <article>
                 {useMediumArticleChrome ? (
                   <>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-2 font-sans">
+                    <p className="learn-article-hero-meta text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-2">
                       {article.cluster_key || 'Article'}
                     </p>
-                    <h1 className="text-[2.75rem] sm:text-[2.75rem] font-bold text-black tracking-tight mb-3 leading-[1.08] font-sans">
+                    <h1 className="learn-article-hero-title text-[2.35rem] sm:text-[2.75rem] font-bold text-neutral-950 mb-3 leading-[1.06]">
                       {article.title}
                     </h1>
-                    <p className="text-sm text-neutral-500 mb-10 font-sans">
+                    <p className="learn-article-hero-meta text-sm text-neutral-500 mb-10">
                       {article.author_name && <span>{article.author_name}</span>}
                       {article.published_at && (
                         <span className="ml-2">· {article.published_at.slice(0, 10)}</span>
                       )}
                     </p>
                     <div className="learn-article-reading" dangerouslySetInnerHTML={{ __html: article.body_html }} />
-                    <aside className="mt-14 max-w-[728px] mx-auto p-6 rounded-xl border border-neutral-200 bg-white shadow-sm">
-                      <p className="text-sm font-semibold text-neutral-900 mb-1 font-sans">Try it in Equilima</p>
-                      <p className="text-xs text-neutral-500 mb-4 font-sans">
+                    <aside className="learn-article-cta mt-14 mx-auto p-6 sm:p-7 rounded-2xl border border-neutral-200/80 bg-white/90 shadow-[0_8px_40px_-12px_rgba(15,23,42,0.12)] backdrop-blur-sm">
+                      <p className="learn-article-hero-meta text-sm font-semibold text-neutral-900 mb-1">Try it in Equilima</p>
+                      <p className="learn-article-hero-meta text-xs text-neutral-500 mb-4">
                         Open the app to apply these ideas with live data.
                       </p>
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => openAppTab('agent')}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium font-sans"
+                          className="learn-article-hero-meta inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium"
                         >
                           <Sparkles className="w-3.5 h-3.5" /> AI Agent
                         </button>
                         <button
                           type="button"
                           onClick={() => openAppTab('screener')}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-neutral-300 text-neutral-800 hover:bg-neutral-50 text-xs font-medium font-sans"
+                          className="learn-article-hero-meta inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-neutral-300 text-neutral-800 hover:bg-neutral-50 text-xs font-medium"
                         >
                           <LayoutGrid className="w-3.5 h-3.5" /> Screener
                         </button>
                         <button
                           type="button"
                           onClick={() => openAppTab('backtest')}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-neutral-300 text-neutral-800 hover:bg-neutral-50 text-xs font-medium font-sans"
+                          className="learn-article-hero-meta inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-neutral-300 text-neutral-800 hover:bg-neutral-50 text-xs font-medium"
                         >
                           <LineChart className="w-3.5 h-3.5" /> Backtesting
                         </button>
                         <button
                           type="button"
                           onClick={() => openAppTab('markets')}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-neutral-300 text-neutral-800 hover:bg-neutral-50 text-xs font-medium font-sans"
+                          className="learn-article-hero-meta inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-neutral-300 text-neutral-800 hover:bg-neutral-50 text-xs font-medium"
                         >
                           Markets
                         </button>
