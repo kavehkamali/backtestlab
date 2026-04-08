@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Loader2, Users, Eye, Globe, Monitor, Smartphone, Clock, LogOut, RefreshCw, Mail, CheckCircle, XCircle, Filter, Plus, X, Copy, Send } from 'lucide-react';
-import { Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Line } from 'recharts';
+import { Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Line } from 'recharts';
 import { adminLogin, fetchAdminStats, saveAdminExcludedIps, toggleAdminExcludedIp, fetchAdminUsers, updateAdminUser, deleteAdminUser, previewAdminNewsletter, sendAdminNewsletter, fetchAdminNewsletterHistory } from '../api';
 import AdminArticlesTab from './AdminArticlesTab';
 
@@ -876,13 +876,13 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* Views chart + returning visitor count on right axis */}
+      {/* Views, visitors, returning — shared left Y-axis (counts) */}
       <Section title="Views, Visitors & Returning Visitors Over Time">
         <p className="text-[10px] text-gray-500 mb-3 leading-relaxed">
           Returning visitors is the count of unique IPs on that calendar day who also had at least one visit on an earlier day within this date range. The first day in the range is often lower because there is no prior day in the window.
         </p>
-        <ResponsiveContainer width="100%" height={280}>
-          <ComposedChart data={dailyChart}>
+        <ResponsiveContainer width="100%" height={300}>
+          <ComposedChart data={dailyChart} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="adg1" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#6366f1" stopOpacity={0.2} />
@@ -899,16 +899,15 @@ export default function AdminPanel() {
               yAxisId="left"
               tick={{ fontSize: 9, fill: '#555' }}
               allowDecimals={false}
-              width={36}
-            />
-            <YAxis
-              yAxisId="right"
-              orientation="right"
-              tick={{ fontSize: 9, fill: '#c084fc' }}
-              allowDecimals={false}
               width={40}
             />
             <Tooltip content={<ChartTooltip />} />
+            <Legend
+              verticalAlign="top"
+              height={28}
+              wrapperStyle={{ fontSize: '10px', color: '#888' }}
+              formatter={(value) => <span className="text-gray-400">{value}</span>}
+            />
             <Area
               yAxisId="left"
               type="monotone"
@@ -928,7 +927,7 @@ export default function AdminPanel() {
               name="Visitors"
             />
             <Line
-              yAxisId="right"
+              yAxisId="left"
               type="monotone"
               dataKey="returning"
               stroke="#c084fc"
