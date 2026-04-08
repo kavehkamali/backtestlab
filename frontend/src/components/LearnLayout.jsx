@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BookOpen, ArrowLeft, LineChart, LayoutGrid, Sparkles } from 'lucide-react';
 import { fetchPublishedArticles, fetchPublishedArticle, trackPageView } from '../api';
-import { clearLearnToHome, navigateLearn } from '../learnNavigation';
+import { clearLearnToHome, navigateLearn, navigateLearnTopic } from '../learnNavigation';
 
 function upsertMetaProperty(property, content) {
   let el = document.querySelector(`meta[property="${property}"]`);
@@ -86,14 +86,37 @@ function applyIndexSeo() {
 const proseClass =
   'learn-prose max-w-3xl mx-auto text-[15px] leading-relaxed text-gray-300 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-4 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:text-lg [&_h3]:font-medium [&_h3]:text-gray-100 [&_h3]:mt-6 [&_h3]:mb-2 [&_p]:mb-4 [&_a]:text-indigo-400 [&_a]:underline [&_a:hover]:text-indigo-300 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4 [&_li]:mb-1 [&_strong]:text-gray-100 [&_code]:text-pink-300 [&_code]:text-sm [&_blockquote]:border-l-2 [&_blockquote]:border-indigo-500/50 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-gray-400 [&_table]:w-full [&_table]:text-[13px] [&_th]:text-left [&_th]:py-2 [&_th]:pr-3 [&_th]:text-gray-400 [&_th]:font-medium [&_td]:py-2 [&_td]:pr-3 [&_td]:border-t [&_td]:border-white/[0.08]';
 
-/** Pillar order for Learn hub sections (cluster_key). Others sort after. */
+/** Equilima product-topic guides first (Research emphasized in nav order), then AI agent series. */
 const CLUSTER_SECTION_ORDER = [
+  'Equilima — Research',
+  'Equilima — Crypto',
+  'Equilima — Screener',
+  'Equilima — Backtest',
+  'Equilima — Markets',
   'AI agents — Fundamentals',
   'AI agents — Models & tools',
   'AI agents — Grounding & evaluation',
   'AI agents — Workflows',
   'AI agents — Governance & markets',
 ];
+
+const TOPIC_TO_CLUSTER = {
+  research: 'Equilima — Research',
+  crypto: 'Equilima — Crypto',
+  screener: 'Equilima — Screener',
+  backtest: 'Equilima — Backtest',
+  markets: 'Equilima — Markets',
+};
+
+const TOPIC_NAV_ORDER = ['research', 'crypto', 'screener', 'backtest', 'markets'];
+
+const TOPIC_LABELS = {
+  research: 'Research',
+  crypto: 'Crypto',
+  screener: 'Screener',
+  backtest: 'Backtest',
+  markets: 'Markets',
+};
 
 function clusterRank(clusterKey) {
   const k = clusterKey || '';
@@ -182,7 +205,14 @@ export default function LearnLayout({ route, setActiveTab }) {
     else trackPageView('learn');
   }, [route.kind, route.slug]);
 
-  const groupedList = useMemo(() => groupArticlesByCluster(list), [list]);
+  const filteredList = useMemo(() => {
+    if (route.kind !== 'index' || !route.topic) return list;
+    const ck = TOPIC_TO_CLUSTER[route.topic];
+    if (!ck) return list;
+    return list.filter((a) => a.cluster_key === ck);
+  }, [list, route.kind, route.topic]);
+
+  const groupedList = useMemo(() => groupArticlesByCluster(filteredList), [filteredList]);
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-gray-200">
@@ -196,20 +226,33 @@ export default function LearnLayout({ route, setActiveTab }) {
             <ArrowLeft className="w-4 h-4" />
             Back to Equilima
           </button>
-          <nav className="flex items-center gap-2 text-xs">
+          <nav className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
             <button type="button" onClick={() => navigateLearn()} className="px-2 py-1 rounded-md text-indigo-300 hover:bg-white/5">
               All articles
             </button>
-            <span className="text-gray-600">|</span>
-            <button type="button" onClick={() => openAppTab('screener')} className="px-2 py-1 rounded-md text-gray-400 hover:text-white hover:bg-white/5">
-              Screener
-            </button>
-            <button type="button" onClick={() => openAppTab('backtest')} className="px-2 py-1 rounded-md text-gray-400 hover:text-white hover:bg-white/5">
-              Backtest
-            </button>
-            <button type="button" onClick={() => openAppTab('markets')} className="px-2 py-1 rounded-md text-gray-400 hover:text-white hover:bg-white/5">
-              Markets
-            </button>
+            <span className="text-gray-600 hidden sm:inline">|</span>
+            <span className="text-gray-600 sm:hidden w-full" />
+            {TOPIC_NAV_ORDER.map((topic) => {
+              const active = route.kind === 'index' && route.topic === topic;
+              return (
+                <button
+                  key={topic}
+                  type="button"
+                  onClick={() => navigateLearnTopic(topic)}
+                  className={`px-2 py-1 rounded-md hover:bg-white/5 ${
+                    topic === 'research'
+                      ? active
+                        ? 'text-indigo-200 font-semibold bg-indigo-500/15'
+                        : 'text-indigo-300/90 font-semibold hover:text-indigo-200'
+                      : active
+                        ? 'text-white font-medium bg-white/10'
+                        : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {TOPIC_LABELS[topic]}
+                </button>
+              );
+            })}
           </nav>
         </div>
       </header>
@@ -222,7 +265,7 @@ export default function LearnLayout({ route, setActiveTab }) {
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Learn</h1>
                 <p className="text-sm text-gray-500 mt-2 max-w-2xl">
-                  Long-form, SEO-oriented research guides—especially on <strong className="text-gray-400 font-medium">AI agents for market research</strong>—grounded in fundamentals and current practice. Each section clusters related articles (hub-and-spoke). Jump into Equilima’s agent, screener, or backtester when you are ready to apply the ideas.
+                  Long-form guides on <strong className="text-gray-400 font-medium">Research, Crypto, Screener, Backtest, and Markets</strong>—plus the <strong className="text-gray-400 font-medium">AI agents for market research</strong> series. Use the topic links above to filter Equilima walkthroughs; open the app from any article when you are ready to apply the ideas.
                 </p>
               </div>
             </div>
@@ -230,6 +273,18 @@ export default function LearnLayout({ route, setActiveTab }) {
             {error && <p className="text-red-400 text-sm">{error}</p>}
             {!loading && !error && list.length === 0 && (
               <p className="text-gray-500 text-sm">No published articles yet. Add them from the admin Learn tab.</p>
+            )}
+            {route.topic && TOPIC_TO_CLUSTER[route.topic] && !loading && !error && (
+              <p className="text-xs text-indigo-300/90 mb-6">
+                Showing <strong className="text-indigo-200">{TOPIC_TO_CLUSTER[route.topic]}</strong> guides
+                {' · '}
+                <button type="button" onClick={() => navigateLearn()} className="underline hover:text-white">
+                  Clear filter
+                </button>
+              </p>
+            )}
+            {!loading && !error && route.topic && filteredList.length === 0 && list.length > 0 && (
+              <p className="text-gray-500 text-sm mb-6">No published guides for this topic yet.</p>
             )}
             <div className="space-y-14">
               {groupedList.map(({ clusterKey, items }) => (

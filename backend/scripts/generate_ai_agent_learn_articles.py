@@ -88,7 +88,7 @@ def sentence_universe() -> list[str]:
 UNIVERSE = sentence_universe()
 
 SECTION_TITLES = [
-    "Why this matters in {year} markets",
+    "Why this matters in {year} markets — live tape tie-in",
     "Definitions, scope, and common misconceptions",
     "Connecting fundamentals to live data practice",
     "Workflow patterns that scale on small teams",
@@ -96,6 +96,37 @@ SECTION_TITLES = [
     "Risk, compliance, and responsible deployment",
     "How Equilima users can apply this today",
     "Further reading inside this Learn series",
+]
+
+LEGAL_DISCLAIMER_HTML = """
+<div class="rounded-xl border-2 border-amber-500/50 bg-amber-950/50 p-5 mb-8">
+<p class="text-amber-100 font-bold text-xs uppercase tracking-widest mb-3">Not financial advice — read first</p>
+<p class="text-gray-100 text-[15px] leading-[1.75] mb-3">Equilima and the authors are <strong>not</strong> registered investment advisers, broker-dealers, attorneys, or tax professionals. Nothing in this report is personalized investment, legal, or tax advice for your situation. Content is for <strong>education, research literacy, and general market commentary</strong> only. Trading and investing involve substantial risk of loss; past performance does not guarantee future results. Always verify data with primary sources (SEC filings, exchanges, your broker) and consult a qualified professional before acting.</p>
+<p class="text-gray-400 text-sm leading-relaxed">Ticker symbols named below are <strong>illustrative examples</strong> for discussion—not recommendations to buy, sell, or hold any security.</p>
+</div>
+""".strip()
+
+# Rotating “this week” hooks and ticker sets for timeliness (early April 2026 framing).
+WEEK_HOOKS = [
+    "the week of April 7, 2026, as traders weigh the next CPI/Fed dot-path narrative against still-elevated AI capex spend",
+    "early April 2026’s cross-currents: resilient mega-cap earnings versus sticky services inflation prints",
+    "this week’s tape, where options positioning in NVDA and AAPL often dominates retail attention while credit spreads whisper risk appetite",
+    "the April 2026 window when quarterly guidance from MSFT, GOOGL, and META is setting the tone for ad-tech and cloud multiples",
+    "recent sessions where IWM breadth diverged from SPY, reminding investors that ‘the market’ is not one trade",
+    "the current macro calendar: payrolls surprises still whipsawing rate-cut expectations and lifting XLF volatility",
+]
+
+TICKER_BAGS = [
+    ("NVDA", "AMD", "AVGO", "SMCI"),
+    ("AAPL", "MSFT", "GOOGL", "META"),
+    ("AMZN", "NFLX", "DIS", "TSLA"),
+    ("JPM", "BAC", "GS", "MS"),
+    ("XOM", "CVX", "COP", "SLB"),
+    ("UNH", "JNJ", "LLY", "PFE"),
+    ("CAT", "DE", "HON", "GE"),
+    ("PEP", "KO", "WMT", "PG"),
+    ("COIN", "MSTR", "SQ", "HOOD"),
+    ("SPY", "QQQ", "IWM", "DIA"),
 ]
 
 FAQ_Q = [
@@ -136,14 +167,49 @@ def pick_sentences(rng: random.Random, n: int) -> list[str]:
     return [UNIVERSE[i] for i in idx[:n]]
 
 
-def build_faq_html(rng: random.Random, year: str) -> str:
+def pack_long_paragraphs_at(
+    sentences: list[str],
+    rng: random.Random,
+    start: int,
+    n_paras: int,
+    smin: int = 5,
+    smax: int = 10,
+) -> tuple[list[str], int]:
+    """Merge sentences into long blocks; returns (html fragments, next index)."""
+    out: list[str] = []
+    i = start
+    for _ in range(n_paras):
+        if i >= len(sentences):
+            break
+        k = rng.randint(smin, smax)
+        chunk = sentences[i : i + k]
+        i += k
+        if not chunk:
+            break
+        out.append(
+            '<p class="text-gray-300 text-[15px] leading-[1.85] mb-5">' + " ".join(chunk) + "</p>"
+        )
+    return out, i
+
+
+def build_faq_html(rng: random.Random, year: str, filler: list[str]) -> str:
     pairs = list(zip(FAQ_Q, FAQ_A_TEMPLATES))
     rng.shuffle(pairs)
     chosen = pairs[:5]
-    items = []
+    items: list[str] = []
+    fi = 0
     for q, a in chosen:
-        items.append(f"<h3>{q}</h3><p>{a.replace('{year}', year)}</p>")
-    return "<h2>Frequently asked questions</h2>" + "\n".join(items)
+        tail = " ".join(filler[fi : fi + 4])
+        fi += 4
+        body = a.replace("{year}", year) + " " + tail
+        items.append(
+            f'<h3 class="text-lg font-medium text-white mt-6 mb-2">{q}</h3>'
+            f'<p class="text-gray-300 text-[15px] leading-[1.85] mb-5">{body}</p>'
+        )
+    return (
+        '<h2 class="text-white text-xl font-semibold mt-10 mb-4">Frequently asked questions</h2>\n'
+        + "\n".join(items)
+    )
 
 
 def internal_links_block(slug: str, related: list[str], slug_to_title: dict[str, str]) -> str:
@@ -158,56 +224,99 @@ def internal_links_block(slug: str, related: list[str], slug_to_title: dict[str,
 
 def build_body_html(spec: dict, related: list[str], slug_to_title: dict[str, str], year: str = "2026") -> str:
     rng = slug_rng(spec["slug"])
-    sentences = pick_sentences(rng, 110)
-    parts: list[str] = []
-    parts.append(f'<p class="text-lg text-gray-200 font-medium leading-relaxed">{spec["intro"]}</p>')
-    parts.append(
-        "<blockquote><p><strong>Editorial note:</strong> "
-        f"This guide is for education and research literacy about AI systems—not individualized investment, tax, or legal advice. "
-        f"Markets change quickly; verify facts against primary sources as of {year}.</p></blockquote>"
-    )
-    # Lead metrics paragraph (unique per slug)
-    parts.append(f"<p>{spec['metrics_para']}</p>")
-
+    sentences = pick_sentences(rng, 220)
+    faq_filler = pick_sentences(rng, 40)
+    t1, t2, t3, t4 = spec["tickers"]
+    week = spec["week_hook"]
+    parts: list[str] = [LEGAL_DISCLAIMER_HTML]
     si = 0
+
+    parts.append(
+        '<div class="rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-5 mb-8">'
+        '<h2 class="text-white text-lg font-bold mb-3">Key takeaways</h2>'
+        '<ul class="list-disc pl-5 space-y-3 text-gray-300 text-[15px] leading-relaxed">'
+        f"<li><strong>Topic:</strong> This research-style note explains how {spec['title'][:72]}… connects to live workflows when desks monitor "
+        f"<strong>{t1}</strong>, <strong>{t2}</strong>, and <strong>{t3}</strong> alongside macro headlines.</li>"
+        f"<li><strong>This week’s context:</strong> {week}—agents should cite sources, not invent catalysts for <strong>{t4}</strong> or peers.</li>"
+        "<li><strong>Compliance mindset:</strong> Treat every model paragraph as a draft for human review before any client-facing use.</li>"
+        "<li><strong>Equilima:</strong> Practice these ideas in the AI Agent after you finish reading; the goal is reproducible research hygiene.</li>"
+        "</ul></div>"
+    )
+
+    parts.append(
+        f'<h2 class="text-white text-xl font-semibold mt-10 mb-4">Snapshot — what matters {week}</h2>'
+    )
+    block, si = pack_long_paragraphs_at(sentences, rng, si, 3, 6, 10)
+    parts.extend(block)
+
+    parts.append(
+        '<h2 class="text-white text-xl font-semibold mt-10 mb-4">Executive overview</h2>'
+        f'<p class="text-gray-300 text-[15px] leading-[1.85] mb-5">{spec["intro"]}</p>'
+        f'<p class="text-gray-300 text-[15px] leading-[1.85] mb-5">{spec["metrics_para"]}</p>'
+    )
+
+    parts.append(
+        f'<h2 class="text-white text-xl font-semibold mt-10 mb-4">Bull case — when AI agents help on {t1}-class narratives</h2>'
+    )
+    block, si = pack_long_paragraphs_at(sentences, rng, si, 2, 7, 10)
+    parts.extend(block)
+
+    parts.append(
+        f'<h2 class="text-white text-xl font-semibold mt-10 mb-4">Bear case — where agents break around {t2} / {t3} headlines</h2>'
+    )
+    block, si = pack_long_paragraphs_at(sentences, rng, si, 2, 7, 10)
+    parts.extend(block)
+
     titles = SECTION_TITLES[:]
     rng.shuffle(titles)
-    for ti, h2 in enumerate(titles[:7]):
-        parts.append(f"<h2>{h2.format(year=year)}</h2>")
-        chunk = 15 if ti < 5 else 10
-        for _ in range(chunk):
-            if si >= len(sentences):
-                break
-            parts.append(f"<p>{sentences[si]}</p>")
-            si += 1
+    for ti, h2 in enumerate(titles[:6]):
+        parts.append(
+            f'<h2 class="text-white text-xl font-semibold mt-10 mb-4">{h2.format(year=year)}</h2>'
+        )
+        n_sub = 2 if ti < 4 else 1
+        block, si = pack_long_paragraphs_at(sentences, rng, si, n_sub, 6, 10)
+        parts.extend(block)
         if ti == 2:
             parts.append(
-                "<h3>Checklist: data-grounded agent outputs</h3><ol>"
-                "<li>Identify the claim type (price, ratio, date, policy).</li>"
-                "<li>Map the claim to a primary source or vendor timestamp.</li>"
-                "<li>Store the retrieval query and document hash.</li>"
-                "<li>Have a second process disagree on ambiguous tickers.</li>"
-                "<li>Re-run spot checks after model or data updates.</li>"
+                '<h3 class="text-lg font-medium text-white mt-6 mb-2">Checklist: data-grounded agent outputs</h3>'
+                '<ol class="list-decimal pl-6 space-y-2 text-gray-300 text-[15px] leading-relaxed mb-6">'
+                "<li>Identify whether the claim is price, ratio, date, or policy language.</li>"
+                "<li>Map the claim to a primary source, vendor timestamp, or explicit uncertainty.</li>"
+                "<li>Store retrieval queries and hashed snippets for audit replay.</li>"
+                "<li>Disambiguate tickers (e.g., META vs MET) before publishing anything.</li>"
+                "<li>Re-run spot checks after model upgrades or data vendor patches.</li>"
                 "</ol>"
             )
         if ti == 4:
             parts.append(
-                "<h3>Table: common failure modes</h3>"
-                "<table><thead><tr><th>Symptom</th><th>Likely cause</th><th>Mitigation</th></tr></thead><tbody>"
-                "<tr><td>Confident but wrong figure</td><td>Stale retrieval or hallucination</td><td>Force citation + cross-check</td></tr>"
-                "<tr><td>Inconsistent answers same question</td><td>Temperature or tool nondeterminism</td><td>Lower temperature, log seeds</td></tr>"
-                "<tr><td>Missing risk disclosure</td><td>Prompt not scoped</td><td>System policy + eval suite</td></tr>"
-                "<tr><td>Slow interactive sessions</td><td>Large context or sequential tools</td><td>Cache retrieval, batch tools</td></tr>"
+                '<h3 class="text-lg font-medium text-white mt-6 mb-2">Table: common failure modes</h3>'
+                '<table class="w-full text-[13px] text-gray-300 mb-6"><thead><tr class="text-gray-400">'
+                "<th class=\"text-left py-2 pr-3\">Symptom</th><th class=\"text-left py-2 pr-3\">Likely cause</th>"
+                "<th class=\"text-left py-2 pr-3\">Mitigation</th></tr></thead><tbody>"
+                "<tr><td class=\"py-2 pr-3 border-t border-white/10\">Confident wrong figure</td>"
+                "<td class=\"py-2 pr-3 border-t border-white/10\">Stale retrieval / hallucination</td>"
+                "<td class=\"py-2 pr-3 border-t border-white/10\">Force citation + second data pull</td></tr>"
+                "<tr><td class=\"py-2 pr-3 border-t border-white/10\">Inconsistent answers</td>"
+                "<td class=\"py-2 pr-3 border-t border-white/10\">Temperature / tool randomness</td>"
+                "<td class=\"py-2 pr-3 border-t border-white/10\">Lower temperature, log seeds</td></tr>"
+                "<tr><td class=\"py-2 pr-3 border-t border-white/10\">Missing risk language</td>"
+                "<td class=\"py-2 pr-3 border-t border-white/10\">Prompt scope too loose</td>"
+                "<td class=\"py-2 pr-3 border-t border-white/10\">System policy + eval suite</td></tr>"
+                "<tr><td class=\"py-2 pr-3 border-t border-white/10\">Slow sessions</td>"
+                "<td class=\"py-2 pr-3 border-t border-white/10\">Huge contexts / serial tools</td>"
+                "<td class=\"py-2 pr-3 border-t border-white/10\">Cache retrieval, batch tools</td></tr>"
                 "</tbody></table>"
             )
 
-    parts.append(build_faq_html(rng, year))
+    parts.append(build_faq_html(rng, year, faq_filler))
     parts.append(internal_links_block(spec["slug"], related, slug_to_title))
+
+    parts.append('<h2 class="text-white text-xl font-semibold mt-10 mb-4">Bottom line</h2>')
+    block, si = pack_long_paragraphs_at(sentences, rng, si, 2, 6, 9)
+    parts.extend(block)
     parts.append(
-        "<h2>Closing perspective</h2>"
-        f"<p>AI agent research for markets is converging on a simple theme in {year}: "
-        "assistants are only as trustworthy as the evidence pipelines and governance wrapped around them. "
-        "Build for verification, not charisma—and treat every user-visible number as guilty until sourced.</p>"
+        '<p class="text-gray-500 text-sm italic mt-6">Reminder: Equilima is not a financial advisor; examples using '
+        f"{t1}, {t2}, {t3} are for education only.</p>"
     )
     return "\n".join(parts)
 
@@ -444,6 +553,10 @@ ARTICLE_SPECS: list[dict] = [
         "metrics_para": "Run a tabletop incident exercise before launch: leaked prompt, bad citation, model outage—if you cannot walk through responses, you are not ready.",
     },
 ]
+
+for _i, _spec in enumerate(ARTICLE_SPECS):
+    _spec["tickers"] = TICKER_BAGS[_i % len(TICKER_BAGS)]
+    _spec["week_hook"] = WEEK_HOOKS[_i % len(WEEK_HOOKS)]
 
 
 def related_for(idx: int, n: int = 6) -> list[str]:

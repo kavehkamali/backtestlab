@@ -25,6 +25,8 @@ admin_router = APIRouter(prefix="/api/admin/articles", tags=["admin-articles"])
 
 _LEARN_AI_DATA = Path(__file__).resolve().parent.parent / "data" / "learn_ai_agent_articles"
 _LEARN_AI_SEED_ID = "learn_ai_agent_series_v1"
+_LEARN_TOOL_HUBS_DATA = Path(__file__).resolve().parent.parent / "data" / "learn_tool_hubs"
+_LEARN_TOOL_HUBS_SEED_ID = "equilima_learn_tool_hubs_v1"
 
 
 def _seed_learn_ai_agent_articles(conn: sqlite3.Connection) -> None:
@@ -94,6 +96,86 @@ def _seed_learn_ai_agent_articles(conn: sqlite3.Connection) -> None:
     )
 
 
+def _seed_learn_tool_hubs(conn: sqlite3.Connection) -> None:
+    """
+    One-time import of Equilima topic hub articles (5 per category × 5 categories).
+    Remove eq_app_seeds row equilima_learn_tool_hubs_v1 to force re-import from manifest/files.
+    """
+    manifest_path = _LEARN_TOOL_HUBS_DATA / "manifest.json"
+    if not manifest_path.is_file():
+        return
+    if conn.execute(
+        "SELECT 1 FROM eq_app_seeds WHERE seed_id = ?", (_LEARN_TOOL_HUBS_SEED_ID,)
+    ).fetchone():
+        return
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    articles = manifest.get("articles")
+    if not isinstance(articles, list):
+        return
+    expected_slugs: list[str] = []
+    for row in articles:
+        if not isinstance(row, dict):
+            continue
+        s = (row.get("slug") or "").strip().lower()
+        t = (row.get("title") or "").strip()
+        if s and t:
+            expected_slugs.append(s)
+    if not expected_slugs:
+        return
+    base_time = datetime(2026, 4, 20, 12, 0, 0, tzinfo=timezone.utc)
+    for i, row in enumerate(articles):
+        if not isinstance(row, dict):
+            continue
+        slug = (row.get("slug") or "").strip().lower()
+        title = (row.get("title") or "").strip()
+        if not slug or not title:
+            continue
+        if conn.execute("SELECT 1 FROM articles WHERE slug = ?", (slug,)).fetchone():
+            continue
+        body_path = _LEARN_TOOL_HUBS_DATA / f"{slug}.html"
+        if not body_path.is_file():
+            continue
+        body_html = body_path.read_text(encoding="utf-8")
+        meta_description = (row.get("meta_description") or "").strip()
+        excerpt = (row.get("excerpt") or "").strip()
+        cluster_key = (row.get("cluster_key") or "").strip()
+        published_at = (base_time + timedelta(hours=i)).strftime("%Y-%m-%d %H:%M:%S")
+        now = published_at
+        conn.execute(
+            """
+            INSERT INTO articles (
+                slug, title, meta_description, excerpt, body_html, og_image_url,
+                author_name, cluster_key, status, published_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?)
+            """,
+            (
+                slug,
+                title,
+                meta_description,
+                excerpt,
+                body_html,
+                None,
+                "Equilima Research",
+                cluster_key,
+                published_at,
+                now,
+            ),
+        )
+    all_present = all(
+        conn.execute("SELECT 1 FROM articles WHERE slug = ?", (s,)).fetchone() for s in expected_slugs
+    )
+    if not all_present:
+        return
+    applied = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute(
+        "INSERT OR REPLACE INTO eq_app_seeds (seed_id, applied_at) VALUES (?, ?)",
+        (_LEARN_TOOL_HUBS_SEED_ID, applied),
+    )
+
+
 def init_articles_db():
     conn = get_db()
     try:
@@ -125,6 +207,7 @@ def init_articles_db():
         )
         conn.commit()
         _seed_learn_ai_agent_articles(conn)
+        _seed_learn_tool_hubs(conn)
         conn.commit()
     finally:
         conn.close()

@@ -1,0 +1,179 @@
+{
+  "articles": [
+    {
+      "slug": "research-fundamentals-walkthrough-aapl-msft-googl",
+      "title": "Fundamentals Walkthrough: How to Read the Same Filings the Street Uses (AAPL, MSFT, GOOGL)",
+      "meta_description": "Educational guide to revenue segments, margins, and cash flow\u2014examples only, not advice.",
+      "excerpt": "Turn 10-K language into a checklist: segments, FCF, and debt\u2014using large caps as teaching examples.",
+      "cluster_key": "Equilima \u2014 Research"
+    },
+    {
+      "slug": "research-earnings-quality-nvda-amd-intc-semis",
+      "title": "Earnings Quality in Semiconductors: NVDA, AMD, INTC as Case Studies (Education)",
+      "meta_description": "Learn to spot revenue recognition, inventory, and guide language\u2014examples NVDA, AMD, INTC\u2014not trade signals.",
+      "excerpt": "Why gross margin paths and data-center mix matter when headlines only shout \u201cAI winner.\u201d",
+      "cluster_key": "Equilima \u2014 Research"
+    },
+    {
+      "slug": "research-bank-peer-jpm-bac-gs-fundamentals",
+      "title": "Bank Peer Work: JPM, BAC, GS\u2014Spreads, NII, and Credit (Educational)",
+      "meta_description": "How to compare large U.S. banks without making implicit buy recommendations.",
+      "excerpt": "Net interest income, CET1, and provisioning language\u2014using money-center banks as examples.",
+      "cluster_key": "Equilima \u2014 Research"
+    },
+    {
+      "slug": "research-dcf-sanity-msft-amzn-meta-education",
+      "title": "DCF Sanity Checks Without Fairy Tales: MSFT, AMZN, META as Classroom Examples",
+      "meta_description": "Why terminal growth and WACC assumptions dominate outcomes\u2014education, not valuation advice.",
+      "excerpt": "Stress-test a DCF: what happens if cloud growth slows 2%? Illustrative only.",
+      "cluster_key": "Equilima \u2014 Research"
+    },
+    {
+      "slug": "research-10k-walkthrough-risks-mdna-pg-ko",
+      "title": "10-K Deep Dive Skills: Risk Factors & MD&amp;A Tone (PG, KO as Stable Examples)",
+      "meta_description": "Learn to read risk factors and management tone without trading on headlines.",
+      "excerpt": "Consumer staples can teach baseline reading skills before tackling more volatile names.",
+      "cluster_key": "Equilima \u2014 Research"
+    },
+    {
+      "slug": "crypto-btc-eth-risk-frame-education",
+      "title": "BTC &amp; ETH: A Risk Framework for Learners (Not a Trade Plan)",
+      "meta_description": "Volatility, liquidity, and custody basics\u2014education only; crypto is highly speculative.",
+      "excerpt": "Why correlation to SPY sometimes rises\u2014and why that does not make BTC a stock.",
+      "cluster_key": "Equilima \u2014 Crypto"
+    },
+    {
+      "slug": "crypto-coin-mstr-equity-proxies-education",
+      "title": "COIN, MSTR &amp; Crypto Proxies in Equities: What the Stock Is Actually Pricing",
+      "meta_description": "How listed proxies embed bitcoin beta and operating risk\u2014examples, not picks.",
+      "excerpt": "Why COIN earnings can diverge from BTC day-to-day.",
+      "cluster_key": "Equilima \u2014 Crypto"
+    },
+    {
+      "slug": "crypto-alt-liquidity-sol-advanced-risk",
+      "title": "Altcoin Liquidity Lessons: Why SOL Moves Hit Different Than Large Caps",
+      "meta_description": "Thin books, vesting, and exchange listings\u2014conceptual education using SOL as example.",
+      "excerpt": "Slippage and wallet risk for learners exploring beyond BTC/ETH.",
+      "cluster_key": "Equilima \u2014 Crypto"
+    },
+    {
+      "slug": "crypto-regulatory-headlines-reading-education",
+      "title": "Reading Crypto Regulatory Headlines Without Panic-Selling (Education)",
+      "meta_description": "Enforcement actions, ETF flows, and tax reporting\u2014general concepts, not legal advice.",
+      "excerpt": "Separate noise from structural rule changes\u2014this week\u2019s news cycle practice.",
+      "cluster_key": "Equilima \u2014 Crypto"
+    },
+    {
+      "slug": "crypto-portfolio-sizing-btc-eth-stables-education",
+      "title": "Sizing, Stables, and Sleep: A Sober Crypto Portfolio Lesson (Illustrative)",
+      "meta_description": "Why stablecoins, leverage, and concentration interact\u2014education not allocation advice.",
+      "excerpt": "Think in max loss, not max gain\u2014examples with BTC/ETH.",
+      "cluster_key": "Equilima \u2014 Crypto"
+    },
+    {
+      "slug": "screener-liquidity-first-unh-jpm-xom",
+      "title": "Screener Playbook #1: Liquidity &amp; Tradability First (UNH, JPM, XOM examples)",
+      "meta_description": "Why ADV and spreads belong at the top of your funnel\u2014education, not a screen recipe.",
+      "excerpt": "Build a short list you can actually exit\u2014illustrative large caps.",
+      "cluster_key": "Equilima \u2014 Screener"
+    },
+    {
+      "slug": "screener-quality-factors-pg-ko-pep",
+      "title": "Screener Playbook #2: Quality Factors Without Hero Worship (PG, KO, PEP)",
+      "meta_description": "Margins, ROIC, and leverage screens\u2014consumer staples as teaching examples.",
+      "excerpt": "Why \u2018quality\u2019 is a bundle of metrics, not a vibe.",
+      "cluster_key": "Equilima \u2014 Screener"
+    },
+    {
+      "slug": "screener-momentum-nvda-meta-tsla-caveats",
+      "title": "Screener Playbook #3: Momentum With Guardrails (NVDA, META, TSLA caveats)",
+      "meta_description": "Relative strength and trend filters\u2014why you still need risk controls.",
+      "excerpt": "Examples of high-beta names that pass momentum screens then mean-revert brutally.",
+      "cluster_key": "Equilima \u2014 Screener"
+    },
+    {
+      "slug": "screener-value-cvs-wba-contrarian",
+      "title": "Screener Playbook #4: \u2018Cheap\u2019 vs \u2018Value Trap\u2019 (CVS, WBA-style examples)",
+      "meta_description": "Low P/E can signal distress\u2014education on balance sheet red flags.",
+      "excerpt": "Why screens need debt and FCF checks, not just multiples.",
+      "cluster_key": "Equilima \u2014 Screener"
+    },
+    {
+      "slug": "screener-dividend-schd-style-jnj-pfe",
+      "title": "Screener Playbook #5: Dividend Durability, Not Just Yield (JNJ, PFE-style framing)",
+      "meta_description": "Payout ratios, FCF coverage, and sector shocks\u2014education only.",
+      "excerpt": "High yield can precede cuts\u2014learn warning signs.",
+      "cluster_key": "Equilima \u2014 Screener"
+    },
+    {
+      "slug": "backtest-walk-forward-spy-qqq-education",
+      "title": "Walk-Forward Testing: Why One Window Lies (SPY, QQQ Education)",
+      "meta_description": "Holdout samples and parameter stability\u2014hypothetical examples only.",
+      "excerpt": "Learn to split history so you are not peeking at the future.",
+      "cluster_key": "Equilima \u2014 Backtest"
+    },
+    {
+      "slug": "backtest-costs-slippage-education",
+      "title": "Costs, Slippage, and the Death of Tiny Edges (Education)",
+      "meta_description": "Commissions, spreads, and taxes eat hypothetical alpha\u2014illustrative.",
+      "excerpt": "Why retail \u2018edges\u2019 vanish when you model friction honestly.",
+      "cluster_key": "Equilima \u2014 Backtest"
+    },
+    {
+      "slug": "backtest-overfitting-degrees-freedom",
+      "title": "Overfitting: Count Your Degrees of Freedom Before You Trust a Curve",
+      "meta_description": "Why more parameters mean less trust\u2014conceptual education.",
+      "excerpt": "Sanity checks: simpler rules, fewer indicators, more skepticism.",
+      "cluster_key": "Equilima \u2014 Backtest"
+    },
+    {
+      "slug": "backtest-regime-change-2020-2022-education",
+      "title": "Regime Change Lessons: 2020 vs 2022 for Strategy Humility",
+      "meta_description": "Volatility spikes and rate shocks break naive rules\u2014hypothetical education.",
+      "excerpt": "Why a rule that \u2018worked\u2019 in one era dies in another.",
+      "cluster_key": "Equilima \u2014 Backtest"
+    },
+    {
+      "slug": "backtest-position-sizing-kelly-caution",
+      "title": "Position Sizing &amp; Kelly Caution: Why Full Kelly Wrecks Retail Accounts",
+      "meta_description": "Fractional sizing, max loss, and drawdown math\u2014education not sizing advice.",
+      "excerpt": "Illustrative why leverage magnifies estimation error.",
+      "cluster_key": "Equilima \u2014 Backtest"
+    },
+    {
+      "slug": "markets-breadth-spy-qqq-iwm-education",
+      "title": "Breadth Basics: When SPY Lies and IWM Tells the Truth",
+      "meta_description": "Advance/decline and equal-weight intuition\u2014education using major ETFs as examples.",
+      "excerpt": "Why a green SPY day can mask ugly internals.",
+      "cluster_key": "Equilima \u2014 Markets"
+    },
+    {
+      "slug": "markets-sector-rotation-xlre-xlk-education",
+      "title": "Sector Rotation 101: XLRE vs XLK and the Macro Dial",
+      "meta_description": "Defensive vs growth tilt\u2014ETF tickers as teaching handles only.",
+      "excerpt": "Why rates and growth scare shift sector leadership.",
+      "cluster_key": "Equilima \u2014 Markets"
+    },
+    {
+      "slug": "markets-vix-vol-regime-education",
+      "title": "VIX and Vol Regimes: Fear Gauges Without Crystal Balls",
+      "meta_description": "Implied volatility as sentiment\u2014not a timing oracle.",
+      "excerpt": "Why vol spikes cluster around macro events in April 2026 context.",
+      "cluster_key": "Equilima \u2014 Markets"
+    },
+    {
+      "slug": "markets-rates-curve-tlt-education",
+      "title": "Rates &amp; the Curve: Why TLT Moves Ripple Through Stocks",
+      "meta_description": "Duration, discounts, and growth multiples\u2014bond ETF as teaching example.",
+      "excerpt": "Not bond trading advice\u2014macro literacy for equity investors.",
+      "cluster_key": "Equilima \u2014 Markets"
+    },
+    {
+      "slug": "markets-global-fx-efa-education",
+      "title": "Global Tape: FX Shocks and EFA for U.S.-Only Investors",
+      "meta_description": "Why DXY moves hit multinationals\u2014international ETF as example.",
+      "excerpt": "Currency literacy without forex trading advice.",
+      "cluster_key": "Equilima \u2014 Markets"
+    }
+  ]
+}
