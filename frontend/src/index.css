@@ -141,14 +141,6 @@ html, body, #root {
   color: rgba(15, 15, 15, 0.88);
 }
 
-.learn-article-reading .eq-credibility {
-  font-family: var(--eq-font-reading);
-}
-
-.learn-article-reading .eq-credibility .eq-h2 {
-  margin-top: 0;
-}
-
 .learn-article-reading .eq-figure-img {
   max-height: min(52vh, 520px);
   width: 100%;
