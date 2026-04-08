@@ -19,6 +19,7 @@ import {
   CandlestickChart,
   Scale,
   Coins,
+  Trash2,
 } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, YAxis, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { fetchTerminalChart, fetchResearch, fetchAgentHistory, putAgentHistory } from '../api';
@@ -606,6 +607,15 @@ export default function AgentPanel({ onNavigate, user, dek }) {
     setLastRun(null);
   };
 
+  const removeSession = (sessionId) => {
+    setSessions((prev) => prev.filter((x) => x.id !== sessionId));
+    if (activeSessionId === sessionId) {
+      setStreamingText('');
+      setInput('');
+      setLastRun(null);
+    }
+  };
+
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, streamingText]);
@@ -699,32 +709,50 @@ export default function AgentPanel({ onNavigate, user, dek }) {
               {sessions.map((s) => {
                 const active = s.id === activeSession.id;
                 return (
-                  <button
+                  <div
                     key={s.id}
-                    type="button"
-                    onClick={() => {
-                      if (loading) return;
-                      setActiveSessionId(s.id);
-                      setLastRun(s.lastRun || null);
-                      setStreamingText('');
-                      setInput('');
-                    }}
-                    className={`w-full text-left px-2.5 py-2 rounded-lg border transition-colors ${
+                    className={`group flex items-stretch rounded-lg border transition-colors ${
                       active ? 'bg-white/[0.08] border-white/10' : 'border-transparent hover:bg-white/[0.04]'
                     }`}
                   >
-                    <div className="flex items-start gap-2">
-                      <MessageSquare className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${active ? 'text-indigo-300' : 'text-gray-600'}`} />
-                      <div className="min-w-0">
-                        <div className={`text-[11px] font-medium truncate ${active ? 'text-white' : 'text-gray-300'}`}>
-                          {s.title || 'New chat'}
-                        </div>
-                        <div className="text-[10px] text-gray-600 mt-0.5">
-                          {(s.messages?.length || 0)} · {s.mode === 'full' ? 'Full' : 'Quick'}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (loading) return;
+                        setActiveSessionId(s.id);
+                        setLastRun(s.lastRun || null);
+                        setStreamingText('');
+                        setInput('');
+                      }}
+                      className="flex-1 min-w-0 text-left px-2.5 py-2 rounded-l-lg"
+                    >
+                      <div className="flex items-start gap-2">
+                        <MessageSquare className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${active ? 'text-indigo-300' : 'text-gray-600'}`} />
+                        <div className="min-w-0 flex-1">
+                          <div className={`text-[11px] font-medium truncate ${active ? 'text-white' : 'text-gray-300'}`}>
+                            {s.title || 'New chat'}
+                          </div>
+                          <div className="text-[10px] text-gray-600 mt-0.5">
+                            {(s.messages?.length || 0)} · {s.mode === 'full' ? 'Full' : 'Quick'}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </button>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        removeSession(s.id);
+                      }}
+                      disabled={loading}
+                      className="shrink-0 px-1.5 py-2 rounded-r-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-40 disabled:pointer-events-none"
+                      title="Delete chat"
+                      aria-label={`Delete chat: ${s.title || 'New chat'}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" strokeWidth={2} />
+                    </button>
+                  </div>
                 );
               })}
             </div>
