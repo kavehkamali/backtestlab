@@ -123,11 +123,15 @@ export async function fetchAdminStats(daysOrOpts = 30) {
   const days = opts.days ?? 30;
   const recentDays = opts.recentDays ?? opts.recent_days;
   const recentLimit = opts.recentLimit ?? opts.recent_limit;
+  const ipTableDays = opts.ipTableDays ?? opts.ip_table_days;
+  const ipTableLimit = opts.ipTableLimit ?? opts.ip_table_limit;
 
   const qp = new URLSearchParams();
   qp.set('days', String(days));
   if (recentDays != null) qp.set('recent_days', String(recentDays));
   if (recentLimit != null) qp.set('recent_limit', String(recentLimit));
+  if (ipTableDays != null) qp.set('ip_table_days', String(ipTableDays));
+  if (ipTableLimit != null) qp.set('ip_table_limit', String(ipTableLimit));
   qp.set('_', String(Date.now()));
 
   const res = await fetch(`${BASE}/admin/stats?${qp.toString()}`, {
@@ -139,6 +143,22 @@ export async function fetchAdminStats(daysOrOpts = 30) {
     throw new Error('Failed to load stats');
   }
   return res.json();
+}
+
+export async function toggleAdminExcludedIp(ip, ignore) {
+  const token = localStorage.getItem('eq_admin_token');
+  const res = await fetch(`${BASE}/admin/excluded-ips/toggle`, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ip, ignore }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(data.detail || 'Toggle failed');
+  }
+  return data;
 }
 
 export async function saveAdminExcludedIps(ips) {

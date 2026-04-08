@@ -118,6 +118,11 @@ def test_stats_excludes_ip_everywhere_summary_matches_recent(client: TestClient,
     assert "1.1.1.1" not in recent_ips
     assert "8.8.8.8" in recent_ips
 
+    assert len(data.get("hourly") or []) == 12
+    ip_dir = data.get("ip_directory") or []
+    assert any(x["ip"] == "1.1.1.1" and x["ignored"] for x in ip_dir)
+    assert any(x["ip"] == "8.8.8.8" and not x["ignored"] for x in ip_dir)
+
     assert r.headers.get("cache-control", "").lower().find("no-store") >= 0
 
 
@@ -207,3 +212,56 @@ def test_ipv4_mapped_ipv6_matches_ipv4_ignore(client: TestClient):
     assert data["summary"]["total_views"] == 1
     assert "1.1.1.1" in (data.get("ignored_canonical") or [])
     assert "AU" not in {c["country"] for c in data["top_countries"]}
+
+
+def test_excluded_ip_toggle_add_and_remove_literal(client: TestClient):
+    import app.analytics as analytics
+
+    now = _utc_now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = analytics.get_db()
+    try:
+        _seed_views(
+            conn,
+            [
+                ("5.5.5.5", now, "dash", "Mozilla/5.0", "US", "Austin", "s1"),
+            ],
+        )
+    finally:
+        conn.close()
+
+    tok = client.post("/api/admin/login", json={"username": "admintest", "password": "passtest"}).json()["token"]
+    h = {"Authorization": f"Bearer {tok}"}
+    assert client.post("/api/admin/excluded-ips/toggle", headers=h, json={"ip": "5.5.5.5", "ignore": True}).status_code == 200
+    data = client.get("/api/admin/stats?days=7", headers=h).json()
+    assert data["summary"]["total_views"] == 0
+    r_off = client.post("/api/admin/excluded-ips/toggle", headers=h, json={"ip": "5.5.5.5", "ignore": False}).json()
+    assert r_off.get("ok") is True
+    assert r_off.get("still_filtered") is False
+    data2 = client.get("/api/admin/stats?days=7", headers=h).json()
+    assert data2["summary"]["total_views"] == 1
+
+
+def test_excluded_ip_toggle_off_still_filtered_under_cidr(client: TestClient):
+    import app.analytics as analytics
+
+    now = _utc_now().strftime("%Y-%m-%d %H:%M:%S")
+    conn = analytics.get_db()
+    try:
+        _seed_views(
+            conn,
+            [
+                ("10.10.10.7", now, "dash", "Mozilla/5.0", "CA", "Toronto", "s1"),
+            ],
+        )
+        conn.execute("INSERT INTO analytics_excluded_ips (ip) VALUES ('10.10.10.0/24')")
+        conn.commit()
+    finally:
+        conn.close()
+
+    tok = client.post("/api/admin/login", json={"username": "admintest", "password": "passtest"}).json()["token"]
+    h = {"Authorization": f"Bearer {tok}"}
+    r = client.post("/api/admin/excluded-ips/toggle", headers=h, json={"ip": "10.10.10.7", "ignore": False}).json()
+    assert r.get("ok") is True
+    assert r.get("still_filtered") is True
+    data = client.get("/api/admin/stats?days=7", headers=h).json()
+    assert data["summary"]["total_views"] == 0

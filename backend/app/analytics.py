@@ -422,6 +422,52 @@ async def put_excluded_ips(request: Request, _admin=Depends(verify_admin)):
         conn.close()
 
 
+@router.post("/excluded-ips/toggle")
+async def post_excluded_ip_toggle(request: Request, _admin=Depends(verify_admin)):
+    """Add or remove a single host literal from analytics exclusions (CIDR/wildcard rules unchanged)."""
+    body = await request.json()
+    raw_ip = (body.get("ip") or "").strip()
+    ignore = bool(body.get("ignore"))
+    if not raw_ip:
+        raise HTTPException(status_code=400, detail="ip is required")
+    conn = get_db()
+    try:
+        if ignore:
+            try:
+                ent = _parse_exclude_entry(raw_ip)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e) or "Invalid IP") from e
+            if _is_network_exclusion(ent):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Use PUT /excluded-ips to add CIDR or wildcard rules",
+                )
+            conn.execute("INSERT OR IGNORE INTO analytics_excluded_ips (ip) VALUES (?)", (ent,))
+            conn.commit()
+            return {"ok": True, "ignore": True}
+        canon = _canonical_ip_for_compare(raw_ip)
+        if not canon:
+            raise HTTPException(status_code=400, detail="Invalid IP")
+        rows = conn.execute("SELECT ip FROM analytics_excluded_ips").fetchall()
+        removed: list[str] = []
+        for r in rows:
+            e = str(r["ip"] or "")
+            if _is_network_exclusion(e):
+                continue
+            ec = _canonical_ip_for_compare(e)
+            if ec == canon:
+                conn.execute("DELETE FROM analytics_excluded_ips WHERE ip = ?", (e,))
+                removed.append(e)
+        conn.commit()
+        excluded_after = _load_excluded_ips(conn)
+        host_only = [x for x in excluded_after if not _is_network_exclusion(str(x))]
+        excluded_literals = _resolve_excluded_ip_literals(conn, host_only)
+        still = _make_ip_excluder(excluded_after, excluded_literals)(raw_ip)
+        return {"ok": True, "ignore": False, "removed": removed, "still_filtered": still}
+    finally:
+        conn.close()
+
+
 # ─── Admin login ───
 @router.post("/login")
 async def admin_login(request: Request):
@@ -439,6 +485,8 @@ def get_stats(
     days: int = 30,
     recent_days: int = 7,
     recent_limit: int = 200,
+    ip_table_days: int = 30,
+    ip_table_limit: int = 200,
     _admin=Depends(verify_admin),
 ):
     """Full analytics dashboard data."""
@@ -457,10 +505,20 @@ def get_stats(
             recent_limit_i = int(recent_limit)
         except Exception:
             recent_limit_i = 200
+        try:
+            ip_table_days_i = int(ip_table_days)
+        except Exception:
+            ip_table_days_i = 30
+        try:
+            ip_table_limit_i = int(ip_table_limit)
+        except Exception:
+            ip_table_limit_i = 200
 
         days_i = max(1, min(3650, days_i))
         recent_days_i = max(1, min(3650, recent_days_i))
         recent_limit_i = max(10, min(5000, recent_limit_i))
+        ip_table_days_i = max(1, min(3650, ip_table_days_i))
+        ip_table_limit_i = max(10, min(5000, ip_table_limit_i))
 
         tz = _analytics_tz()
         now_et = datetime.now(tz)
@@ -524,10 +582,10 @@ def get_stats(
                 }
             )
 
-        # Last 24 hours ending now in Eastern; bucket by local hour (DST-aware).
+        # Last 24 hours ending now in Eastern; 12 bins of 2 local hours each (DST-aware).
         hourly_cutoff_utc = (now_et - timedelta(hours=24)).astimezone(timezone.utc).replace(tzinfo=None)
         hourly_cutoff_sql = hourly_cutoff_utc.strftime("%Y-%m-%d %H:%M:%S")
-        hourly_counter: Counter[str] = Counter()
+        hourly_bin_views = [0] * 12
         for row in conn.execute(
             "SELECT ip, timestamp FROM page_views WHERE timestamp >= ? ORDER BY timestamp",
             (hourly_cutoff_sql,),
@@ -537,8 +595,15 @@ def get_stats(
             dt = _parse_ts_utc_naive(row["timestamp"])
             if dt:
                 dt_et = dt.replace(tzinfo=timezone.utc).astimezone(tz)
-                hourly_counter[f"{dt_et.hour:02d}:00"] += 1
-        hourly_data = [{"hour": h, "views": c} for h, c in sorted(hourly_counter.items())]
+                slot = min(11, max(0, dt_et.hour // 2))
+                hourly_bin_views[slot] += 1
+        hourly_data = [
+            {
+                "hour": f"{2 * i:02d}:00–{2 * i + 2:02d}:00",
+                "views": hourly_bin_views[i],
+            }
+            for i in range(12)
+        ]
 
         tab_counts = Counter(
             (r["tab"] or "").strip() for r in period_rows if (r["tab"] or "").strip()
@@ -625,6 +690,37 @@ def get_stats(
             if len(recent_data) >= recent_limit_i:
                 break
 
+        # Unique IPs in a sliding window (includes rows that are excluded from other aggregates).
+        ip_table_cutoff_utc = (now_et - timedelta(days=ip_table_days_i)).astimezone(timezone.utc).replace(tzinfo=None)
+        ip_table_cutoff_sql = ip_table_cutoff_utc.strftime("%Y-%m-%d %H:%M:%S")
+        ip_directory_rows = conn.execute(
+            """
+            SELECT agg.ip, agg.visits, agg.last_visit,
+              (SELECT country FROM page_views p WHERE p.ip = agg.ip ORDER BY p.timestamp DESC LIMIT 1) AS country,
+              (SELECT city FROM page_views p WHERE p.ip = agg.ip ORDER BY p.timestamp DESC LIMIT 1) AS city
+            FROM (
+              SELECT ip, COUNT(*) AS visits, MAX(timestamp) AS last_visit
+              FROM page_views
+              WHERE timestamp >= ?
+              GROUP BY ip
+            ) AS agg
+            ORDER BY agg.last_visit DESC
+            LIMIT ?
+            """,
+            (ip_table_cutoff_sql, ip_table_limit_i),
+        ).fetchall()
+        ip_directory = [
+            {
+                "ip": r["ip"],
+                "visits": int(r["visits"] or 0),
+                "last_visit": r["last_visit"],
+                "city": (r["city"] or "").strip(),
+                "country": (r["country"] or "").strip(),
+                "ignored": bool(is_excluded(r["ip"])),
+            }
+            for r in ip_directory_rows
+        ]
+
         # Registered users
         users_count = conn.execute("SELECT COUNT(*) as c FROM users").fetchone()["c"]
         today_et_date = now_et.date()
@@ -650,6 +746,8 @@ def get_stats(
             "period_days": days_i,
             "recent_days": recent_days_i,
             "recent_limit": recent_limit_i,
+            "ip_table_days": ip_table_days_i,
+            "ip_table_limit": ip_table_limit_i,
             "analytics_timezone": str(tz),
             "analytics_tz_abbrev": now_et.tzname(),
             "ignored_ips": excluded,
@@ -672,6 +770,7 @@ def get_stats(
             "devices": [{"name": k, "value": v} for k, v in devices.items()],
             "browsers": [{"name": k, "value": v} for k, v in browsers.most_common(5)],
             "recent_visitors": recent_data,
+            "ip_directory": ip_directory,
             "users": users_data,
             "cache_stats": _get_cache_stats(),
         }

@@ -8,9 +8,10 @@ import {
   Square, Grid2x2, Grid3x3,
 } from 'lucide-react';
 
+// Intraday (15m) is used only for 1D; other ranges use daily/weekly bars for Yahoo limits and clarity.
 const TIMEFRAMES = [
-  { label: '1D', timeframe: '5d', interval: '5m' },
-  { label: '1W', timeframe: '1mo', interval: '15m' },
+  { label: '1D', timeframe: '5d', interval: '15m' },
+  { label: '1W', timeframe: '1mo', interval: '1d' },
   { label: '1M', timeframe: '1mo', interval: '1d' },
   { label: '3M', timeframe: '3mo', interval: '1d' },
   { label: '6M', timeframe: '6mo', interval: '1d' },

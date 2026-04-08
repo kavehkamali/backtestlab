@@ -11,6 +11,26 @@ from .cache import fetch_price_cached, batch_fetch_prices
 
 router = APIRouter(prefix="/api/terminal", tags=["terminal"])
 
+# Intervals that lightweight-charts expects as business-day strings, not unix seconds.
+_DAILY_STYLE_INTERVALS = frozenset({"1d", "1wk", "1mo"})
+
+
+def _bar_time_for_lightweight_charts(ts, interval: str) -> int | str:
+    """
+    Daily*: 'YYYY-MM-DD' (exchange-local date for US listings when tz-aware).
+    Intraday: UTC-based unix seconds — required so candles are unique and ordered.
+    Do NOT strip tz then call .timestamp() on naive datetimes (server TZ would warp bars).
+    """
+    t = pd.Timestamp(ts)
+    if interval in _DAILY_STYLE_INTERVALS:
+        if t.tzinfo is not None:
+            t = t.tz_convert("America/New_York")
+        return t.strftime("%Y-%m-%d")
+    if t.tzinfo is None:
+        # Rare naive intraday from yfinance; assume US equity session wall time
+        t = t.tz_localize("America/New_York", ambiguous="infer", nonexistent="shift_forward")
+    return int(t.timestamp())
+
 
 @router.get("/chart/{symbol}")
 def get_chart_data(
@@ -27,25 +47,21 @@ def get_chart_data(
         if df.empty:
             raise ValueError(f"No data for {symbol}")
 
-        df.index = df.index.tz_localize(None)
-
-        data = []
+        by_time: dict[int | str, dict] = {}
         for i in range(len(df)):
             ts = df.index[i]
-            # For daily data, use YYYY-MM-DD string; for intraday, use unix timestamp
-            if interval in ("1d", "1wk", "1mo"):
-                time_val = ts.strftime("%Y-%m-%d")
-            else:
-                time_val = int(ts.timestamp())
-
-            data.append({
+            time_val = _bar_time_for_lightweight_charts(ts, interval)
+            by_time[time_val] = {
                 "time": time_val,
                 "open": round(float(df["Open"].iloc[i]), 4),
                 "high": round(float(df["High"].iloc[i]), 4),
                 "low": round(float(df["Low"].iloc[i]), 4),
                 "close": round(float(df["Close"].iloc[i]), 4),
                 "volume": int(df["Volume"].iloc[i]) if not np.isnan(df["Volume"].iloc[i]) else 0,
-            })
+            }
+
+        data = list(by_time.values())
+        data.sort(key=lambda row: row["time"])
 
         return {"symbol": symbol, "interval": interval, "data": data}
     except Exception as e:
@@ -71,14 +87,11 @@ def get_indicators(
         if df.empty:
             raise ValueError(f"No data for {symbol}")
 
-        df.index = df.index.tz_localize(None)
         close = df["Close"]
         indicator_list = [i.strip() for i in indicators.split(",")]
 
         def make_time(ts):
-            if interval in ("1d", "1wk", "1mo"):
-                return ts.strftime("%Y-%m-%d")
-            return int(ts.timestamp())
+            return _bar_time_for_lightweight_charts(ts, interval)
 
         result = {}
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Loader2, Users, Eye, Globe, Monitor, Smartphone, Clock, LogOut, RefreshCw, Mail, CheckCircle, XCircle, Filter, Plus, X, Copy, Send } from 'lucide-react';
 import { Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Line } from 'recharts';
-import { adminLogin, fetchAdminStats, saveAdminExcludedIps, fetchAdminUsers, updateAdminUser, deleteAdminUser, previewAdminNewsletter, sendAdminNewsletter, fetchAdminNewsletterHistory } from '../api';
+import { adminLogin, fetchAdminStats, saveAdminExcludedIps, toggleAdminExcludedIp, fetchAdminUsers, updateAdminUser, deleteAdminUser, previewAdminNewsletter, sendAdminNewsletter, fetchAdminNewsletterHistory } from '../api';
 import AdminArticlesTab from './AdminArticlesTab';
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
@@ -58,7 +58,7 @@ function ChartTooltip({ active, payload, label }) {
       <p className="text-gray-400 mb-1">{label}</p>
       {payload.map((p, i) => {
         const v = p.value;
-        const isPct = p.dataKey === 'retention_pct' || (p.name && String(p.name).includes('Retention'));
+        const isPct = p.dataKey === 'retention_pct';
         const text = isPct && v != null ? `${v}%` : v;
         return (
           <p key={i} style={{ color: p.color || '#818cf8' }}>
@@ -138,6 +138,9 @@ export default function AdminPanel() {
   const [days, setDays] = useState(30);
   const [recentDays, setRecentDays] = useState(7);
   const [recentLimit, setRecentLimit] = useState(200);
+  const [ipTableDays, setIpTableDays] = useState(30);
+  const [ipTableLimit, setIpTableLimit] = useState(200);
+  const [ipToggleBusy, setIpToggleBusy] = useState(null);
   const [recentCityFilter, setRecentCityFilter] = useState('');
   const [ignoredDraft, setIgnoredDraft] = useState([]);
   const [newIp, setNewIp] = useState('');
@@ -172,6 +175,8 @@ export default function AdminPanel() {
         days: d || days,
         recentDays,
         recentLimit,
+        ipTableDays,
+        ipTableLimit,
       });
       setData(stats);
       setIgnoredDraft(Array.isArray(stats.ignored_ips) ? [...stats.ignored_ips] : []);
@@ -330,6 +335,34 @@ export default function AdminPanel() {
     }
   };
 
+  const handleIpDirectoryToggle = async (ip, nextIgnored) => {
+    setIpToggleBusy(ip);
+    setIpFilterError(null);
+    try {
+      const r = await toggleAdminExcludedIp(ip, nextIgnored);
+      if (!nextIgnored && r.still_filtered) {
+        setIpFilterError('That IP is still excluded by a subnet or wildcard rule. Adjust advanced rules below.');
+      }
+      await load();
+    } catch (e) {
+      if (e.message === 'Session expired') setAuthed(false);
+      else setIpFilterError(e.message || 'Update failed');
+    } finally {
+      setIpToggleBusy(null);
+    }
+  };
+
+  const ignoreRecentIp = async (ip) => {
+    setIpFilterError(null);
+    try {
+      await toggleAdminExcludedIp(ip, true);
+      await load();
+    } catch (e) {
+      if (e.message === 'Session expired') setAuthed(false);
+      else setIpFilterError(e.message || 'Could not ignore IP');
+    }
+  };
+
   if (!authed) return <AdminLogin onLogin={() => { setAuthed(true); }} />;
   if (loading && !data) return <div className="flex items-center justify-center h-64 text-gray-500"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading analytics...</div>;
   if (!data) return null;
@@ -348,7 +381,7 @@ export default function AdminPanel() {
 
   const dailyChart = (data.daily || []).map((d) => ({
     ...d,
-    retention_pct: typeof d.retention_pct === 'number' ? d.retention_pct : 0,
+    returning: typeof d.returning === 'number' ? d.returning : 0,
   }));
 
   return (
@@ -818,71 +851,6 @@ export default function AdminPanel() {
 
       {adminTab !== 'analytics' ? null : (
         <>
-      {/* IP filters — excluded from all analytics & not tracked */}
-      <Section
-        title="Ignored IPs"
-        right={<Filter className="w-3.5 h-3.5 text-gray-500" />}
-      >
-        <p className="text-[11px] text-gray-500 mb-3">
-          Each address you save is removed from <strong className="text-gray-400 font-normal">all</strong> dashboard totals and charts (same as Recent Visitors). Paste from the IP column so it matches what the server stored.
-          If a city still has traffic, those rows are almost always a <em className="text-gray-400 not-italic">different</em> IP than the one you ignored (common when the ISP rotates the last number). Optional:{' '}
-          <span className="font-mono text-gray-400">a.b.c.*</span> or CIDR for a whole subnet.
-        </p>
-        {Array.isArray(data.ignored_canonical) && data.ignored_canonical.length > 0 && (
-          <p className="text-[10px] text-gray-600 font-mono mb-2">
-            Compared as: {data.ignored_canonical.join(', ')}
-          </p>
-        )}
-        <div className="flex flex-wrap gap-2 mb-3">
-          {ignoredDraft.length === 0 && <span className="text-xs text-gray-600">No IPs ignored yet</span>}
-          {ignoredDraft.map((ip) => (
-            <span
-              key={ip}
-              className="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-200 font-mono"
-            >
-              {ip}
-              <button
-                type="button"
-                onClick={() => setIgnoredDraft((p) => p.filter((x) => x !== ip))}
-                className="p-0.5 rounded hover:bg-white/10 text-gray-500 hover:text-white"
-                title="Remove"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          ))}
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-          <input
-            type="text"
-            value={newIp}
-            onChange={(e) => setNewIp(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addIgnoredIp()}
-            placeholder="e.g. 203.0.113.42 (paste from Recent Visitors)"
-            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-indigo-500/50"
-          />
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={addIgnoredIp}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 hover:bg-white/10"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add
-            </button>
-            <button
-              type="button"
-              onClick={saveIgnoredIps}
-              disabled={ipFilterSaving}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-xs text-white font-medium"
-            >
-              {ipFilterSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-              Save filters
-            </button>
-          </div>
-        </div>
-        {ipFilterError && <p className="text-xs text-red-400 mt-2">{ipFilterError}</p>}
-      </Section>
-
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         <StatCard label="Today Views" value={s.today_views} icon={Eye} color="text-indigo-400" />
@@ -894,10 +862,16 @@ export default function AdminPanel() {
         <StatCard label="Registered Users" value={s.registered_users} icon={Users} color="text-pink-400" />
       </div>
 
-      {/* Views chart + retention (%) on right axis */}
-      <Section title="Views, Visitors & Retention Over Time">
+      {ipFilterError && (
+        <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+          {ipFilterError}
+        </div>
+      )}
+
+      {/* Views chart + returning visitor count on right axis */}
+      <Section title="Views, Visitors & Returning Visitors Over Time">
         <p className="text-[10px] text-gray-500 mb-3 leading-relaxed">
-          Retention % is the share of that day’s unique visitors (by IP) who also visited on an earlier day within this date range. First calendar day in the range is usually lower because there is no prior day in the window.
+          Returning visitors is the count of unique IPs on that calendar day who also had at least one visit on an earlier day within this date range. The first day in the range is often lower because there is no prior day in the window.
         </p>
         <ResponsiveContainer width="100%" height={280}>
           <ComposedChart data={dailyChart}>
@@ -922,9 +896,8 @@ export default function AdminPanel() {
             <YAxis
               yAxisId="right"
               orientation="right"
-              domain={[0, 100]}
               tick={{ fontSize: 9, fill: '#c084fc' }}
-              tickFormatter={(v) => `${v}%`}
+              allowDecimals={false}
               width={40}
             />
             <Tooltip content={<ChartTooltip />} />
@@ -949,12 +922,12 @@ export default function AdminPanel() {
             <Line
               yAxisId="right"
               type="monotone"
-              dataKey="retention_pct"
+              dataKey="returning"
               stroke="#c084fc"
               strokeWidth={2.5}
               dot={false}
               activeDot={{ r: 4, fill: '#c084fc' }}
-              name="Retention %"
+              name="Returning visitors"
             />
           </ComposedChart>
         </ResponsiveContainer>
@@ -962,11 +935,11 @@ export default function AdminPanel() {
 
       {/* Hourly + Pages row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Section title="Hourly Distribution (24h)">
+        <Section title="Hourly Distribution (24h, 2h bins ET)">
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={data.hourly}>
               <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" />
-              <XAxis dataKey="hour" tick={{ fontSize: 8, fill: '#555' }} />
+              <XAxis dataKey="hour" tick={{ fontSize: 7, fill: '#555' }} interval={0} angle={-25} textAnchor="end" height={52} />
               <YAxis tick={{ fontSize: 9, fill: '#555' }} />
               <Tooltip content={<ChartTooltip />} />
               <Bar dataKey="views" fill="#6366f1" radius={[3, 3, 0, 0]} name="Views" />
@@ -1165,9 +1138,9 @@ export default function AdminPanel() {
                   <td className="py-1.5 px-2 text-gray-500 font-mono">
                     <button
                       type="button"
-                      onClick={() => setIgnoredDraft((p) => (p.includes(v.ip) ? p : [...p, v.ip]))}
+                      onClick={() => ignoreRecentIp(v.ip)}
                       className="text-left hover:text-white"
-                      title="Click to add this IP to Ignored IPs draft"
+                      title="Exclude this IP from all analytics (same as the directory below)"
                     >
                       {v.ip}
                     </button>
@@ -1190,6 +1163,137 @@ export default function AdminPanel() {
           {recentRows.length === 0 && (
             <p className="text-xs text-gray-600 text-center py-4">No recent visitors match that city filter</p>
           )}
+        </div>
+      </Section>
+
+      <Section
+        title="Unique IPs & filters"
+        right={<Filter className="w-3.5 h-3.5 text-gray-500" />}
+      >
+        <p className="text-[11px] text-gray-500 mb-3">
+          One row per IP in the window below (included and excluded). Check <strong className="text-gray-400 font-normal">Ignore</strong> to drop that address from all dashboard totals and charts. Last visit is the most recent page view in Eastern time.
+        </p>
+        <div className="flex flex-wrap items-center justify-end gap-2 mb-3">
+          <select
+            value={ipTableDays}
+            onChange={(e) => { const v = Number(e.target.value); setIpTableDays(v); load(); }}
+            className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-white text-[11px] focus:outline-none focus:border-indigo-500/50"
+            title="Look back N days for unique IPs"
+          >
+            {[1, 2, 3, 7, 14, 30, 90].map((d) => (
+              <option key={d} value={d}>{d}D</option>
+            ))}
+          </select>
+          <select
+            value={ipTableLimit}
+            onChange={(e) => { const v = Number(e.target.value); setIpTableLimit(v); load(); }}
+            className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-white text-[11px] focus:outline-none focus:border-indigo-500/50"
+            title="Max unique IPs (sorted by last visit)"
+          >
+            {[50, 200, 500, 1000, 2000].map((n) => (
+              <option key={n} value={n}>{n} IPs</option>
+            ))}
+          </select>
+        </div>
+        <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
+          <table className="w-full text-[11px]">
+            <thead className="sticky top-0 bg-[#0d0d14]">
+              <tr className="text-gray-500 border-b border-white/5">
+                <th className="text-center py-2 px-2 font-medium w-14">Ignore</th>
+                <th className="text-left py-2 px-2 font-medium">IP</th>
+                <th className="text-left py-2 px-2 font-medium">Location</th>
+                <th className="text-right py-2 px-2 font-medium">Visits</th>
+                <th className="text-left py-2 px-2 font-medium">Last visit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data.ip_directory || []).map((row) => (
+                <tr key={row.ip} className="border-b border-white/[0.02] hover:bg-white/[0.02]">
+                  <td className="py-1.5 px-2 text-center">
+                    <input
+                      type="checkbox"
+                      checked={!!row.ignored}
+                      disabled={ipToggleBusy === row.ip}
+                      onChange={(e) => handleIpDirectoryToggle(row.ip, e.target.checked)}
+                      className="accent-indigo-500 cursor-pointer disabled:opacity-40"
+                      title={row.ignored ? 'Excluded from analytics (uncheck to include)' : 'Included in analytics (check to ignore)'}
+                      aria-label={row.ignored ? `Stop ignoring ${row.ip}` : `Ignore ${row.ip}`}
+                    />
+                  </td>
+                  <td className="py-1.5 px-2 text-gray-500 font-mono">{row.ip}</td>
+                  <td className="py-1.5 px-2 text-gray-300">
+                    {row.city && row.country ? `${row.city}, ${row.country}` : row.country || row.city || '—'}
+                  </td>
+                  <td className="py-1.5 px-2 text-right text-white font-medium">{row.visits?.toLocaleString?.() ?? row.visits}</td>
+                  <td className="py-1.5 px-2 text-gray-400 whitespace-nowrap">{row.last_visit?.slice(0, 16) || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {(!data.ip_directory || data.ip_directory.length === 0) && (
+            <p className="text-xs text-gray-600 text-center py-4">No page views in this window</p>
+          )}
+        </div>
+      </Section>
+
+      <Section
+        title="Advanced: subnets & wildcards"
+        right={<Filter className="w-3.5 h-3.5 text-gray-500" />}
+      >
+        <p className="text-[11px] text-gray-500 mb-3">
+          CIDR ranges and <span className="font-mono text-gray-400">a.b.c.*</span> rules are edited here and replace the full list when you save. Single-IP ignore/unignore is faster from the table above.
+        </p>
+        {Array.isArray(data.ignored_canonical) && data.ignored_canonical.length > 0 && (
+          <p className="text-[10px] text-gray-600 font-mono mb-2">
+            Literal IPs compared as: {data.ignored_canonical.join(', ')}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2 mb-3">
+          {ignoredDraft.length === 0 && <span className="text-xs text-gray-600">No rules yet</span>}
+          {ignoredDraft.map((ip) => (
+            <span
+              key={ip}
+              className="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-200 font-mono"
+            >
+              {ip}
+              <button
+                type="button"
+                onClick={() => setIgnoredDraft((p) => p.filter((x) => x !== ip))}
+                className="p-0.5 rounded hover:bg-white/10 text-gray-500 hover:text-white"
+                title="Remove"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+          <input
+            type="text"
+            value={newIp}
+            onChange={(e) => setNewIp(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addIgnoredIp()}
+            placeholder="e.g. 203.0.113.0/24 or 203.0.113.*"
+            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-indigo-500/50"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={addIgnoredIp}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-300 hover:bg-white/10"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add
+            </button>
+            <button
+              type="button"
+              onClick={saveIgnoredIps}
+              disabled={ipFilterSaving}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-xs text-white font-medium"
+            >
+              {ipFilterSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              Save rules
+            </button>
+          </div>
         </div>
       </Section>
         </>
