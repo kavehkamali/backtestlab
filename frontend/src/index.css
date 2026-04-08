@@ -135,6 +135,20 @@ html, body, #root {
   color: rgba(0, 0, 0, 0.55);
 }
 
+.learn-article-reading .eq-plain {
+  font-size: 1.05rem;
+  line-height: 1.62;
+  color: rgba(15, 15, 15, 0.88);
+}
+
+.learn-article-reading .eq-credibility {
+  font-family: var(--eq-font-reading);
+}
+
+.learn-article-reading .eq-credibility .eq-h2 {
+  margin-top: 0;
+}
+
 .learn-article-reading .eq-figure-img {
   max-height: min(52vh, 520px);
   width: 100%;

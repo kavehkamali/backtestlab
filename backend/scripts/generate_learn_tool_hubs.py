@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Generate 25 Equilima Learn hub articles (5 per category), each ≥1500 words.
-Zacks-style structure, Medium-oriented CSS classes (styled in frontend), Unsplash (license) + inline SVG diagrams.
+Educational tone, credibility framing, bundled hero JPEGs (/learn/hubs/), inline SVG diagrams.
 
 Run from repo root: python3 backend/scripts/generate_learn_tool_hubs.py
 """
@@ -22,6 +22,7 @@ from learn_hub_paragraph_bank import (
     ARTICLE_HOOKS,
     CLUSTER_OPENERS,
     GPARAS,
+    READABILITY_PARAS,
     ZACKS_SECTION_TITLES,
 )
 
@@ -30,21 +31,17 @@ OUT = ROOT / "data" / "learn_tool_hubs"
 
 MIN_WORDS = 1500
 
-# Unsplash — Unsplash License; attribution in caption. IDs verified for images.unsplash.com CDN (ixlib per Unsplash guidelines).
-UNSPLASH_PHOTOS: list[tuple[str, str, str]] = [
-    ("1611974789855-9c2a0a7236a3", "Austin Distel", "https://unsplash.com/@austindistel"),
-    ("1551288049-bebda4e38f71", "Luke Chesser", "https://unsplash.com/@lukechesser"),
-    ("1460925895917-afdab827c52f", "Cytonn Photography", "https://unsplash.com/@cytonn_photography"),
-    ("1590283603385-17ffb3a7f29f", "Burak Kabak", "https://unsplash.com/@bkabakov"),
-    ("1559526324-593bc073d938", "Maxim Hopman", "https://unsplash.com/@nampoh"),
-    ("1642543492481-44e81e391fb9", "Behnam Norouzi", "https://unsplash.com/@behy_studio"),
-    ("1639762681485-074b7f938ba0", "Kanchanara", "https://unsplash.com/@kanchanara"),
-    ("1522071820081-009f0129c71c", "Annie Spratt", "https://unsplash.com/@anniespratt"),
+# Bundled heroes: frontend/public/learn/hubs/hero-NN.jpg (see CREDITS.md). Same-origin = reliable loads.
+HERO_CREDITS: list[tuple[str, str]] = [
+    ("Austin Distel", "https://unsplash.com/@austindistel"),
+    ("Luke Chesser", "https://unsplash.com/@lukechesser"),
+    ("Cytonn Photography", "https://unsplash.com/@cytonn_photography"),
+    ("Burak Kabak", "https://unsplash.com/@bkabakov"),
+    ("Maxim Hopman", "https://unsplash.com/@nampoh"),
+    ("Kanchanara", "https://unsplash.com/@kanchanara"),
+    ("Kanchanara", "https://unsplash.com/@kanchanara"),
+    ("Annie Spratt", "https://unsplash.com/@anniespratt"),
 ]
-
-
-def _unsplash_src(photo_id: str, w: int = 2000) -> str:
-    return f"https://images.unsplash.com/photo-{photo_id}?ixlib=rb-4.1.0&auto=format&fit=crop&w={w}&q=82"
 
 
 def word_count(html: str) -> int:
@@ -72,23 +69,72 @@ def disclaimer_block() -> str:
     return """
 <div class="eq-disclaimer rounded-xl border-2 border-amber-400/90 bg-amber-50 p-5 mb-8">
 <p class="eq-disclaimer-kicker font-bold text-xs uppercase tracking-widest mb-3 text-amber-900">Important — not financial advice</p>
-<p class="eq-p text-[15px] leading-relaxed mb-3 text-neutral-900">Equilima is <strong>not</strong> a registered investment adviser, broker-dealer, or financial planner. This content is for <strong>education and general research commentary</strong> only—not personalized buy/sell/hold advice for your situation. Investing and crypto involve risk of loss; past performance does not guarantee future results. Verify all figures with primary sources and consult a qualified professional before acting.</p>
+<p class="eq-p text-[15px] leading-relaxed mb-3 text-neutral-900">Equilima is <strong>not</strong> a registered investment adviser, broker-dealer, or financial planner. This content is for <strong>education and general research commentary</strong> only—not personalized buy/sell/hold advice for your situation. We do <strong>not</strong> publish price targets, ratings, or “our view” as investment recommendations. Investing and crypto involve risk of loss; past performance does not guarantee future results. <strong>Always verify</strong> prices, ratios, and news in Equilima or primary sources; numbers in static articles go stale quickly.</p>
 <p class="text-sm leading-relaxed text-neutral-700">Ticker and token symbols are <strong>illustrative examples</strong> for learning, not recommendations.</p>
+</div>
+""".strip()
+
+
+def credibility_method_block() -> str:
+    return """
+<div class="eq-credibility rounded-2xl bg-white p-6 sm:p-7 mb-8 shadow-[0_4px_24px_rgba(15,23,42,0.06)]">
+<h2 class="eq-h2 text-xl sm:text-2xl mb-4">Easier read + how we stay credible</h2>
+<p class="eq-p eq-plain mb-4"><strong>If terms feel heavy:</strong> skim the <strong>Key takeaways</strong> box, then the section on the tickers below. Each long paragraph is optional depth—you can read in layers.</p>
+<ul class="eq-ul list-disc pl-5 space-y-3 text-[16px] leading-relaxed text-neutral-800">
+<li><strong>No fake precision:</strong> We avoid printing specific P/Es, targets, or “fair value”—those change constantly. We teach <em>where to look</em> in Equilima and filings instead.</li>
+<li><strong>No insider claims:</strong> Everything here is built from public information and general market behavior patterns, not private data.</li>
+<li><strong>“What we think” = process, not a trade:</strong> When we describe how news, sentiment, fundamentals, and price history <em>usually</em> fit together, that is a <strong>framework for your homework</strong>, not a call to act.</li>
+<li><strong>When in doubt:</strong> Prefer the 10-K/10-Q, exchange filings, and live data in the app over any article—including this one.</li>
+</ul>
 </div>
 """.strip()
 
 
 def hero_figure(slug: str, title: str) -> str:
     h = int(hashlib.md5(slug.encode(), usedforsecurity=False).hexdigest(), 16)
-    pid, photographer, profile = UNSPLASH_PHOTOS[h % len(UNSPLASH_PHOTOS)]
-    src = _unsplash_src(pid, 2000)
+    idx = h % len(HERO_CREDITS)
+    nn = idx + 1
+    photographer, profile = HERO_CREDITS[idx]
+    src = f"/learn/hubs/hero-{nn:02d}.jpg"
     alt = f"Illustrative finance and markets imagery for: {title[:80]}"
     return f"""
 <figure class="eq-figure my-10">
-<img class="eq-figure-img w-full rounded-lg shadow-md" src="{src}" alt="{alt}" width="2000" height="1333" loading="lazy" decoding="async" />
-<figcaption class="eq-caption mt-2 text-sm text-neutral-500">Photo by <a href="{profile}?utm_source=equilima&amp;utm_medium=referral" rel="noopener noreferrer" class="eq-a">{photographer}</a> on <a href="https://unsplash.com/?utm_source=equilima&amp;utm_medium=referral" rel="noopener noreferrer" class="eq-a">Unsplash</a> (Unsplash License — free use).</figcaption>
+<img class="eq-figure-img w-full rounded-lg shadow-md" src="{src}" alt="{alt}" width="1600" height="1067" loading="lazy" decoding="async" />
+<figcaption class="eq-caption mt-2 text-sm text-neutral-500">Photo by <a href="{profile}?utm_source=equilima&amp;utm_medium=referral" rel="noopener noreferrer" class="eq-a">{photographer}</a> on <a href="https://unsplash.com/?utm_source=equilima&amp;utm_medium=referral" rel="noopener noreferrer" class="eq-a">Unsplash</a> (bundled under Unsplash License — see site credits).</figcaption>
 </figure>
 """.strip()
+
+
+def focus_tickers_section(tickers_csv: str, cluster: str, week: str) -> str:
+    """Educational lens on 3 example names: news, sentiment, fundamentals, price—no ratings."""
+    tpl = """
+<h2 class="eq-h2">The names we keep using—and how to think about them (no picks)</h2>
+<p class="eq-p eq-plain"><strong>Plain English:</strong> We circle <strong>{t0}</strong>, <strong>{t1}</strong>, and <strong>{t2}</strong> because they are liquid and constantly in the news—good <em>practice objects</em>. Around {week}, the <strong>exact</strong> headlines and moods will already be outdated: always reopen Equilima for live quotes, ratios, and recent catalysts before you rely on any narrative.</p>
+<p class="eq-p">Below is <strong>not</strong> “Equilima’s outlook” on these stocks or tokens. It is a <strong>repeatable checklist</strong> pros use so hype does not replace homework. Your job is to fill in the numbers yourself.</p>
+<h3 class="eq-h3">{t0}</h3>
+<ul class="eq-ul list-disc pl-5 space-y-2 text-[17px] leading-relaxed text-neutral-800 mb-6">
+<li><strong>News:</strong> What <em>fact</em> moved (earnings, guidance, regulation, product)? Cross-check with the company’s own filing or press release—not only a headline.</li>
+<li><strong>Sentiment / mood:</strong> Are feeds celebrating or panicking? Extreme mood often means risk of snapback; it does not prove fundamentals flipped in a day.</li>
+<li><strong>Fundamentals:</strong> In the last report, what happened to revenue growth, margins, and free cash flow versus the prior quarter? One weak line item can matter more than a catchy slogan.</li>
+<li><strong>Price &amp; history:</strong> In Equilima, compare today’s price to the 52-week range and longer-term averages. Ask whether the move looks driven by earnings, macro (rates, FX), or pure positioning.</li>
+</ul>
+<h3 class="eq-h3">{t1}</h3>
+<ul class="eq-ul list-disc pl-5 space-y-2 text-[17px] leading-relaxed text-neutral-800 mb-6">
+<li><strong>News:</strong> Tie headlines to a dated source. If you cannot find the primary document, downgrade your confidence.</li>
+<li><strong>Sentiment / mood:</strong> Options and social buzz can exaggerate short-term swings for {t1}. Notice the mood; do not confuse noise with a thesis.</li>
+<li><strong>Fundamentals:</strong> Pick one metric you will track for two quarters (e.g., segment revenue, gross margin dollars, net debt). Consistency beats chasing every new metric name.</li>
+<li><strong>Price &amp; history:</strong> Look for divergence: fundamentals stable but price violent usually means macro or liquidity; fundamentals deteriorating with price up means revisit your story.</li>
+</ul>
+<h3 class="eq-h3">{t2}</h3>
+<ul class="eq-ul list-disc pl-5 space-y-2 text-[17px] leading-relaxed text-neutral-800 mb-6">
+<li><strong>News:</strong> For {cluster} topics, ask whether the story is <em>stock-specific</em> or <em>everything-rerates</em> (index, sector ETF, rates).</li>
+<li><strong>Sentiment / mood:</strong> Crowded trades can unwind fast. If “everyone knows” the story on {t2}, ask what is already priced.</li>
+<li><strong>Fundamentals:</strong> Cash beats slogans. Does operating cash flow support the narrative you hear on podcasts?</li>
+<li><strong>Price &amp; history:</strong> Zoom out: one bad week is not the same as a broken five-year trend—and vice versa. Let the app show the path; don’t guess from memory.</li>
+</ul>
+<p class="eq-p eq-muted text-[15px]"><strong>Reminder:</strong> Equilima Learn does not update this page intraday. Credibility means you verify—treat this as a map, not the terrain.</p>
+""".strip()
+    return _fill(tpl, tickers_csv, cluster, week)
 
 
 def takeaways_box(cluster: str, bullets: list[str]) -> str:
@@ -227,6 +273,7 @@ def compose_body(
 
     parts: list[str] = [
         disclaimer_block(),
+        credibility_method_block(),
         hero_figure(slug, title),
         takeaways_box(cluster, bullets),
     ]
@@ -235,13 +282,16 @@ def compose_body(
     if hook:
         parts.append(_fill(hook, tickers, cluster, week))
 
+    parts.append(focus_tickers_section(tickers, cluster, week))
+
     opener = CLUSTER_OPENERS.get(cluster)
     if opener:
         parts.append(_fill(opener, tickers, cluster, week))
 
-    shuffled = GPARAS[:]
+    pool = READABILITY_PARAS + GPARAS
+    shuffled = pool[:]
     rng.shuffle(shuffled)
-    n_sample = min(16, len(shuffled))
+    n_sample = min(11, len(shuffled))
     sampled = shuffled[:n_sample]
 
     titles = ZACKS_SECTION_TITLES[:]
@@ -275,7 +325,7 @@ def compose_body(
     extra_idx = 0
     safety = 0
     while word_count(body) < MIN_WORDS and safety < 80:
-        para = GPARAS[extra_idx % len(GPARAS)]
+        para = pool[extra_idx % len(pool)]
         body += "\n" + _fill(para, tickers, cluster, week)
         extra_idx += 1
         safety += 1

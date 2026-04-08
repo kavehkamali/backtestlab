@@ -91,3 +91,12 @@ ZACKS_SECTION_TITLES: list[str] = [
     "How Equilima fits into the workflow",
     "Closing the loop—homework that compounds",
 ]
+
+# Shorter, plain-language paragraphs mixed into long articles for readability.
+READABILITY_PARAS: list[str] = [
+    """<p class="eq-p eq-plain"><strong>Plain English:</strong> A “multiple” (like P/E) is just price divided by some measure of earnings—high can mean growth hope <em>or</em> overpaying; low can mean a bargain <em>or</em> a broken story. The number alone never tells you which.</p>""",
+    """<p class="eq-p eq-plain"><strong>Plain English:</strong> “Sentiment” is the mood of the crowd—news, social feeds, options activity—not a guarantee of next week’s price. Use it to notice <em>when</em> people are extreme, not as a buy/sell button.</p>""",
+    """<p class="eq-p eq-plain"><strong>Plain English:</strong> Fundamentals are what the company actually reported: sales, costs, cash, debt. If a viral story about {t0} does not show up in those lines (after you read the filing), be skeptical of the story.</p>""",
+    """<p class="eq-p eq-plain"><strong>Plain English:</strong> “Support” and “resistance” on a chart are just places price paused before—they are not magic. History rhymes until it does not; always pair charts with why the business cash flows.</p>""",
+    """<p class="eq-p eq-plain"><strong>Plain English:</strong> If a sentence in this guide confuses you, pause and open Equilima on {t1}: look at one chart and one fundamental line. Learning sticks when you connect words to a live ticker, not when you memorize jargon.</p>""",
+]

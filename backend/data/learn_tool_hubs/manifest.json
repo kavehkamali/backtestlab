@@ -6,7 +6,7 @@
       "meta_description": "Educational guide to revenue segments, margins, and cash flow\u2014examples only, not advice.",
       "excerpt": "Turn 10-K language into a checklist: segments, FCF, and debt\u2014using large caps as teaching examples.",
       "cluster_key": "Equilima \u2014 Research",
-      "word_count": 1507
+      "word_count": 1683
     },
     {
       "slug": "research-earnings-quality-nvda-amd-intc-semis",
@@ -14,7 +14,7 @@
       "meta_description": "Learn revenue recognition, inventory, and guide language\u2014examples NVDA, AMD, INTC\u2014not trade signals.",
       "excerpt": "Why gross margin paths and data-center mix matter when headlines only shout \u201cAI winner.\u201d",
       "cluster_key": "Equilima \u2014 Research",
-      "word_count": 1549
+      "word_count": 1687
     },
     {
       "slug": "research-bank-peer-jpm-bac-gs-fundamentals",
@@ -22,7 +22,7 @@
       "meta_description": "Compare large U.S. banks without implicit buy recommendations.",
       "excerpt": "NII, CET1, provisioning\u2014money-center banks as teaching examples.",
       "cluster_key": "Equilima \u2014 Research",
-      "word_count": 1536
+      "word_count": 1716
     },
     {
       "slug": "research-dcf-sanity-msft-amzn-meta-education",
@@ -30,7 +30,7 @@
       "meta_description": "Terminal growth and WACC dominate outcomes\u2014education, not valuation advice.",
       "excerpt": "Stress-test assumptions; illustrations only.",
       "cluster_key": "Equilima \u2014 Research",
-      "word_count": 1537
+      "word_count": 1628
     },
     {
       "slug": "research-10k-walkthrough-risks-mdna-pg-ko",
@@ -38,7 +38,7 @@
       "meta_description": "Read risk factors and management tone without trading headlines.",
       "excerpt": "Staples as baseline before volatile names.",
       "cluster_key": "Equilima \u2014 Research",
-      "word_count": 1516
+      "word_count": 1688
     },
     {
       "slug": "crypto-btc-eth-risk-frame-education",
@@ -46,7 +46,7 @@
       "meta_description": "Volatility, liquidity, custody\u2014education; crypto is highly speculative.",
       "excerpt": "Correlation to equities can spike\u2014BTC is still not a stock.",
       "cluster_key": "Equilima \u2014 Crypto",
-      "word_count": 1536
+      "word_count": 1689
     },
     {
       "slug": "crypto-coin-mstr-equity-proxies-education",
@@ -54,7 +54,7 @@
       "meta_description": "Listed proxies embed coin beta plus operating and dilution risk.",
       "excerpt": "COIN fundamentals diverge from BTC candles often.",
       "cluster_key": "Equilima \u2014 Crypto",
-      "word_count": 1500
+      "word_count": 1616
     },
     {
       "slug": "crypto-alt-liquidity-sol-advanced-risk",
@@ -62,7 +62,7 @@
       "meta_description": "Thin books, listings, unlocks\u2014education using SOL as example.",
       "excerpt": "Slippage and tail risk beyond BTC/ETH.",
       "cluster_key": "Equilima \u2014 Crypto",
-      "word_count": 1540
+      "word_count": 1637
     },
     {
       "slug": "crypto-regulatory-headlines-reading-education",
@@ -70,7 +70,7 @@
       "meta_description": "Enforcement vs proposal vs politics\u2014not legal advice.",
       "excerpt": "Triage headlines before rewriting a thesis.",
       "cluster_key": "Equilima \u2014 Crypto",
-      "word_count": 1507
+      "word_count": 1642
     },
     {
       "slug": "crypto-portfolio-sizing-btc-eth-stables-education",
@@ -78,7 +78,7 @@
       "meta_description": "Stablecoins, leverage, concentration\u2014education not allocation advice.",
       "excerpt": "Think max loss, not max gain.",
       "cluster_key": "Equilima \u2014 Crypto",
-      "word_count": 1519
+      "word_count": 1643
     },
     {
       "slug": "screener-liquidity-first-unh-jpm-xom",
@@ -86,7 +86,7 @@
       "meta_description": "ADV and spreads at the top of the funnel\u2014education.",
       "excerpt": "Build lists you can exit\u2014illustrative large caps.",
       "cluster_key": "Equilima \u2014 Screener",
-      "word_count": 1537
+      "word_count": 1644
     },
     {
       "slug": "screener-quality-factors-pg-ko-pep",
@@ -94,7 +94,7 @@
       "meta_description": "Margins, ROIC, leverage\u2014staples as teaching examples.",
       "excerpt": "Quality is metrics, not vibes.",
       "cluster_key": "Equilima \u2014 Screener",
-      "word_count": 1549
+      "word_count": 1632
     },
     {
       "slug": "screener-momentum-nvda-meta-tsla-caveats",
@@ -102,7 +102,7 @@
       "meta_description": "Relative strength plus risk controls\u2014education.",
       "excerpt": "High-beta names mean-revert brutally after crowds form.",
       "cluster_key": "Equilima \u2014 Screener",
-      "word_count": 1554
+      "word_count": 1584
     },
     {
       "slug": "screener-value-cvs-wba-contrarian",
@@ -110,7 +110,7 @@
       "meta_description": "Low P/E plus debt and FCF\u2014education.",
       "excerpt": "Respect why the market is skeptical.",
       "cluster_key": "Equilima \u2014 Screener",
-      "word_count": 1529
+      "word_count": 1635
     },
     {
       "slug": "screener-dividend-schd-style-jnj-pfe",
@@ -118,7 +118,7 @@
       "meta_description": "Payout coverage and cliffs\u2014education only.",
       "excerpt": "High yield can precede cuts.",
       "cluster_key": "Equilima \u2014 Screener",
-      "word_count": 1531
+      "word_count": 1585
     },
     {
       "slug": "backtest-walk-forward-spy-qqq-education",
@@ -126,7 +126,7 @@
       "meta_description": "Holdout samples and stability\u2014hypothetical examples only.",
       "excerpt": "Split history so you are not peeking.",
       "cluster_key": "Equilima \u2014 Backtest",
-      "word_count": 1505
+      "word_count": 1622
     },
     {
       "slug": "backtest-costs-slippage-education",
@@ -134,7 +134,7 @@
       "meta_description": "Friction eats hypothetical alpha\u2014illustrative.",
       "excerpt": "IWM-like names punish fantasy fills.",
       "cluster_key": "Equilima \u2014 Backtest",
-      "word_count": 1526
+      "word_count": 1608
     },
     {
       "slug": "backtest-overfitting-degrees-freedom",
@@ -142,7 +142,7 @@
       "meta_description": "More parameters, less trust\u2014conceptual education.",
       "excerpt": "Simpler rules often survive scrutiny.",
       "cluster_key": "Equilima \u2014 Backtest",
-      "word_count": 1561
+      "word_count": 1663
     },
     {
       "slug": "backtest-regime-change-2020-2022-education",
@@ -150,7 +150,7 @@
       "meta_description": "Vol spikes and rate shocks break naive rules\u2014hypothetical education.",
       "excerpt": "One-era rules rot in the next.",
       "cluster_key": "Equilima \u2014 Backtest",
-      "word_count": 1549
+      "word_count": 1626
     },
     {
       "slug": "backtest-position-sizing-kelly-caution",
@@ -158,7 +158,7 @@
       "meta_description": "Estimation error and ruin risk\u2014education not sizing advice.",
       "excerpt": "Leverage magnifies mistakes.",
       "cluster_key": "Equilima \u2014 Backtest",
-      "word_count": 1511
+      "word_count": 1634
     },
     {
       "slug": "markets-breadth-spy-qqq-iwm-education",
@@ -166,7 +166,7 @@
       "meta_description": "Advance/decline intuition\u2014ETF examples only.",
       "excerpt": "Green index days can hide bad internals.",
       "cluster_key": "Equilima \u2014 Markets",
-      "word_count": 1556
+      "word_count": 1602
     },
     {
       "slug": "markets-sector-rotation-xlre-xlk-education",
@@ -174,7 +174,7 @@
       "meta_description": "Sector ETFs as teaching handles\u2014not rotation calls.",
       "excerpt": "Rates, credit, energy embed differently.",
       "cluster_key": "Equilima \u2014 Markets",
-      "word_count": 1530
+      "word_count": 1612
     },
     {
       "slug": "markets-vix-vol-regime-education",
@@ -182,7 +182,7 @@
       "meta_description": "Implied vol \u2260 realized\u2014education.",
       "excerpt": "Event weeks cluster vol spikes.",
       "cluster_key": "Equilima \u2014 Markets",
-      "word_count": 1522
+      "word_count": 1657
     },
     {
       "slug": "markets-rates-curve-tlt-education",
@@ -190,7 +190,7 @@
       "meta_description": "Duration and discount rates\u2014bond ETF as educator.",
       "excerpt": "Not bond trading advice.",
       "cluster_key": "Equilima \u2014 Markets",
-      "word_count": 1522
+      "word_count": 1643
     },
     {
       "slug": "markets-global-fx-efa-education",
@@ -198,7 +198,7 @@
       "meta_description": "DXY and translation\u2014multinationals as examples.",
       "excerpt": "Not FX trade advice.",
       "cluster_key": "Equilima \u2014 Markets",
-      "word_count": 1525
+      "word_count": 1612
     }
   ]
 }
