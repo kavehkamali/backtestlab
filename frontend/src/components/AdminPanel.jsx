@@ -141,6 +141,7 @@ export default function AdminPanel() {
   const [ipTableDays, setIpTableDays] = useState(30);
   const [ipTableLimit, setIpTableLimit] = useState(200);
   const [ipToggleBusy, setIpToggleBusy] = useState(null);
+  const [ipDirectoryCityFilter, setIpDirectoryCityFilter] = useState('');
   const [recentCityFilter, setRecentCityFilter] = useState('');
   const [ignoredDraft, setIgnoredDraft] = useState([]);
   const [newIp, setNewIp] = useState('');
@@ -377,6 +378,13 @@ export default function AdminPanel() {
     const country = (v.country || '').toLowerCase();
     const loc = city && country ? `${city}, ${country}` : (city || country);
     return loc.includes(q);
+  });
+
+  const ipDirectoryRows = (data.ip_directory || []).filter((row) => {
+    const q = ipDirectoryCityFilter.trim().toLowerCase();
+    if (!q) return true;
+    const city = (row.city || '').toLowerCase();
+    return city.includes(q);
   });
 
   const dailyChart = (data.daily || []).map((d) => ({
@@ -1168,33 +1176,42 @@ export default function AdminPanel() {
 
       <Section
         title="Unique IPs & filters"
-        right={<Filter className="w-3.5 h-3.5 text-gray-500" />}
+        right={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <input
+              type="text"
+              value={ipDirectoryCityFilter}
+              onChange={(e) => setIpDirectoryCityFilter(e.target.value)}
+              placeholder="Search city (partial)"
+              className="w-36 sm:w-44 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-[11px] focus:outline-none focus:border-indigo-500/50"
+              title="Match any substring in the city name (case-insensitive)"
+            />
+            <select
+              value={ipTableDays}
+              onChange={(e) => { const v = Number(e.target.value); setIpTableDays(v); load(); }}
+              className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-white text-[11px] focus:outline-none focus:border-indigo-500/50"
+              title="Look back N days for unique IPs"
+            >
+              {[1, 2, 3, 7, 14, 30, 90].map((d) => (
+                <option key={d} value={d}>{d}D</option>
+              ))}
+            </select>
+            <select
+              value={ipTableLimit}
+              onChange={(e) => { const v = Number(e.target.value); setIpTableLimit(v); load(); }}
+              className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-white text-[11px] focus:outline-none focus:border-indigo-500/50"
+              title="Max unique IPs (sorted by last visit)"
+            >
+              {[50, 200, 500, 1000, 2000].map((n) => (
+                <option key={n} value={n}>{n} IPs</option>
+              ))}
+            </select>
+          </div>
+        }
       >
         <p className="text-[11px] text-gray-500 mb-3">
-          One row per IP in the window below (included and excluded). Check <strong className="text-gray-400 font-normal">Ignore</strong> to drop that address from all dashboard totals and charts. Last visit is the most recent page view in Eastern time.
+          One row per IP in the window below (included and excluded). Check <strong className="text-gray-400 font-normal">Ignore</strong> to drop that address from all dashboard totals and charts. Last visit is the most recent page view in Eastern time. City search matches partial text (e.g. <span className="font-mono text-gray-500">rich</span> finds Richmond).
         </p>
-        <div className="flex flex-wrap items-center justify-end gap-2 mb-3">
-          <select
-            value={ipTableDays}
-            onChange={(e) => { const v = Number(e.target.value); setIpTableDays(v); load(); }}
-            className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-white text-[11px] focus:outline-none focus:border-indigo-500/50"
-            title="Look back N days for unique IPs"
-          >
-            {[1, 2, 3, 7, 14, 30, 90].map((d) => (
-              <option key={d} value={d}>{d}D</option>
-            ))}
-          </select>
-          <select
-            value={ipTableLimit}
-            onChange={(e) => { const v = Number(e.target.value); setIpTableLimit(v); load(); }}
-            className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-white text-[11px] focus:outline-none focus:border-indigo-500/50"
-            title="Max unique IPs (sorted by last visit)"
-          >
-            {[50, 200, 500, 1000, 2000].map((n) => (
-              <option key={n} value={n}>{n} IPs</option>
-            ))}
-          </select>
-        </div>
         <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
           <table className="w-full text-[11px]">
             <thead className="sticky top-0 bg-[#0d0d14]">
@@ -1207,7 +1224,7 @@ export default function AdminPanel() {
               </tr>
             </thead>
             <tbody>
-              {(data.ip_directory || []).map((row) => (
+              {ipDirectoryRows.map((row) => (
                 <tr key={row.ip} className="border-b border-white/[0.02] hover:bg-white/[0.02]">
                   <td className="py-1.5 px-2 text-center">
                     <input
@@ -1232,6 +1249,9 @@ export default function AdminPanel() {
           </table>
           {(!data.ip_directory || data.ip_directory.length === 0) && (
             <p className="text-xs text-gray-600 text-center py-4">No page views in this window</p>
+          )}
+          {(data.ip_directory || []).length > 0 && ipDirectoryRows.length === 0 && (
+            <p className="text-xs text-gray-600 text-center py-4">No rows match that city search</p>
           )}
         </div>
       </Section>
