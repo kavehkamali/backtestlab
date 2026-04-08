@@ -1,0 +1,179 @@
+{
+  "articles": [
+    {
+      "slug": "what-is-ai-research-agent-investors-guide",
+      "title": "What Is an AI Research Agent? A Rigorous Guide for Investors and Analysts",
+      "meta_description": "Define AI research agents for capital markets: tools, memory, planning, and why they differ from chatbots. Fundamentals, 2026 practice, and safe workflows.",
+      "excerpt": "Clear definitions, architecture patterns, and what \u201cagent\u201d means when money and compliance are on the line\u2014not hype, just structure.",
+      "cluster_key": "AI agents \u2014 Fundamentals"
+    },
+    {
+      "slug": "multi-agent-vs-single-agent-research-systems",
+      "title": "Multi-Agent vs Single-Agent Systems for Equity and Macro Research",
+      "meta_description": "Compare single-agent and multi-agent research setups: coordination costs, failure isolation, and when each design wins for investment teams.",
+      "excerpt": "Architecture tradeoffs for research orgs: one orchestrator or many specialists\u2014latency, debugging, and governance angles explained.",
+      "cluster_key": "AI agents \u2014 Fundamentals"
+    },
+    {
+      "slug": "memory-context-windows-longitudinal-research",
+      "title": "Memory, Context Windows, and Longitudinal Research Threads",
+      "meta_description": "How memory works in research agents: short-term context, external stores, and point-in-time discipline for market history.",
+      "excerpt": "Why \u201clong context\u201d is not a substitute for retrieval\u2014and how to design memory that respects market timestamps.",
+      "cluster_key": "AI agents \u2014 Fundamentals"
+    },
+    {
+      "slug": "planning-tool-use-research-tasks",
+      "title": "Planning and Tool Use: Decomposing Research Tasks for AI Agents",
+      "meta_description": "Break research questions into tool-using steps: planning, APIs, and guardrails for financial data tasks.",
+      "excerpt": "From vague prompt to executable plan\u2014patterns that reduce errors when agents call real tools.",
+      "cluster_key": "AI agents \u2014 Fundamentals"
+    },
+    {
+      "slug": "human-in-the-loop-ai-research-governance",
+      "title": "Human-in-the-Loop Governance for AI-Assisted Investment Research",
+      "meta_description": "Design human review gates, escalation rules, and documentation standards when AI assists research\u2014without killing velocity.",
+      "excerpt": "Where humans must stay in the loop: material claims, client-facing language, and model updates.",
+      "cluster_key": "AI agents \u2014 Fundamentals"
+    },
+    {
+      "slug": "llm-tool-calling-market-data-apis",
+      "title": "LLM Tool Calling with Market Data APIs: Patterns and Pitfalls",
+      "meta_description": "How LLMs call market data tools safely: schemas, retries, ambiguity, and rate limits\u2014grounded fundamentals for 2026.",
+      "excerpt": "Practical tool-calling design for prices, fundamentals, and news feeds\u2014so agents fetch facts instead of inventing them.",
+      "cluster_key": "AI agents \u2014 Models & tools"
+    },
+    {
+      "slug": "retrieval-augmented-generation-sec-filings-research",
+      "title": "Retrieval-Augmented Generation (RAG) for SEC Filings and Earnings Narrative",
+      "meta_description": "RAG architecture for filings: chunking, citations, freshness, and evaluation\u2014research-grade setup for AI assistants.",
+      "excerpt": "Build retrieval that cites 10-K/10-Q text instead of paraphrasing from memory\u2014architecture and QA metrics.",
+      "cluster_key": "AI agents \u2014 Models & tools"
+    },
+    {
+      "slug": "structured-prompting-financial-question-answering",
+      "title": "Structured Prompting for Financial Question Answering and Risk-Aware Tone",
+      "meta_description": "Prompt structures that reduce overconfidence: rubrics, refusal policies, and evidence-first answering for market questions.",
+      "excerpt": "Templates and system policies that make models admit uncertainty and cite sources\u2014education, not hype.",
+      "cluster_key": "AI agents \u2014 Models & tools"
+    },
+    {
+      "slug": "model-choice-latency-cost-research-assistants",
+      "title": "Model Choice, Latency, and Cost for Research Assistants at Scale",
+      "meta_description": "Pick models for research: quality vs speed, batch vs interactive, and how to benchmark assistants on financial tasks.",
+      "excerpt": "Economic and UX tradeoffs when deploying assistants across a research desk\u2014not just leaderboard scores.",
+      "cluster_key": "AI agents \u2014 Models & tools"
+    },
+    {
+      "slug": "synthetic-data-simulation-agent-testing",
+      "title": "Synthetic Data and Simulation for Testing Market Research Agents",
+      "meta_description": "Use synthetic scenarios to test agents without touching production accounts\u2014stress tests, edge cases, and reproducibility.",
+      "excerpt": "How to build safe sandboxes and scenario suites before exposing agents to live client workflows.",
+      "cluster_key": "AI agents \u2014 Models & tools"
+    },
+    {
+      "slug": "grounding-ai-outputs-verified-market-data",
+      "title": "Grounding AI Outputs in Verified Market Data: A Field Guide",
+      "meta_description": "Grounding strategies for finance AI: primary sources, cross-checks, and \u2018show your work\u2019 patterns for 2026 deployments.",
+      "excerpt": "Make every number traceable\u2014grounding is not an ML buzzword when capital decisions follow.",
+      "cluster_key": "AI agents \u2014 Grounding & evaluation"
+    },
+    {
+      "slug": "hallucination-mitigation-investor-facing-assistants",
+      "title": "Hallucination Mitigation for Investor-Facing Assistants",
+      "meta_description": "Reduce hallucinations: retrieval, constraints, ensembles, and human spot checks\u2014research-backed tactics for financial assistants.",
+      "excerpt": "A layered defense stack: from retrieval design to critique models and audit sampling.",
+      "cluster_key": "AI agents \u2014 Grounding & evaluation"
+    },
+    {
+      "slug": "benchmarks-financial-nlp-agent-leaderboards-2026",
+      "title": "Benchmarks, Financial NLP, and What Leaderboards Miss in 2026",
+      "meta_description": "Interpret AI benchmarks for finance: leaderboards, task fit, and building internal evals that reflect your data and compliance needs.",
+      "excerpt": "Why public benchmarks help\u2014and why your desk still needs its own labeled tasks.",
+      "cluster_key": "AI agents \u2014 Grounding & evaluation"
+    },
+    {
+      "slug": "uncertainty-calibration-citations-research-agents",
+      "title": "Uncertainty, Calibration, and Citations in Research Agents",
+      "meta_description": "Teach models to express uncertainty honestly; pair calibrated language with citations and escalation paths.",
+      "excerpt": "Confidence language that matches evidence\u2014critical for research integrity and user trust.",
+      "cluster_key": "AI agents \u2014 Grounding & evaluation"
+    },
+    {
+      "slug": "red-teaming-adversarial-prompts-market-ai",
+      "title": "Red Teaming and Adversarial Prompts for Market AI Applications",
+      "meta_description": "Systematic red teaming for finance assistants: jailbreaks, data exfiltration angles, and advice-seeking traps.",
+      "excerpt": "A practical red-team playbook for assistants that touch market data and user portfolios.",
+      "cluster_key": "AI agents \u2014 Grounding & evaluation"
+    },
+    {
+      "slug": "repeatable-ai-research-routine-morning-brief",
+      "title": "Building a Repeatable AI Research Routine (Without Losing Rigor)",
+      "meta_description": "Daily and weekly AI research routines: checklists, tools, and quality gates for analysts using agents in 2026.",
+      "excerpt": "Turn ad-hoc chatting into a reproducible research cadence\u2014still fast, far more defensible.",
+      "cluster_key": "AI agents \u2014 Workflows"
+    },
+    {
+      "slug": "agent-assisted-due-diligence-checklist",
+      "title": "Agent-Assisted Due Diligence: A Checklist-Driven Workflow",
+      "meta_description": "Due diligence with AI agents: structured checklists, source hierarchies, and sign-off points for investment research teams.",
+      "excerpt": "From hypothesis to evidence binder\u2014how agents help without replacing judgment.",
+      "cluster_key": "AI agents \u2014 Workflows"
+    },
+    {
+      "slug": "screener-backtest-agent-one-workflow",
+      "title": "Connecting Screener, Backtest, and Agent: One Coherent Workflow",
+      "meta_description": "Unify screening, backtesting, and AI agents into one research loop\u2014internal linking and mental models for Equilima users.",
+      "excerpt": "How to move from universe selection to validation to narrative explanation without breaking traceability.",
+      "cluster_key": "AI agents \u2014 Workflows"
+    },
+    {
+      "slug": "documentation-reproducibility-ai-assisted-notes",
+      "title": "Documentation and Reproducibility for AI-Assisted Research Notes",
+      "meta_description": "Make AI-assisted research reproducible: prompts, data pulls, model versions, and note standards that survive audits.",
+      "excerpt": "What to write down so a colleague\u2014or you in six months\u2014can reproduce the analysis.",
+      "cluster_key": "AI agents \u2014 Workflows"
+    },
+    {
+      "slug": "team-collaboration-patterns-ai-research",
+      "title": "Team Collaboration Patterns When Everyone Uses AI Research Agents",
+      "meta_description": "Collaboration design: shared corpora, review roles, and avoiding \u2018model monoculture\u2019 on investment teams.",
+      "excerpt": "How teams share prompts, evaluate drift, and preserve diverse human judgment.",
+      "cluster_key": "AI agents \u2014 Workflows"
+    },
+    {
+      "slug": "ai-summaries-materiality-disclosure-basics",
+      "title": "AI Summaries and Materiality: Disclosure Basics for Research Teams",
+      "meta_description": "Educational overview of materiality thinking and AI-generated summaries\u2014process controls, not legal advice.",
+      "excerpt": "How research teams think about material facts, documentation, and model-generated language in 2026 workflows.",
+      "cluster_key": "AI agents \u2014 Governance & markets"
+    },
+    {
+      "slug": "not-investment-advice-disclaimers-ai-products",
+      "title": "\u2018Not Investment Advice\u2019: Why Disclaimers Matter for AI Products (and What They Cannot Fix)",
+      "meta_description": "Disclaimers in AI research tools: what they do, what they cannot replace, and how to pair them with product design.",
+      "excerpt": "Clear framing for educational AI\u2014disclosures plus refusal design and human professional pathways.",
+      "cluster_key": "AI agents \u2014 Governance & markets"
+    },
+    {
+      "slug": "market-data-licensing-agent-integrations-overview",
+      "title": "Market Data Licensing: An Overview for Agent Integrations",
+      "meta_description": "High-level overview of data licensing considerations when AI agents call market feeds\u2014education for builders and researchers.",
+      "excerpt": "Why redistribution, display, and derived works clauses matter when LLMs repackage vendor data.",
+      "cluster_key": "AI agents \u2014 Governance & markets"
+    },
+    {
+      "slug": "model-versioning-user-facing-changes",
+      "title": "Model Versioning and Communicating User-Facing Changes",
+      "meta_description": "Ship model updates responsibly: release notes, eval regressions, and transparency for users of research assistants.",
+      "excerpt": "Practical release management when the \u2018product\u2019 is partly a moving foundation model.",
+      "cluster_key": "AI agents \u2014 Governance & markets"
+    },
+    {
+      "slug": "responsible-deployment-checklist-fintech-research-ai",
+      "title": "Responsible Deployment Checklist for Fintech and Research AI",
+      "meta_description": "A deployment checklist covering safety, privacy, monitoring, and incident response for AI research products in 2026.",
+      "excerpt": "Go-live gates beyond accuracy: abuse monitoring, accessibility, and escalation paths.",
+      "cluster_key": "AI agents \u2014 Governance & markets"
+    }
+  ]
+}

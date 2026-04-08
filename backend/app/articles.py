@@ -3,11 +3,13 @@ from __future__ import annotations
 SEO-oriented articles (learn hub). Public read; admin CRUD via Bearer token.
 """
 
+import json
 import os
 import re
 import sqlite3
 import xml.sax.saxutils as xml_esc
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -20,6 +22,76 @@ _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 public_router = APIRouter(prefix="/api", tags=["articles"])
 admin_router = APIRouter(prefix="/api/admin/articles", tags=["admin-articles"])
+
+_LEARN_AI_DATA = Path(__file__).resolve().parent.parent / "data" / "learn_ai_agent_articles"
+_LEARN_AI_SEED_ID = "learn_ai_agent_series_v1"
+
+
+def _seed_learn_ai_agent_articles(conn: sqlite3.Connection) -> None:
+    """
+    One-time bundled import of the AI agent Learn series: insert any manifest slugs still missing,
+    then mark seed complete. Admin edits/deletes persist; we never bulk re-import again (even if a
+    slug was deleted). To force a full re-import, remove the row from eq_app_seeds for this seed_id.
+    """
+    manifest_path = _LEARN_AI_DATA / "manifest.json"
+    if not manifest_path.is_file():
+        return
+    if conn.execute(
+        "SELECT 1 FROM eq_app_seeds WHERE seed_id = ?", (_LEARN_AI_SEED_ID,)
+    ).fetchone():
+        return
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    articles = manifest.get("articles")
+    if not isinstance(articles, list):
+        return
+    # Staggered publish dates (UTC) — finalized April 2026 window
+    base_time = datetime(2026, 4, 1, 14, 0, 0, tzinfo=timezone.utc)
+    for i, row in enumerate(articles):
+        if not isinstance(row, dict):
+            continue
+        slug = (row.get("slug") or "").strip().lower()
+        title = (row.get("title") or "").strip()
+        if not slug or not title:
+            continue
+        if conn.execute("SELECT 1 FROM articles WHERE slug = ?", (slug,)).fetchone():
+            continue
+        body_path = _LEARN_AI_DATA / f"{slug}.html"
+        if not body_path.is_file():
+            continue
+        body_html = body_path.read_text(encoding="utf-8")
+        meta_description = (row.get("meta_description") or "").strip()
+        excerpt = (row.get("excerpt") or "").strip()
+        cluster_key = (row.get("cluster_key") or "").strip()
+        published_at = (base_time + timedelta(days=i)).strftime("%Y-%m-%d %H:%M:%S")
+        now = published_at
+        conn.execute(
+            """
+            INSERT INTO articles (
+                slug, title, meta_description, excerpt, body_html, og_image_url,
+                author_name, cluster_key, status, published_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?)
+            """,
+            (
+                slug,
+                title,
+                meta_description,
+                excerpt,
+                body_html,
+                None,
+                "Equilima Research",
+                cluster_key,
+                published_at,
+                now,
+            ),
+        )
+    applied = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    conn.execute(
+        "INSERT OR REPLACE INTO eq_app_seeds (seed_id, applied_at) VALUES (?, ?)",
+        (_LEARN_AI_SEED_ID, applied),
+    )
 
 
 def init_articles_db():
@@ -44,8 +116,15 @@ def init_articles_db():
             );
             CREATE INDEX IF NOT EXISTS idx_articles_status_pub ON articles(status, published_at DESC);
             CREATE INDEX IF NOT EXISTS idx_articles_cluster ON articles(cluster_key);
+
+            CREATE TABLE IF NOT EXISTS eq_app_seeds (
+                seed_id TEXT PRIMARY KEY,
+                applied_at TEXT NOT NULL
+            );
             """
         )
+        conn.commit()
+        _seed_learn_ai_agent_articles(conn)
         conn.commit()
     finally:
         conn.close()

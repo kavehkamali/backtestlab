@@ -140,6 +140,25 @@ export default function AdminArticlesTab({ setAuthed }) {
     }
   };
 
+  const deleteArticleById = async (id, titleHint) => {
+    if (!window.confirm(`Delete “${titleHint || 'this article'}” permanently?`)) return;
+    setSaving(true);
+    setErr(null);
+    try {
+      await deleteAdminArticle(id);
+      if (editingId === id) {
+        setEditingId(null);
+        setForm({ ...emptyForm });
+      }
+      await load();
+    } catch (e) {
+      if (e.message === 'Session expired') setAuthed(false);
+      else setErr(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const publicUrl = (slug) => `${window.location.origin}/learn/${encodeURIComponent(slug)}`;
 
   return (
@@ -153,6 +172,11 @@ export default function AdminArticlesTab({ setAuthed }) {
           <code className="text-gray-400">/learn/other-slug</code> and to product areas. Set{' '}
           <span className="text-gray-400">EQUILIMA_PUBLIC_URL</span> on the server for canonical URLs and{' '}
           <code className="text-gray-400">/api/sitemap-articles.xml</code> for crawlers.
+        </p>
+        <p className="text-[11px] text-gray-600 mb-3 leading-relaxed border-l-2 border-indigo-500/40 pl-3">
+          The bundled AI agent Learn series is imported <strong className="text-gray-500 font-medium">once per database</strong>. Edit or delete any article here; deletions stay gone after restarts.
+          To re-import that series from disk, remove the <code className="text-gray-500">learn_ai_agent_series_v1</code> row from the{' '}
+          <code className="text-gray-500">eq_app_seeds</code> table (advanced / SQLite), then restart the API.
         </p>
         <div className="flex flex-col sm:flex-row gap-2 mb-3">
           <input
@@ -193,7 +217,7 @@ export default function AdminArticlesTab({ setAuthed }) {
                 <th className="text-left py-2 px-2">Slug</th>
                 <th className="text-left py-2 px-2">Title</th>
                 <th className="text-left py-2 px-2">Status</th>
-                <th className="text-right py-2 px-2">Edit</th>
+                <th className="text-right py-2 px-2">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -202,13 +226,23 @@ export default function AdminArticlesTab({ setAuthed }) {
                   <td className="py-1.5 px-2 font-mono text-gray-400">{a.slug}</td>
                   <td className="py-1.5 px-2 text-gray-200">{a.title}</td>
                   <td className="py-1.5 px-2 text-gray-500">{a.status}</td>
-                  <td className="py-1.5 px-2 text-right">
+                  <td className="py-1.5 px-2 text-right whitespace-nowrap">
                     <button
                       type="button"
                       onClick={() => openEdit(a.id)}
-                      className="text-indigo-400 hover:text-indigo-300"
+                      disabled={saving}
+                      className="text-indigo-400 hover:text-indigo-300 disabled:opacity-40 mr-3"
                     >
                       Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteArticleById(a.id, a.title)}
+                      disabled={saving}
+                      className="inline-flex items-center gap-1 text-red-400/90 hover:text-red-400 disabled:opacity-40"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </td>
                 </tr>
@@ -283,8 +317,8 @@ export default function AdminArticlesTab({ setAuthed }) {
               <textarea
                 value={form.body_html}
                 onChange={(e) => setForm((f) => ({ ...f, body_html: e.target.value }))}
-                rows={14}
-                className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-gray-200 text-xs font-mono"
+                rows={22}
+                className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-gray-200 text-xs font-mono min-h-[280px]"
               />
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

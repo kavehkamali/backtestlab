@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BookOpen, ArrowLeft, LineChart, LayoutGrid, Sparkles } from 'lucide-react';
 import { fetchPublishedArticles, fetchPublishedArticle, trackPageView } from '../api';
 import { clearLearnToHome, navigateLearn } from '../learnNavigation';
@@ -67,7 +67,10 @@ function applyIndexSeo() {
     desc.setAttribute('name', 'description');
     document.head.appendChild(desc);
   }
-  desc.setAttribute('content', 'Guides and articles on stock research, backtesting, and using Equilima. Hub-and-spoke content with links to our screener, markets, and AI tools.');
+  desc.setAttribute(
+    'content',
+    'Deep guides on AI research agents, LLM tooling for investors, grounding and evaluation, workflows, and market-structure context—plus Equilima product walkthroughs. Hub-and-spoke internal links for research-grade SEO.',
+  );
   let canonical = document.querySelector('link[rel="canonical"]');
   if (!canonical) {
     canonical = document.createElement('link');
@@ -81,7 +84,43 @@ function applyIndexSeo() {
 }
 
 const proseClass =
-  'learn-prose max-w-3xl mx-auto text-[15px] leading-relaxed text-gray-300 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-4 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:text-lg [&_h3]:font-medium [&_h3]:text-gray-100 [&_h3]:mt-6 [&_h3]:mb-2 [&_p]:mb-4 [&_a]:text-indigo-400 [&_a]:underline [&_a:hover]:text-indigo-300 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4 [&_li]:mb-1 [&_strong]:text-gray-100 [&_code]:text-pink-300 [&_code]:text-sm [&_blockquote]:border-l-2 [&_blockquote]:border-indigo-500/50 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-gray-400';
+  'learn-prose max-w-3xl mx-auto text-[15px] leading-relaxed text-gray-300 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-white [&_h1]:mb-4 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:text-lg [&_h3]:font-medium [&_h3]:text-gray-100 [&_h3]:mt-6 [&_h3]:mb-2 [&_p]:mb-4 [&_a]:text-indigo-400 [&_a]:underline [&_a:hover]:text-indigo-300 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4 [&_li]:mb-1 [&_strong]:text-gray-100 [&_code]:text-pink-300 [&_code]:text-sm [&_blockquote]:border-l-2 [&_blockquote]:border-indigo-500/50 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-gray-400 [&_table]:w-full [&_table]:text-[13px] [&_th]:text-left [&_th]:py-2 [&_th]:pr-3 [&_th]:text-gray-400 [&_th]:font-medium [&_td]:py-2 [&_td]:pr-3 [&_td]:border-t [&_td]:border-white/[0.08]';
+
+/** Pillar order for Learn hub sections (cluster_key). Others sort after. */
+const CLUSTER_SECTION_ORDER = [
+  'AI agents — Fundamentals',
+  'AI agents — Models & tools',
+  'AI agents — Grounding & evaluation',
+  'AI agents — Workflows',
+  'AI agents — Governance & markets',
+];
+
+function clusterRank(clusterKey) {
+  const k = clusterKey || '';
+  const i = CLUSTER_SECTION_ORDER.indexOf(k);
+  return i === -1 ? 100 + k.localeCompare('') : i;
+}
+
+function sectionDomId(clusterKey) {
+  const raw = (clusterKey || 'guides').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
+  return `learn-section-${raw.slice(0, 72) || 'guides'}`;
+}
+
+function groupArticlesByCluster(articles) {
+  const map = new Map();
+  for (const a of articles) {
+    const ck = a.cluster_key || 'Guides';
+    if (!map.has(ck)) map.set(ck, []);
+    map.get(ck).push(a);
+  }
+  const keys = [...map.keys()].sort((a, b) => {
+    const ra = clusterRank(a);
+    const rb = clusterRank(b);
+    if (ra !== rb) return ra - rb;
+    return a.localeCompare(b);
+  });
+  return keys.map((key) => ({ clusterKey: key, items: map.get(key) }));
+}
 
 export default function LearnLayout({ route, setActiveTab }) {
   const [list, setList] = useState([]);
@@ -143,6 +182,8 @@ export default function LearnLayout({ route, setActiveTab }) {
     else trackPageView('learn');
   }, [route.kind, route.slug]);
 
+  const groupedList = useMemo(() => groupArticlesByCluster(list), [list]);
+
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-gray-200">
       <header className="border-b border-white/10 bg-[#0a0a0f]/95 backdrop-blur-sm sticky top-0 z-50">
@@ -181,7 +222,7 @@ export default function LearnLayout({ route, setActiveTab }) {
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Learn</h1>
                 <p className="text-sm text-gray-500 mt-2 max-w-2xl">
-                  Practical guides linked to Equilima tools. Use internal links between articles (hub and spoke) and send readers to the screener, backtester, or AI agent when it helps.
+                  Long-form, SEO-oriented research guides—especially on <strong className="text-gray-400 font-medium">AI agents for market research</strong>—grounded in fundamentals and current practice. Each section clusters related articles (hub-and-spoke). Jump into Equilima’s agent, screener, or backtester when you are ready to apply the ideas.
                 </p>
               </div>
             </div>
@@ -190,22 +231,46 @@ export default function LearnLayout({ route, setActiveTab }) {
             {!loading && !error && list.length === 0 && (
               <p className="text-gray-500 text-sm">No published articles yet. Add them from the admin Learn tab.</p>
             )}
-            <ul className="space-y-4">
-              {list.map((a) => (
-                <li key={a.slug}>
-                  <button
-                    type="button"
-                    onClick={() => navigateLearn(a.slug)}
-                    className="w-full text-left p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:border-indigo-500/30 hover:bg-white/[0.04] transition-colors"
-                  >
-                    <span className="text-xs uppercase tracking-wider text-indigo-400/80">{a.cluster_key || 'Article'}</span>
-                    <h2 className="text-lg font-semibold text-white mt-1">{a.title}</h2>
-                    <p className="text-sm text-gray-500 mt-2 line-clamp-2">{a.excerpt || a.meta_description}</p>
-                    <span className="text-[11px] text-gray-600 mt-2 block">{a.published_at?.slice(0, 10)}</span>
-                  </button>
-                </li>
+            <div className="space-y-14">
+              {groupedList.map(({ clusterKey, items }) => (
+                <section key={clusterKey} className="scroll-mt-8" aria-labelledby={sectionDomId(clusterKey)}>
+                  <div className="flex flex-wrap items-end gap-3 mb-5 pb-4 border-b border-indigo-500/25">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div
+                        className="h-11 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-indigo-400 via-violet-500 to-fuchsia-500 shadow-[0_0_20px_rgba(139,92,246,0.35)]"
+                        aria-hidden
+                      />
+                      <div className="min-w-0">
+                        <h2
+                          id={sectionDomId(clusterKey)}
+                          className="text-lg sm:text-xl font-bold text-white tracking-tight"
+                        >
+                          {clusterKey}
+                        </h2>
+                        <p className="text-[11px] text-gray-600 mt-0.5">{items.length} in-depth {items.length === 1 ? 'guide' : 'guides'}</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] uppercase tracking-widest text-indigo-400/70 font-semibold">Research series</span>
+                  </div>
+                  <ul className="space-y-4">
+                    {items.map((a) => (
+                      <li key={a.slug}>
+                        <button
+                          type="button"
+                          onClick={() => navigateLearn(a.slug)}
+                          className="w-full text-left p-4 rounded-xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-white/[0.01] hover:border-indigo-500/35 hover:from-indigo-500/[0.07] hover:to-white/[0.03] transition-all shadow-sm hover:shadow-[0_0_24px_-8px_rgba(99,102,241,0.35)]"
+                        >
+                          <span className="text-[10px] uppercase tracking-wider text-indigo-300/90 font-medium">{a.cluster_key || 'Article'}</span>
+                          <h3 className="text-lg font-semibold text-white mt-1 leading-snug">{a.title}</h3>
+                          <p className="text-sm text-gray-500 mt-2 line-clamp-3">{a.excerpt || a.meta_description}</p>
+                          <span className="text-[11px] text-gray-600 mt-2 block">{a.published_at?.slice(0, 10)}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               ))}
-            </ul>
+            </div>
           </>
         )}
 
