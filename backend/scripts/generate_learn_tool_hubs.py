@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-Generate 25 Equilima Learn hub articles (5 per category), each ≥1500 words.
-Plain-language educational tone, bundled hero JPEGs (/learn/hubs/), inline SVG diagrams.
-
-Run from repo root: python3 backend/scripts/generate_learn_tool_hubs.py
+Generate 25 Equilima Learn hub articles (5 per category), each ≥2400 words.
+Editorial-style sections (movers, radar, fundamentals, math, tools, tape), bundled hero JPEGs,
+inline SVG diagrams. Run from repo root: python3 backend/scripts/generate_learn_tool_hubs.py
 """
 from __future__ import annotations
 
@@ -18,18 +17,34 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from learn_hub_paragraph_bank import (
-    ARTICLE_HOOKS,
-    CLUSTER_OPENERS,
-    GPARAS,
-    READABILITY_PARAS,
-    ZACKS_SECTION_TITLES,
+from learn_hub_editorial_sections import (
+    EDITORIAL_H2_POOL,
+    closing_variant,
+    equilima_tools_block,
+    fundamentals_block,
+    math_block,
+    movers_block,
+    radar_block,
+    tape_block,
 )
+from learn_hub_paragraph_bank import ARTICLE_HOOKS, GPARAS, READABILITY_PARAS
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "learn_tool_hubs"
 
-MIN_WORDS = 1500
+MIN_WORDS = 2400
+
+# Section order rotates by slug hash so articles do not share one skeleton.
+OUTLINES: list[list[str]] = [
+    ["movers", "radar", "fundamentals", "math", "tools", "fill", "svg", "tape", "close"],
+    ["radar", "tools", "movers", "fundamentals", "math", "fill", "svg", "tape", "close"],
+    ["fundamentals", "movers", "radar", "math", "tools", "fill", "svg", "tape", "close"],
+    ["tools", "fundamentals", "movers", "radar", "math", "fill", "svg", "tape", "close"],
+    ["math", "movers", "fundamentals", "tools", "radar", "fill", "svg", "tape", "close"],
+    ["movers", "math", "tools", "fundamentals", "radar", "fill", "svg", "tape", "close"],
+    ["tape", "movers", "radar", "fundamentals", "tools", "math", "fill", "svg", "close"],
+    ["fundamentals", "tape", "movers", "math", "tools", "radar", "fill", "svg", "close"],
+]
 
 # Bundled heroes: frontend/public/learn/hubs/hero-NN.jpg (see CREDITS.md). Same-origin = reliable loads.
 HERO_CREDITS: list[tuple[str, str]] = [
@@ -70,7 +85,7 @@ def disclaimer_block() -> str:
 <div class="eq-disclaimer rounded-xl border-2 border-amber-400/90 bg-amber-50 p-5 mb-8">
 <p class="eq-disclaimer-kicker font-bold text-xs uppercase tracking-widest mb-3 text-amber-900">Important — not financial advice</p>
 <p class="eq-p text-[15px] leading-relaxed mb-3 text-neutral-900">Equilima is <strong>not</strong> a registered investment adviser, broker-dealer, or financial planner. This content is for <strong>education and general research commentary</strong> only—not personalized buy/sell/hold advice for your situation. We do <strong>not</strong> publish price targets, ratings, or “our view” as investment recommendations. Investing and crypto involve risk of loss; past performance does not guarantee future results. <strong>Always verify</strong> prices, ratios, and news in Equilima or primary sources; numbers in static articles go stale quickly.</p>
-<p class="text-sm leading-relaxed text-neutral-700">Ticker and token symbols are <strong>illustrative examples</strong> for learning, not recommendations. We use straightforward wording on purpose—if you want the short version first, read <strong>Key takeaways</strong>, then the sections below.</p>
+<p class="text-sm leading-relaxed text-neutral-700">Ticker and token symbols are <strong>illustrative examples</strong> for learning, not recommendations.</p>
 </div>
 """.strip()
 
@@ -88,38 +103,6 @@ def hero_figure(slug: str, title: str) -> str:
 <figcaption class="eq-caption mt-2 text-sm text-neutral-500">Photo by <a href="{profile}?utm_source=equilima&amp;utm_medium=referral" rel="noopener noreferrer" class="eq-a">{photographer}</a> on <a href="https://unsplash.com/?utm_source=equilima&amp;utm_medium=referral" rel="noopener noreferrer" class="eq-a">Unsplash</a> (bundled under Unsplash License — see site credits).</figcaption>
 </figure>
 """.strip()
-
-
-def focus_tickers_section(tickers_csv: str, cluster: str, week: str) -> str:
-    """Educational lens on 3 example names: news, sentiment, fundamentals, price—no ratings."""
-    tpl = """
-<h2 class="eq-h2">The names we keep using—and how to think about them (no picks)</h2>
-<p class="eq-p eq-plain"><strong>Plain English:</strong> We circle <strong>{t0}</strong>, <strong>{t1}</strong>, and <strong>{t2}</strong> because they are liquid and constantly in the news—good <em>practice objects</em>. Around {week}, the <strong>exact</strong> headlines and moods will already be outdated: always reopen Equilima for live quotes, ratios, and recent catalysts before you rely on any narrative.</p>
-<p class="eq-p">Below is <strong>not</strong> “Equilima’s outlook” on these stocks or tokens. It is a <strong>repeatable checklist</strong> pros use so hype does not replace homework. Your job is to fill in the numbers yourself.</p>
-<h3 class="eq-h3">{t0}</h3>
-<ul class="eq-ul list-disc pl-5 space-y-2 text-[17px] leading-relaxed text-neutral-800 mb-6">
-<li><strong>News:</strong> What <em>fact</em> moved (earnings, guidance, regulation, product)? Cross-check with the company’s own filing or press release—not only a headline.</li>
-<li><strong>Sentiment / mood:</strong> Are feeds celebrating or panicking? Extreme mood often means risk of snapback; it does not prove fundamentals flipped in a day.</li>
-<li><strong>Fundamentals:</strong> In the last report, what happened to revenue growth, margins, and free cash flow versus the prior quarter? One weak line item can matter more than a catchy slogan.</li>
-<li><strong>Price &amp; history:</strong> In Equilima, compare today’s price to the 52-week range and longer-term averages. Ask whether the move looks driven by earnings, macro (rates, FX), or pure positioning.</li>
-</ul>
-<h3 class="eq-h3">{t1}</h3>
-<ul class="eq-ul list-disc pl-5 space-y-2 text-[17px] leading-relaxed text-neutral-800 mb-6">
-<li><strong>News:</strong> Tie headlines to a dated source. If you cannot find the primary document, downgrade your confidence.</li>
-<li><strong>Sentiment / mood:</strong> Options and social buzz can exaggerate short-term swings for {t1}. Notice the mood; do not confuse noise with a thesis.</li>
-<li><strong>Fundamentals:</strong> Pick one metric you will track for two quarters (e.g., segment revenue, gross margin dollars, net debt). Consistency beats chasing every new metric name.</li>
-<li><strong>Price &amp; history:</strong> Look for divergence: fundamentals stable but price violent usually means macro or liquidity; fundamentals deteriorating with price up means revisit your story.</li>
-</ul>
-<h3 class="eq-h3">{t2}</h3>
-<ul class="eq-ul list-disc pl-5 space-y-2 text-[17px] leading-relaxed text-neutral-800 mb-6">
-<li><strong>News:</strong> For {cluster} topics, ask whether the story is <em>stock-specific</em> or <em>everything-rerates</em> (index, sector ETF, rates).</li>
-<li><strong>Sentiment / mood:</strong> Crowded trades can unwind fast. If “everyone knows” the story on {t2}, ask what is already priced.</li>
-<li><strong>Fundamentals:</strong> Cash beats slogans. Does operating cash flow support the narrative you hear on podcasts?</li>
-<li><strong>Price &amp; history:</strong> Zoom out: one bad week is not the same as a broken five-year trend—and vice versa. Let the app show the path; don’t guess from memory.</li>
-</ul>
-<p class="eq-p eq-muted text-[15px]"><strong>Reminder:</strong> This page is not live. Always double-check prices, ratios, and headlines in Equilima or the original filing before you rely on anything here.</p>
-""".strip()
-    return _fill(tpl, tickers_csv, cluster, week)
 
 
 def takeaways_box(cluster: str, bullets: list[str]) -> str:
@@ -229,22 +212,6 @@ def _svg_markets_layers(_h: int) -> str:
     return _svg_wrap(inner, "Diagram: context layers for reading markets (framework).")
 
 
-def closing_block(tickers_csv: str, title: str, cluster: str, week: str) -> str:
-    t0, t1, t2 = _tk(tickers_csv)
-    return _fill(
-        f"""
-<h2 class="eq-h2">Bottom line — what to do with this guide</h2>
-<p class="eq-p">If you remember nothing else, remember the sequence: <strong>primary sources first, metrics second, narratives third</strong>. Names like {t0}, {t1}, and {t2} appear here to anchor examples in recognizable businesses—not to steer you toward action. In {week}, markets will tempt you to skip steps because headlines move fast; the counterweight is a repeatable checklist you can execute when you are tired, busy, or FOMO-prone.</p>
-<p class="eq-p">Equilima’s {cluster.split("—")[-1].strip() if "—" in cluster else cluster} tools are designed to shorten the distance between a question and a chart, but they cannot replace intellectual honesty. Write down what would falsify your view, cap risk in dollars you can afford to lose, and revisit your notes after the next earnings cycle. That is how amateurs graduate into disciplined hobbyists—and hobbyists into professionals.</p>
-<p class="eq-p">We will keep publishing long-form education because short takes age poorly. Re-read this piece in a quarter: mark what surprised you, what you predicted correctly for the wrong reasons, and where your process broke. The stock may go up or down; your process is the only asset you truly control. <strong>Not investment advice.</strong> Illustrative tickers: {t0}, {t1}, {t2}.</p>
-<p class="eq-p eq-muted italic text-sm">Educational series — {title[:120]}</p>
-""",
-        tickers_csv,
-        cluster,
-        week,
-    )
-
-
 def compose_body(
     slug: str,
     title: str,
@@ -253,8 +220,9 @@ def compose_body(
     week: str,
     bullets: list[str],
 ) -> str:
-    rng = random.Random(int(hashlib.md5(slug.encode(), usedforsecurity=False).hexdigest()[:8], 16))
-    t0, t1, t2 = _tk(tickers)
+    digest = hashlib.md5(slug.encode(), usedforsecurity=False).hexdigest()
+    sh = int(digest, 16)
+    rng = random.Random(sh & 0xFFFFFFFF)
 
     parts: list[str] = [
         disclaimer_block(),
@@ -266,54 +234,52 @@ def compose_body(
     if hook:
         parts.append(_fill(hook, tickers, cluster, week))
 
-    parts.append(focus_tickers_section(tickers, cluster, week))
+    outline = OUTLINES[sh % len(OUTLINES)]
+    v_base = (sh >> 8) & 0x7FFF
+    close_html = ""
 
-    opener = CLUSTER_OPENERS.get(cluster)
-    if opener:
-        parts.append(_fill(opener, tickers, cluster, week))
-
-    pool = READABILITY_PARAS + GPARAS
-    shuffled = pool[:]
-    rng.shuffle(shuffled)
-    n_sample = min(11, len(shuffled))
-    sampled = shuffled[:n_sample]
-
-    titles = ZACKS_SECTION_TITLES[:]
-    rng.shuffle(titles)
-
-    for i in range(0, len(sampled), 3):
-        chunk = sampled[i : i + 3]
-        if not chunk:
-            break
-        sec_title = titles[(i // 3) % len(titles)]
-        parts.append(f'<h2 class="eq-h2">{sec_title}</h2>')
-        for para in chunk:
-            parts.append(_fill(para, tickers, cluster, week))
-
-    parts.append(svg_diagram(cluster, slug))
-
-    parts.append(
-        f'<h2 class="eq-h2">Snapshot — what the tape is debating ({week})</h2>'
-        + _fill(
-            '<p class="eq-p">Indices and leaders will pinball on data prints and guidance tone while you are learning structure. When {t0} moves, ask whether the driver is stock-specific, sector beta, or pure macro liquidity—then check whether your filing notes anticipated any of those channels. The goal is explanatory power over time, not a victory lap on one session.</p>'
-            '<p class="eq-p">Use Equilima to monitor the same variables you highlighted in your written plan. If the plan and the platform disagree, the plan might be wrong—or the market might be temporarily insane. Either way, you learn. That loop—predict, observe, revise—is closer to professional practice than any single “signal” screenshot.</p>',
-            tickers,
-            cluster,
-            week,
-        )
-    )
-
-    parts.append(closing_block(tickers, title, cluster, week))
+    for i, step in enumerate(outline):
+        vb = v_base + i * 17
+        if step == "close":
+            close_html = closing_variant(tickers, title, cluster, week, vb, _fill)
+            continue
+        if step == "movers":
+            parts.append(movers_block(tickers, cluster, week, vb, _fill))
+        elif step == "radar":
+            parts.append(radar_block(tickers, cluster, week, vb, _fill))
+        elif step == "fundamentals":
+            parts.append(fundamentals_block(tickers, cluster, week, vb, _fill))
+        elif step == "math":
+            parts.append(math_block(tickers, cluster, week, vb, _fill))
+        elif step == "tools":
+            parts.append(equilima_tools_block(cluster, tickers, week, _fill, title_idx=vb))
+        elif step == "tape":
+            parts.append(tape_block(tickers, cluster, week, vb, _fill))
+        elif step == "svg":
+            parts.append(svg_diagram(cluster, slug))
+        elif step == "fill":
+            h2s = EDITORIAL_H2_POOL[:]
+            rng.shuffle(h2s)
+            pool = READABILITY_PARAS + GPARAS
+            paras = pool[:]
+            rng.shuffle(paras)
+            n_h2 = 6
+            for j in range(n_h2):
+                parts.append(f'<h2 class="eq-h2">{h2s[j]}</h2>')
+                parts.append(_fill(paras[(j * 2) % len(paras)], tickers, cluster, week))
+                parts.append(_fill(paras[(j * 2 + 1) % len(paras)], tickers, cluster, week))
 
     body = "\n".join(parts)
-    extra_idx = 0
+    pool = READABILITY_PARAS + GPARAS
+    extra_idx = sh % max(1, len(pool))
     safety = 0
-    while word_count(body) < MIN_WORDS and safety < 80:
-        para = pool[extra_idx % len(pool)]
-        body += "\n" + _fill(para, tickers, cluster, week)
+    suffix = ("\n" + close_html) if close_html else ""
+    while word_count(body + suffix) < MIN_WORDS and safety < 250:
+        body += "\n" + _fill(pool[extra_idx % len(pool)], tickers, cluster, week)
         extra_idx += 1
         safety += 1
 
+    body = body + suffix
     if word_count(body) < MIN_WORDS:
         raise RuntimeError(f"{slug}: only {word_count(body)} words (min {MIN_WORDS})")
     return body
