@@ -1,11 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchStrategies, compareStrategies, getStoredUser, signout, checkInteraction, trackPageView } from './api';
 import DashboardPanel from './components/DashboardPanel';
-import CryptoPanel from './components/CryptoPanel';
-import ComparePanel from './components/ComparePanel';
 import ScreenerPanel from './components/ScreenerPanel';
 import ResearchPanel from './components/ResearchPanel';
-import TerminalPanel from './components/terminal/TerminalPanel';
 import Header from './components/Header';
 import AuthModal from './components/AuthModal';
 import AdminPanel from './components/AdminPanel';
@@ -167,8 +164,6 @@ function App() {
     }
   };
 
-  const isTerminal = activeTab === 'terminal';
-
   // Learn hub (/learn, /learn/:slug, or #/learn …) — SEO articles
   if (learnRoute && !isAdmin) {
     return (
@@ -231,16 +226,13 @@ function App() {
         }}
       />
 
-      {isTerminal && <TerminalPanel />}
-
-      {!isTerminal && (
-        <main
-          className={
-            activeTab === 'agent'
-              ? 'w-full max-w-none px-0 pb-0 mt-2 sm:mt-4 min-h-0'
-              : 'max-w-7xl mx-auto px-3 sm:px-6 pb-8 sm:pb-12 mt-2 sm:mt-4'
-          }
-        >
+      <main
+        className={
+          activeTab === 'agent'
+            ? 'w-full max-w-none px-0 pb-0 mt-2 sm:mt-4 min-h-0'
+            : 'max-w-7xl mx-auto px-3 sm:px-6 pb-8 sm:pb-12 mt-2 sm:mt-4'
+        }
+      >
           {error && (
             <div
               className={
@@ -262,9 +254,33 @@ function App() {
           >
             <AgentPanel
               onNavigate={(tab, ticker) => {
+                const t = ticker ? String(ticker).trim().toUpperCase() : '';
+                if (tab === 'terminal' || tab === 'backtest') {
+                  setActiveTab('research');
+                  window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: tab } }));
+                  if (t) {
+                    window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab, ticker: t } }));
+                  }
+                  return;
+                }
+                if (tab === 'research') {
+                  setActiveTab('research');
+                  window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: 'fundamentals' } }));
+                  if (t) {
+                    window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab: 'research', ticker: t } }));
+                  }
+                  return;
+                }
+                if (tab === 'crypto') {
+                  setActiveTab('markets');
+                  window.dispatchEvent(new CustomEvent('eq-market-arena', { detail: { arena: 'crypto' } }));
+                  if (t) {
+                    window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab: 'crypto', ticker: t } }));
+                  }
+                  return;
+                }
                 setActiveTab(tab);
-                if (ticker) {
-                  const t = String(ticker).trim().toUpperCase();
+                if (t) {
                   window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab, ticker: t } }));
                 }
               }}
@@ -275,28 +291,21 @@ function App() {
           <div className={activeTab === 'markets' ? '' : 'hidden'}>
             <DashboardPanel />
           </div>
-          <div className={activeTab === 'crypto' ? '' : 'hidden'}>
-            <CryptoPanel />
-          </div>
           <div className={activeTab === 'screener' ? '' : 'hidden'}>
             <ScreenerPanel />
           </div>
           <div className={activeTab === 'research' ? '' : 'hidden'}>
-            <ResearchPanel />
+            <ResearchPanel
+              strategies={strategies}
+              onCompare={handleCompare}
+              compareResults={compareResults}
+              compareLoading={loading}
+            />
           </div>
           <div className={activeTab === 'account' ? '' : 'hidden'}>
             {user && <AccountPanel onSignedOut={handleSignout} onPasswordChanged={handlePasswordChanged} />}
           </div>
-          <div className={activeTab === 'backtest' ? '' : 'hidden'}>
-            <ComparePanel
-              strategies={strategies}
-              onCompare={handleCompare}
-              results={compareResults}
-              loading={loading}
-            />
-          </div>
         </main>
-      )}
 
       {/* Auth modal */}
       {showAuth && (

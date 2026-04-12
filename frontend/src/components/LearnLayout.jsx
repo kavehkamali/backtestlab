@@ -153,7 +153,25 @@ export default function LearnLayout({ route, setActiveTab }) {
 
   const openAppTab = (tab) => {
     clearLearnToHome();
-    if (tab) setActiveTab(tab);
+    if (!tab) return;
+    if (tab === 'backtest' || tab === 'terminal') {
+      setActiveTab('research');
+      window.dispatchEvent(
+        new CustomEvent('eq-research-subtab', { detail: { sub: tab === 'backtest' ? 'backtest' : 'terminal' } }),
+      );
+      return;
+    }
+    if (tab === 'crypto') {
+      setActiveTab('markets');
+      window.dispatchEvent(new CustomEvent('eq-market-arena', { detail: { arena: 'crypto' } }));
+      return;
+    }
+    if (tab === 'research') {
+      setActiveTab('research');
+      window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: 'fundamentals' } }));
+      return;
+    }
+    setActiveTab(tab);
   };
 
   useEffect(() => {
@@ -428,6 +446,13 @@ export default function LearnLayout({ route, setActiveTab }) {
                         </button>
                         <button
                           type="button"
+                          onClick={() => openAppTab('research')}
+                          className="learn-article-hero-meta inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-neutral-300 text-neutral-800 hover:bg-neutral-50 text-xs font-medium"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" /> Research
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => openAppTab('markets')}
                           className="learn-article-hero-meta inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-neutral-300 text-neutral-800 hover:bg-neutral-50 text-xs font-medium"
                         >
@@ -471,6 +496,20 @@ export default function LearnLayout({ route, setActiveTab }) {
                           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white text-zinc-800 text-xs font-medium ring-1 ring-zinc-200/80 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-600 dark:hover:bg-zinc-700"
                         >
                           <LineChart className="w-3.5 h-3.5" /> Backtesting
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openAppTab('research')}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white text-zinc-800 text-xs font-medium ring-1 ring-zinc-200/80 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-600 dark:hover:bg-zinc-700"
+                        >
+                          <BookOpen className="w-3.5 h-3.5" /> Research
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openAppTab('markets')}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white text-zinc-800 text-xs font-medium ring-1 ring-zinc-200/80 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-600 dark:hover:bg-zinc-700"
+                        >
+                          Markets
                         </button>
                       </div>
                     </aside>

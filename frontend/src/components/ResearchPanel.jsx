@@ -3,6 +3,8 @@ import { Loader2, Search, ExternalLink, Clock, TrendingUp, TrendingDown } from '
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, ComposedChart, Line, PieChart, Pie } from 'recharts';
 import { fetchResearch } from '../api';
 import SnowflakeChart from './SnowflakeChart';
+import TerminalPanel from './terminal/TerminalPanel';
+import ComparePanel from './ComparePanel';
 
 // ─── Helpers ───
 function fmtNum(v, dec = 2) { return v != null ? Number(v).toFixed(dec) : '—'; }
@@ -788,9 +790,9 @@ function NewsTab({ data }) {
 }
 
 // ═══════════════════════════════════════════
-// MAIN
+// FUNDAMENTALS (symbol lookup + tabs)
 // ═══════════════════════════════════════════
-export default function ResearchPanel() {
+function ResearchFundamentals() {
   const [symbol, setSymbol] = useState('AAPL');
   const [symbolInput, setSymbolInput] = useState('AAPL');
   const [data, setData] = useState(null);
@@ -876,6 +878,70 @@ export default function ResearchPanel() {
           {tab === 'peers' && <PeersTab data={data} />}
           {tab === 'news' && <NewsTab data={data} />}
         </>
+      )}
+    </div>
+  );
+}
+
+const RESEARCH_HUB_VIEWS = [
+  { id: 'fundamentals', label: 'Stock research' },
+  { id: 'terminal', label: 'Terminal' },
+  { id: 'backtest', label: 'Backtesting' },
+];
+
+export default function ResearchPanel({
+  strategies = [],
+  onCompare,
+  compareResults = null,
+  compareLoading = false,
+}) {
+  const [hubView, setHubView] = useState('fundamentals');
+
+  useEffect(() => {
+    const onSub = (e) => {
+      const sub = e.detail?.sub;
+      if (sub === 'terminal' || sub === 'backtest' || sub === 'fundamentals') {
+        setHubView(sub);
+      }
+    };
+    window.addEventListener('eq-research-subtab', onSub);
+    return () => window.removeEventListener('eq-research-subtab', onSub);
+  }, []);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-1 rounded-xl bg-zinc-100/90 p-1 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+        {RESEARCH_HUB_VIEWS.map((v) => (
+          <button
+            key={v.id}
+            type="button"
+            onClick={() => setHubView(v.id)}
+            className={`min-w-[6.5rem] flex-1 rounded-lg px-2.5 py-2 text-center text-xs font-medium transition-all sm:min-w-[7.5rem] ${
+              hubView === v.id
+                ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-600'
+                : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
+            }`}
+          >
+            {v.label}
+          </button>
+        ))}
+      </div>
+
+      {hubView === 'fundamentals' && <ResearchFundamentals />}
+
+      {hubView === 'terminal' && (
+        <div className="overflow-hidden rounded-xl ring-1 ring-zinc-200/70 dark:ring-zinc-800">
+          <TerminalPanel embedded />
+        </div>
+      )}
+
+      {hubView === 'backtest' && (
+        <ComparePanel
+          strategies={strategies}
+          onCompare={onCompare}
+          results={compareResults}
+          loading={compareLoading}
+        />
       )}
     </div>
   );

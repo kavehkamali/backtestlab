@@ -142,7 +142,7 @@ function Section({ title, children, right }) {
   );
 }
 
-export default function CryptoPanel() {
+export default function CryptoPanel({ embedded = false }) {
   const [crypto, setCrypto] = useState(null);
   const [news, setNews] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -178,10 +178,10 @@ export default function CryptoPanel() {
   }).filter(Boolean);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-zinc-900">Crypto overview</h2>
-        <div className="flex gap-0.5 bg-zinc-100 rounded-lg p-0.5 flex-wrap justify-end">
+    <div className={`space-y-6 ${embedded ? 'pt-0' : ''}`}>
+      <div className={`flex items-center gap-2 ${embedded ? 'justify-end' : 'justify-between'}`}>
+        {!embedded && <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Crypto overview</h2>}
+        <div className="flex gap-0.5 bg-zinc-100 rounded-lg p-0.5 flex-wrap justify-end dark:bg-zinc-800/80">
           {PERIODS.map((p) => (
             <button
               key={p.id}

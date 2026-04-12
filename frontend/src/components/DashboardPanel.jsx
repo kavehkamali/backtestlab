@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { fetchMarketOverview, fetchNews } from '../api';
+import CryptoPanel from './CryptoPanel';
 
 const PERIODS = [
   { id: '1D', label: '1D', key: null },
@@ -168,54 +169,64 @@ function Section({ title, children, right }) {
   );
 }
 
-export default function DashboardPanel() {
-  const [market, setMarket] = useState(null);
-  const [news, setNews] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState('1Y');
+const MARKET_ARENAS = [
+  { id: 'stocks', label: 'Stocks' },
+  { id: 'crypto', label: 'Crypto' },
+  { id: 'forex', label: 'Forex' },
+  { id: 'commodities', label: 'Commodities' },
+];
 
-  useEffect(() => {
-    Promise.all([fetchMarketOverview().catch(() => null), fetchNews('^GSPC,^IXIC,AAPL,MSFT,NVDA,TSLA,AMZN').catch(() => null)]).then(
-      ([m, n]) => {
-        setMarket(m);
-        setNews(n);
-      }
-    ).finally(() => setLoading(false));
-  }, []);
+function PeriodToolbar({ period, setPeriod }) {
+  return (
+    <div className="flex gap-0.5 bg-zinc-100 rounded-lg p-0.5 flex-wrap justify-end dark:bg-zinc-800/80">
+      {PERIODS.map((p) => (
+        <button
+          key={p.id}
+          type="button"
+          onClick={() => setPeriod(p.key)}
+          className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
+            period === p.key ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-zinc-200/60 dark:bg-zinc-800 dark:text-indigo-300 dark:ring-zinc-600' : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100'
+          }`}
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-zinc-500">
-        <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading market overview...
+function NewsFeed({ articles }) {
+  return (
+    <Section title="Market News">
+      <div className="space-y-2">
+        {articles.map((a, i) => (
+          <a
+            key={i}
+            href={a.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block bg-white rounded-lg p-2.5 shadow-sm ring-1 ring-zinc-200/70 hover:bg-zinc-50 hover:ring-zinc-300/80 transition-all group dark:bg-zinc-900/80 dark:ring-zinc-700 dark:hover:bg-zinc-800/80"
+          >
+            <div className="text-[11px] font-medium text-zinc-800 group-hover:text-zinc-950 line-clamp-2 dark:text-zinc-100 dark:group-hover:text-white">{a.title}</div>
+            <div className="flex items-center gap-2 mt-1 text-[9px] text-zinc-500 dark:text-zinc-400">
+              {a.source && <span>{a.source}</span>}
+              <span>{timeAgo(a.date)} ago</span>
+              {a.tickers?.slice(0, 3).map((t, j) => (
+                <span key={j} className="px-1 rounded bg-indigo-50 text-indigo-700 text-[8px] ring-1 ring-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-200 dark:ring-indigo-900/50">
+                  {t}
+                </span>
+              ))}
+            </div>
+          </a>
+        ))}
       </div>
-    );
-  }
+    </Section>
+  );
+}
 
-  const articles = (news?.articles || []).slice(0, 8);
-
-  const activePeriodKey = PERIODS.find(p => p.key === period)?.key ?? null;
-  const activePeriodLabel = PERIODS.find(p => p.key === period)?.label ?? '1Y';
-
+function StockMarketsOverviewBody({ market, articles, activePeriodKey, activePeriodLabel }) {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-zinc-900">Market Overview</h2>
-        <div className="flex gap-0.5 bg-zinc-100 rounded-lg p-0.5 flex-wrap justify-end">
-          {PERIODS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setPeriod(p.key)}
-              className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
-                period === p.key ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-zinc-200/60' : 'text-zinc-500 hover:text-zinc-800'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {market?.indices && (() => {
         const heroItems = [
           { name: 'S&P 500', symbol: '^GSPC', color: '#6366f1', gradId: 'hg1' },
@@ -335,33 +346,166 @@ export default function DashboardPanel() {
           )}
         </div>
 
-        <div>
-          <Section title="Market News">
-            <div className="space-y-2">
-              {articles.map((a, i) => (
-                <a
-                  key={i}
-                  href={a.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block bg-white rounded-lg p-2.5 shadow-sm ring-1 ring-zinc-200/70 hover:bg-zinc-50 hover:ring-zinc-300/80 transition-all group"
-                >
-                  <div className="text-[11px] font-medium text-zinc-800 group-hover:text-zinc-950 line-clamp-2">{a.title}</div>
-                  <div className="flex items-center gap-2 mt-1 text-[9px] text-zinc-500">
-                    {a.source && <span>{a.source}</span>}
-                    <span>{timeAgo(a.date)} ago</span>
-                    {a.tickers?.slice(0, 3).map((t, j) => (
-                      <span key={j} className="px-1 rounded bg-indigo-50 text-indigo-700 text-[8px] ring-1 ring-indigo-100">
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </a>
-              ))}
-            </div>
-          </Section>
-        </div>
+        <NewsFeed articles={articles} />
       </div>
+    </div>
+  );
+}
+
+function ForexMarketsBody({ market, articles, activePeriodKey, activePeriodLabel }) {
+  return (
+    <div className="space-y-6">
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        Major FX pairs and dollar crosses from the equities overview feed.
+      </p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div>
+          {market?.currencies?.length ? (
+            <Section title={`Currencies — ${activePeriodLabel}`}>
+              <div className="grid grid-cols-2 gap-2">
+                {market.currencies.map((item) => (
+                  <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
+                ))}
+              </div>
+            </Section>
+          ) : (
+            <p className="text-sm text-zinc-500">No currency data in this snapshot.</p>
+          )}
+        </div>
+        <NewsFeed articles={articles} />
+      </div>
+    </div>
+  );
+}
+
+function CommoditiesMarketsBody({ market, articles, activePeriodKey, activePeriodLabel }) {
+  return (
+    <div className="space-y-6">
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        Energy, metals, ags, and related rates from the same overview.
+      </p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-5">
+          {market?.commodities && (
+            <Section title={`Commodities — ${activePeriodLabel}`}>
+              <div className="grid grid-cols-2 gap-2">
+                {market.commodities.map((item) => (
+                  <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
+                ))}
+              </div>
+            </Section>
+          )}
+          {market?.bonds && (
+            <Section title="Bonds & yields">
+              <div className="grid grid-cols-2 gap-2">
+                {market.bonds.map((item) => (
+                  <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
+                ))}
+              </div>
+            </Section>
+          )}
+        </div>
+        <NewsFeed articles={articles} />
+      </div>
+    </div>
+  );
+}
+
+export default function DashboardPanel() {
+  const [market, setMarket] = useState(null);
+  const [news, setNews] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState('1Y');
+  const [arena, setArena] = useState('stocks');
+
+  useEffect(() => {
+    Promise.all([fetchMarketOverview().catch(() => null), fetchNews('^GSPC,^IXIC,AAPL,MSFT,NVDA,TSLA,AMZN').catch(() => null)]).then(
+      ([m, n]) => {
+        setMarket(m);
+        setNews(n);
+      }
+    ).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const onArena = (e) => {
+      const a = e.detail?.arena;
+      if (a === 'stocks' || a === 'crypto' || a === 'forex' || a === 'commodities') {
+        setArena(a);
+      }
+    };
+    window.addEventListener('eq-market-arena', onArena);
+    return () => window.removeEventListener('eq-market-arena', onArena);
+  }, []);
+
+  const articles = (news?.articles || []).slice(0, 8);
+  const activePeriodKey = PERIODS.find((p) => p.key === period)?.key ?? null;
+  const activePeriodLabel = PERIODS.find((p) => p.key === period)?.label ?? '1Y';
+
+  if (arena !== 'crypto' && loading) {
+    return (
+      <div className="flex items-center justify-center h-64 text-zinc-500">
+        <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading market overview...
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Markets</h2>
+        {arena !== 'crypto' && <PeriodToolbar period={period} setPeriod={setPeriod} />}
+      </div>
+
+      <div className="flex flex-wrap gap-1 rounded-xl bg-zinc-100/90 p-1 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+        {MARKET_ARENAS.map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => setArena(a.id)}
+            className={`min-w-[5.5rem] flex-1 rounded-lg px-2.5 py-2 text-center text-xs font-medium transition-all sm:min-w-[6.5rem] ${
+              arena === a.id
+                ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-600'
+                : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
+            }`}
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
+
+      {arena === 'crypto' && <CryptoPanel embedded />}
+
+      {arena === 'stocks' && market && (
+        <StockMarketsOverviewBody
+          market={market}
+          articles={articles}
+          activePeriodKey={activePeriodKey}
+          activePeriodLabel={activePeriodLabel}
+        />
+      )}
+
+      {arena === 'forex' && market && (
+        <ForexMarketsBody
+          market={market}
+          articles={articles}
+          activePeriodKey={activePeriodKey}
+          activePeriodLabel={activePeriodLabel}
+        />
+      )}
+
+      {arena === 'commodities' && market && (
+        <CommoditiesMarketsBody
+          market={market}
+          articles={articles}
+          activePeriodKey={activePeriodKey}
+          activePeriodLabel={activePeriodLabel}
+        />
+      )}
+
+      {arena !== 'crypto' && !market && !loading && (
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">Market data unavailable.</p>
+      )}
     </div>
   );
 }

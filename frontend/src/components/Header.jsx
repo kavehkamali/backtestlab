@@ -14,11 +14,8 @@ import {
 const TABS = [
   { id: 'agent', label: 'AI Agent', short: 'AI' },
   { id: 'research', label: 'Research', short: 'Research' },
-  { id: 'crypto', label: 'Crypto', short: 'Crypto' },
   { id: 'markets', label: 'Markets', short: 'Markets' },
   { id: 'screener', label: 'Screener', short: 'Screen' },
-  { id: 'terminal', label: 'Terminal', short: 'Terminal' },
-  { id: 'backtest', label: 'Backtesting', short: 'Backtest' },
 ];
 
 const SUPPORT_EMAIL = 'info@equilima.com';
