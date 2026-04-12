@@ -44,14 +44,14 @@ export default function ConsentBanner() {
   return (
     <div className="fixed inset-x-0 bottom-0 z-50">
       <div className="mx-auto max-w-7xl px-3 sm:px-6 pb-3">
-        <div className="bg-white rounded-2xl p-4 shadow-lg shadow-zinc-900/10 ring-1 ring-zinc-200/80">
+        <div className="bg-white rounded-2xl p-4 shadow-lg shadow-zinc-900/10 ring-1 ring-zinc-200/80 dark:bg-zinc-900 dark:ring-zinc-700 dark:shadow-black/25">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div className="text-[12px] text-zinc-600 leading-relaxed">
-              <div className="text-xs font-semibold text-zinc-900 mb-1">Cookies & analytics</div>
+            <div className="text-[12px] text-zinc-600 leading-relaxed dark:text-zinc-400">
+              <div className="text-xs font-semibold text-zinc-900 mb-1 dark:text-zinc-100">Cookies & analytics</div>
               We use analytics cookies (Google Analytics) to understand traffic and improve Equilima.
               {manage ? (
-                <div className="mt-2 text-[11px] text-zinc-500">
-                  - <span className="text-zinc-700">Analytics</span>: {consent === 'granted' ? 'On' : 'Off'} (GA4)
+                <div className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-500">
+                  - <span className="text-zinc-700 dark:text-zinc-300">Analytics</span>: {consent === 'granted' ? 'On' : 'Off'} (GA4)
                 </div>
               ) : null}
             </div>
@@ -61,7 +61,7 @@ export default function ConsentBanner() {
                 <button
                   type="button"
                   onClick={() => setManage(true)}
-                  className="px-3 py-2 rounded-lg bg-zinc-100 text-[11px] text-zinc-700 hover:bg-zinc-200/80"
+                  className="px-3 py-2 rounded-lg bg-zinc-100 text-[11px] text-zinc-700 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                 >
                   Manage
                 </button>
@@ -69,7 +69,7 @@ export default function ConsentBanner() {
                 <button
                   type="button"
                   onClick={() => setManage(false)}
-                  className="px-3 py-2 rounded-lg bg-zinc-100 text-[11px] text-zinc-700 hover:bg-zinc-200/80"
+                  className="px-3 py-2 rounded-lg bg-zinc-100 text-[11px] text-zinc-700 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                 >
                   Back
                 </button>
@@ -78,21 +78,21 @@ export default function ConsentBanner() {
               <button
                 type="button"
                 onClick={reject}
-                className="px-3 py-2 rounded-lg bg-zinc-100 text-[11px] text-zinc-700 hover:bg-zinc-200/80"
+                className="px-3 py-2 rounded-lg bg-zinc-100 text-[11px] text-zinc-700 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
               >
                 Reject
               </button>
               <button
                 type="button"
                 onClick={accept}
-                className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-[11px] text-white font-medium"
+                className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-[11px] text-white font-medium dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
               >
                 Accept
               </button>
             </div>
           </div>
 
-          <div className="mt-2 text-[10px] text-zinc-400">
+          <div className="mt-2 text-[10px] text-zinc-400 dark:text-zinc-500">
             You can change this anytime via “cookie settings”.
           </div>
         </div>

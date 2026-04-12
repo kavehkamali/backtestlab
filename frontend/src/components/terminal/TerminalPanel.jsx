@@ -75,7 +75,7 @@ function TerminalInner() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 48px)' }}>
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-2 py-1.5 bg-zinc-50 border-b border-zinc-200/80 shrink-0 overflow-x-auto no-scrollbar">
+      <div className="flex items-center gap-2 px-2 py-1.5 bg-zinc-50 border-b border-zinc-200/80 shrink-0 overflow-x-auto no-scrollbar dark:bg-zinc-950 dark:border-zinc-800">
         {/* Timeframe buttons */}
         <div className="flex gap-0.5">
           {TIMEFRAMES.map(tf => {
@@ -86,7 +86,7 @@ function TerminalInner() {
                 timeframe: tf.timeframe, interval: tf.interval,
               })}
                 className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
-                  active ? 'bg-indigo-100 text-indigo-900' : 'text-zinc-500 hover:text-zinc-600'
+                  active ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-200'
                 }`}>
                 {tf.label}
               </button>
@@ -94,7 +94,7 @@ function TerminalInner() {
           })}
         </div>
 
-        <div className="w-px h-5 bg-zinc-200/60" />
+        <div className="w-px h-5 bg-zinc-200/60 dark:bg-zinc-700" />
 
         {/* Indicator toggles */}
         <div className="flex gap-0.5">
@@ -103,7 +103,7 @@ function TerminalInner() {
             return (
               <button key={ind.id} onClick={() => dispatch({ type: 'TOGGLE_INDICATOR', indicator: ind.id })}
                 className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
-                  active ? 'bg-indigo-500/20 text-indigo-700' : 'text-zinc-600 hover:text-zinc-500'
+                  active ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-500 dark:text-zinc-400 dark:hover:text-zinc-200'
                 }`}>
                 {ind.label}
               </button>
@@ -118,27 +118,27 @@ function TerminalInner() {
           {LAYOUTS.map(l => (
             <button key={l.n} onClick={() => dispatch({ type: 'SET_LAYOUT', value: l.n })} title={l.label}
               className={`p-1.5 rounded transition-all ${
-                state.layout === l.n ? 'bg-indigo-100 text-indigo-900' : 'text-zinc-600 hover:text-zinc-600'
+                state.layout === l.n ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-200'
               }`}>
               <l.icon className="w-3.5 h-3.5" />
             </button>
           ))}
         </div>
 
-        <div className="w-px h-5 bg-zinc-200/60" />
+        <div className="w-px h-5 bg-zinc-200/60 dark:bg-zinc-700" />
 
         {/* Panel toggles */}
         <button onClick={() => dispatch({ type: 'TOGGLE_WATCHLIST' })} title="Watchlist (W)"
-          className={`p-1.5 rounded transition-all ${state.showWatchlist ? 'bg-indigo-100 text-indigo-900' : 'text-zinc-600 hover:text-zinc-600'}`}>
+          className={`p-1.5 rounded transition-all ${state.showWatchlist ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-200'}`}>
           <List className="w-3.5 h-3.5" />
         </button>
         <button onClick={() => dispatch({ type: 'TOGGLE_AI_PANEL' })} title="AI Insight (A)"
-          className={`p-1.5 rounded transition-all ${state.showAiPanel ? 'bg-indigo-500/20 text-indigo-700' : 'text-zinc-600 hover:text-zinc-600'}`}>
+          className={`p-1.5 rounded transition-all ${state.showAiPanel ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-200'}`}>
           <Brain className="w-3.5 h-3.5" />
         </button>
 
         {/* Shortcut hint */}
-        <span className="text-[9px] text-zinc-700 ml-1">Keys: 1-4 layout · W watch · A ai · Tab focus</span>
+        <span className="text-[9px] text-zinc-700 ml-1 dark:text-zinc-400">Keys: 1-4 layout · W watch · A ai · Tab focus</span>
       </div>
 
       {/* Main content */}
@@ -168,7 +168,7 @@ function TerminalInner() {
 
         {/* AI Panel — hidden on mobile */}
         {state.showAiPanel && (
-          <div className="hidden md:block border-l border-zinc-200/80 bg-zinc-50" style={{ width: 288, flexShrink: 0, height: '100%', overflow: 'auto' }}>
+          <div className="hidden md:block border-l border-zinc-200/80 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950" style={{ width: 288, flexShrink: 0, height: '100%', overflow: 'auto' }}>
             <AiInsightPanel
               symbol={focusedPane.symbol}
               timeframe={focusedPane.timeframe}

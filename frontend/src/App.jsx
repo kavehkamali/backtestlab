@@ -13,7 +13,9 @@ import AgentPanel from './components/AgentPanel';
 import ConsentBanner from './components/ConsentBanner';
 import AccountPanel from './components/AccountPanel';
 import LearnLayout from './components/LearnLayout';
+import ThemeToggle from './components/ThemeToggle';
 import { getLearnRoute } from './learnNavigation';
+import { applyDocumentTheme, syncSiteThemeUserMeta } from './siteTheme';
 import { bootstrapAgentE2EE, fetchAgentE2EEMeta, rewrapAgentE2EE } from './api';
 import { createAndWrapDek, unwrapDek, wrapExistingDek } from './e2ee';
 
@@ -57,6 +59,15 @@ function App() {
   useEffect(() => {
     fetchStrategies().then(d => setStrategies(d.strategies)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    syncSiteThemeUserMeta(user);
+  }, [user]);
+
+  useEffect(() => {
+    if (isAdmin) applyDocumentTheme({ forceLight: true });
+    else applyDocumentTheme({ forceLight: false });
+  }, [isAdmin]);
 
   // Track interactions on tab switch
   const trackInteraction = useCallback(async () => {
@@ -161,7 +172,7 @@ function App() {
   // Learn hub (/learn, /learn/:slug, or #/learn …) — SEO articles
   if (learnRoute && !isAdmin) {
     return (
-      <div className="min-h-screen bg-zinc-50 overflow-x-hidden">
+      <div className="min-h-screen bg-zinc-50 text-zinc-900 overflow-x-hidden dark:bg-zinc-950 dark:text-zinc-100">
         <LearnLayout route={learnRoute} setActiveTab={setActiveTab} />
         {showAuth && (
           <AuthModal
@@ -172,6 +183,7 @@ function App() {
             onAuth={handleAuth}
           />
         )}
+        <ThemeToggle />
         <ConsentBanner />
       </div>
     );
@@ -205,7 +217,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 overflow-x-hidden">
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 overflow-x-hidden dark:bg-zinc-950 dark:text-zinc-100">
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -233,8 +245,8 @@ function App() {
             <div
               className={
                 activeTab === 'agent'
-                  ? 'max-w-7xl mx-auto px-3 sm:px-6 mb-4 p-3 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80'
-                  : 'mb-4 p-3 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80'
+                  ? 'max-w-7xl mx-auto px-3 sm:px-6 mb-4 p-3 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80 dark:bg-red-950/40 dark:text-red-200 dark:ring-red-900/50'
+                  : 'mb-4 p-3 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80 dark:bg-red-950/40 dark:text-red-200 dark:ring-red-900/50'
               }
             >
               {error}
@@ -294,6 +306,7 @@ function App() {
         />
       )}
 
+      <ThemeToggle />
       <ConsentBanner />
     </div>
   );

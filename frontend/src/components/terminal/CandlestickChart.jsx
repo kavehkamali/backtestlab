@@ -19,6 +19,59 @@ const INDICATOR_COLORS = {
   bb_middle: '#71717a',
 };
 
+function chartThemeLayout(isDark) {
+  if (isDark) {
+    return {
+      layout: {
+        background: { color: '#18181b' },
+        textColor: '#a1a1aa',
+        fontFamily: "'Inter', -apple-system, sans-serif",
+        fontSize: 11,
+      },
+      grid: {
+        vertLines: { color: '#27272a' },
+        horzLines: { color: '#27272a' },
+      },
+      crosshair: {
+        mode: 0,
+        vertLine: { color: '#52525b', labelBackgroundColor: '#27272a' },
+        horzLine: { color: '#52525b', labelBackgroundColor: '#27272a' },
+      },
+      rightPriceScale: {
+        borderColor: '#3f3f46',
+        scaleMargins: { top: 0.05, bottom: 0.12 },
+      },
+      timeScale: {
+        borderColor: '#3f3f46',
+      },
+    };
+  }
+  return {
+    layout: {
+      background: { color: '#fafafa' },
+      textColor: '#52525b',
+      fontFamily: "'Inter', -apple-system, sans-serif",
+      fontSize: 11,
+    },
+    grid: {
+      vertLines: { color: '#e4e4e7' },
+      horzLines: { color: '#e4e4e7' },
+    },
+    crosshair: {
+      mode: 0,
+      vertLine: { color: '#a1a1aa', labelBackgroundColor: '#f4f4f5' },
+      horzLine: { color: '#a1a1aa', labelBackgroundColor: '#f4f4f5' },
+    },
+    rightPriceScale: {
+      borderColor: '#e4e4e7',
+      scaleMargins: { top: 0.05, bottom: 0.12 },
+    },
+    timeScale: {
+      borderColor: '#e4e4e7',
+    },
+  };
+}
+
 export default function CandlestickChart({ symbol, timeframe, interval, indicators, focused, onSymbolChange }) {
   const wrapperRef = useRef(null);
   const chartRef = useRef(null);
@@ -28,8 +81,15 @@ export default function CandlestickChart({ symbol, timeframe, interval, indicato
   const [error, setError] = useState(null);
   const [symbolInput, setSymbolInput] = useState(symbol);
   const [ready, setReady] = useState(false);
+  const [themeTick, setThemeTick] = useState(0);
 
   useEffect(() => { setSymbolInput(symbol); }, [symbol]);
+
+  useEffect(() => {
+    const onTheme = () => setThemeTick((n) => n + 1);
+    window.addEventListener('eq-theme-changed', onTheme);
+    return () => window.removeEventListener('eq-theme-changed', onTheme);
+  }, []);
 
   // Create chart
   useEffect(() => {
@@ -49,30 +109,14 @@ export default function CandlestickChart({ symbol, timeframe, interval, indicato
       }
 
       try {
+        const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+        const theme = chartThemeLayout(isDark);
         const chart = createChart(el, {
           width: w || 600,
           height: h || 400,
-          layout: {
-            background: { color: '#fafafa' },
-            textColor: '#52525b',
-            fontFamily: "'Inter', -apple-system, sans-serif",
-            fontSize: 11,
-          },
-          grid: {
-            vertLines: { color: '#e4e4e7' },
-            horzLines: { color: '#e4e4e7' },
-          },
-          crosshair: {
-            mode: 0,
-            vertLine: { color: '#a1a1aa', labelBackgroundColor: '#f4f4f5' },
-            horzLine: { color: '#a1a1aa', labelBackgroundColor: '#f4f4f5' },
-          },
-          rightPriceScale: {
-            borderColor: '#e4e4e7',
-            scaleMargins: { top: 0.05, bottom: 0.12 },
-          },
+          ...theme,
           timeScale: {
-            borderColor: '#e4e4e7',
+            ...theme.timeScale,
             timeVisible: !['1d', '1wk', '1mo'].includes(interval),
           },
         });
@@ -120,6 +164,20 @@ export default function CandlestickChart({ symbol, timeframe, interval, indicato
       }
     };
   }, [interval]);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+    const theme = chartThemeLayout(isDark);
+    chart.applyOptions({
+      ...theme,
+      timeScale: {
+        ...theme.timeScale,
+        timeVisible: !['1d', '1wk', '1mo'].includes(interval),
+      },
+    });
+  }, [themeTick, ready, interval]);
 
   // Load data
   useEffect(() => {
@@ -198,32 +256,42 @@ export default function CandlestickChart({ symbol, timeframe, interval, indicato
     if (s && s !== symbol) onSymbolChange(s);
   };
 
+  void themeTick;
+  const chromeDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+
   return (
-    <div style={{
-      position: 'relative', display: 'flex', flexDirection: 'column', height: '100%',
-      background: '#fafafa', borderRadius: 8, overflow: 'hidden',
-      border: focused ? '1px solid rgba(99,102,241,0.45)' : '1px solid #e4e4e7',
-      boxShadow: focused ? '0 0 12px rgba(99,102,241,0.12)' : 'none',
-    }}>
+    <div
+      className={`relative flex h-full min-h-0 flex-col overflow-hidden rounded-lg border ${
+        focused
+          ? 'border-zinc-400 shadow-md shadow-zinc-900/10 dark:border-zinc-500 dark:shadow-black/30'
+          : 'border-zinc-200 dark:border-zinc-700'
+      } bg-[#fafafa] dark:bg-zinc-900`}
+    >
       {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
-        borderBottom: '1px solid #e4e4e7', background: '#ffffff', flexShrink: 0,
-      }}>
+      <div className="flex shrink-0 items-center gap-2 border-b border-zinc-200 bg-white px-3 py-1.5 dark:border-zinc-700 dark:bg-zinc-900">
         <form onSubmit={handleSubmit}>
           <input
             type="text" value={symbolInput}
             onChange={e => setSymbolInput(e.target.value.toUpperCase())}
             style={{
-              width: 70, background: 'transparent', border: 'none', color: '#18181b',
+              width: 70, background: 'transparent', border: 'none',
+              color: chromeDark ? '#fafafa' : '#18181b',
               fontSize: 12, fontWeight: 700, outline: 'none', fontFamily: 'inherit',
             }}
             spellCheck={false}
           />
         </form>
-        <span style={{ fontSize: 9, color: '#52525b', background: '#f4f4f5', padding: '2px 6px', borderRadius: 4, border: '1px solid #e4e4e7' }}>{interval}</span>
-        <div style={{ flex: 1 }} />
-        {loading && <Loader2 className="w-3 h-3 animate-spin" style={{ color: '#6366f180' }} />}
+        <span
+          className={`rounded px-1.5 py-0.5 text-[9px] border ${
+            chromeDark
+              ? 'border-zinc-600 bg-zinc-800 text-zinc-300'
+              : 'border-zinc-200 bg-zinc-100 text-zinc-600'
+          }`}
+        >
+          {interval}
+        </span>
+        <div className="flex-1" />
+        {loading && <Loader2 className={`h-3 w-3 animate-spin ${chromeDark ? 'text-zinc-500' : 'text-zinc-400'}`} />}
       </div>
 
       {/* Chart container */}
@@ -231,14 +299,18 @@ export default function CandlestickChart({ symbol, timeframe, interval, indicato
 
       {/* Error */}
       {error && !loading && (
-        <div style={{
-          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(250,250,250,0.92)', zIndex: 20,
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 4 }}>{error}</div>
-            <button onClick={() => { setError(null); setReady(false); setTimeout(() => setReady(true), 100); }}
-              style={{ color: '#888', fontSize: 10, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+        <div
+          className={`absolute inset-0 z-20 flex items-center justify-center ${
+            chromeDark ? 'bg-zinc-900/92' : 'bg-[#fafafa]/92'
+          }`}
+        >
+          <div className="text-center">
+            <div className="mb-1 text-xs text-red-500">{error}</div>
+            <button
+              type="button"
+              onClick={() => { setError(null); setReady(false); setTimeout(() => setReady(true), 100); }}
+              className="text-[10px] text-zinc-500 underline hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+            >
               Retry
             </button>
           </div>

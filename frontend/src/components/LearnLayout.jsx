@@ -220,16 +220,16 @@ export default function LearnLayout({ route, setActiveTab }) {
 
   const shellClass = useMediumArticleChrome
     ? 'learn-article-shell min-h-screen'
-    : 'min-h-screen bg-zinc-50 text-zinc-900';
+    : 'min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100';
   const headerClass = useMediumArticleChrome
     ? 'learn-article-shell-header sticky top-0 z-50'
-    : 'border-b border-zinc-200/60 bg-white/90 backdrop-blur-md sticky top-0 z-50 shadow-sm shadow-zinc-900/[0.02]';
+    : 'border-b border-zinc-200/60 bg-white/90 backdrop-blur-md sticky top-0 z-50 shadow-sm shadow-zinc-900/[0.02] dark:border-zinc-800 dark:bg-zinc-950/90 dark:shadow-none';
   const backBtnClass = useMediumArticleChrome
     ? 'flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors'
-    : 'flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900 transition-colors';
+    : 'flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900 transition-colors dark:text-zinc-400 dark:hover:text-zinc-100';
   const navAllClass = useMediumArticleChrome
-    ? 'px-2 py-1 rounded-md text-indigo-700 hover:bg-black/[0.04]'
-    : 'px-2 py-1 rounded-md text-indigo-700 hover:bg-zinc-100';
+    ? 'px-2 py-1 rounded-md text-indigo-700 hover:bg-black/[0.04] dark:text-zinc-300 dark:hover:bg-white/5'
+    : 'px-2 py-1 rounded-md text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800/80';
 
   return (
     <div className={shellClass}>
@@ -249,7 +249,7 @@ export default function LearnLayout({ route, setActiveTab }) {
             <button type="button" onClick={() => navigateLearn()} className={navAllClass}>
               All articles
             </button>
-            <span className={useMediumArticleChrome ? 'text-neutral-300 hidden sm:inline' : 'text-gray-600 hidden sm:inline'}>
+            <span className={useMediumArticleChrome ? 'text-neutral-300 hidden sm:inline' : 'text-gray-600 hidden sm:inline dark:text-zinc-600'}>
               |
             </span>
             <span className="text-gray-600 sm:hidden w-full" />
@@ -280,14 +280,14 @@ export default function LearnLayout({ route, setActiveTab }) {
                   key={topic}
                   type="button"
                   onClick={() => navigateLearnTopic(topic)}
-                  className={`px-2 py-1 rounded-md hover:bg-zinc-100 ${
+                  className={`px-2 py-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800/80 ${
                     topic === 'research'
                       ? active
-                        ? 'text-indigo-800 font-semibold bg-indigo-100'
-                        : 'text-indigo-700 font-semibold hover:text-indigo-800'
+                        ? 'text-zinc-900 font-semibold bg-zinc-200/80 dark:bg-zinc-800 dark:text-zinc-100'
+                        : 'text-zinc-700 font-semibold hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
                       : active
-                        ? 'text-zinc-900 font-medium bg-zinc-200/70'
-                        : 'text-zinc-600 hover:text-zinc-900'
+                        ? 'text-zinc-900 font-medium bg-zinc-200/70 dark:bg-zinc-800 dark:text-zinc-100'
+                        : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
                   }`}
                 >
                   {TOPIC_LABELS[topic]}
@@ -308,11 +308,11 @@ export default function LearnLayout({ route, setActiveTab }) {
         {route.kind === 'index' && (
           <>
             <div className="flex items-start gap-3 mb-8">
-              <BookOpen className="w-10 h-10 text-indigo-600 shrink-0 mt-1" />
+              <BookOpen className="w-10 h-10 text-zinc-500 dark:text-zinc-400 shrink-0 mt-1" />
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 tracking-tight">Learn</h1>
-                <p className="text-sm text-zinc-600 mt-2 max-w-2xl">
-                  Long-form guides on <strong className="text-zinc-800 font-medium">Research, Crypto, Screener, Backtest, and Markets</strong>—plus the <strong className="text-zinc-800 font-medium">AI agents for market research</strong> series. Use the topic links above to filter Equilima walkthroughs; open the app from any article when you are ready to apply the ideas.
+                <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 tracking-tight dark:text-zinc-100">Learn</h1>
+                <p className="text-sm text-zinc-600 mt-2 max-w-2xl dark:text-zinc-400">
+                  Long-form guides on <strong className="text-zinc-800 font-medium dark:text-zinc-200">Research, Crypto, Screener, Backtest, and Markets</strong>—plus the <strong className="text-zinc-800 font-medium dark:text-zinc-200">AI agents for market research</strong> series. Use the topic links above to filter Equilima walkthroughs; open the app from any article when you are ready to apply the ideas.
                 </p>
               </div>
             </div>
@@ -322,10 +322,10 @@ export default function LearnLayout({ route, setActiveTab }) {
               <p className="text-zinc-500 text-sm">No published articles yet. Add them from the admin Learn tab.</p>
             )}
             {route.topic && TOPIC_TO_CLUSTER[route.topic] && !loading && !error && (
-              <p className="text-xs text-indigo-700 mb-6">
-                Showing <strong className="text-indigo-900">{TOPIC_TO_CLUSTER[route.topic]}</strong> guides
+              <p className="text-xs text-zinc-600 mb-6 dark:text-zinc-400">
+                Showing <strong className="text-zinc-900 dark:text-zinc-100">{TOPIC_TO_CLUSTER[route.topic]}</strong> guides
                 {' · '}
-                <button type="button" onClick={() => navigateLearn()} className="underline hover:text-indigo-900">
+                <button type="button" onClick={() => navigateLearn()} className="underline hover:text-zinc-900 dark:hover:text-zinc-100">
                   Clear filter
                 </button>
               </p>
@@ -336,23 +336,23 @@ export default function LearnLayout({ route, setActiveTab }) {
             <div className="space-y-14">
               {groupedList.map(({ clusterKey, items }) => (
                 <section key={clusterKey} className="scroll-mt-8" aria-labelledby={sectionDomId(clusterKey)}>
-                  <div className="flex flex-wrap items-end gap-3 mb-5 pb-4 border-b border-zinc-200/80">
+                  <div className="flex flex-wrap items-end gap-3 mb-5 pb-4 border-b border-zinc-200/80 dark:border-zinc-800">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div
-                        className="h-11 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-indigo-500 via-violet-500 to-fuchsia-500"
+                        className="h-11 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-zinc-400 via-zinc-500 to-zinc-600 dark:from-zinc-500 dark:via-zinc-600 dark:to-zinc-700"
                         aria-hidden
                       />
                       <div className="min-w-0">
                         <h2
                           id={sectionDomId(clusterKey)}
-                          className="text-lg sm:text-xl font-bold text-zinc-900 tracking-tight"
+                          className="text-lg sm:text-xl font-bold text-zinc-900 tracking-tight dark:text-zinc-100"
                         >
                           {clusterKey}
                         </h2>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">{items.length} in-depth {items.length === 1 ? 'guide' : 'guides'}</p>
+                        <p className="text-[11px] text-zinc-500 mt-0.5 dark:text-zinc-400">{items.length} in-depth {items.length === 1 ? 'guide' : 'guides'}</p>
                       </div>
                     </div>
-                    <span className="text-[10px] uppercase tracking-widest text-indigo-600/80 font-semibold">Guides</span>
+                    <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold dark:text-zinc-500">Guides</span>
                   </div>
                   <ul className="space-y-4">
                     {items.map((a) => (
@@ -360,11 +360,11 @@ export default function LearnLayout({ route, setActiveTab }) {
                         <button
                           type="button"
                           onClick={() => navigateLearn(a.slug)}
-                          className="w-full text-left p-4 rounded-xl bg-white shadow-sm ring-1 ring-zinc-200/70 hover:ring-indigo-200 hover:shadow-md transition-all"
+                          className="w-full text-left p-4 rounded-xl bg-white shadow-sm ring-1 ring-zinc-200/70 hover:ring-zinc-300 hover:shadow-md transition-all dark:bg-zinc-900 dark:ring-zinc-700 dark:hover:ring-zinc-500"
                         >
-                          <span className="text-[10px] uppercase tracking-wider text-indigo-700 font-medium">{a.cluster_key || 'Article'}</span>
-                          <h3 className="text-lg font-semibold text-zinc-900 mt-1 leading-snug">{a.title}</h3>
-                          <p className="text-sm text-zinc-600 mt-2 line-clamp-3">{a.excerpt || a.meta_description}</p>
+                          <span className="text-[10px] uppercase tracking-wider text-zinc-600 font-medium dark:text-zinc-400">{a.cluster_key || 'Article'}</span>
+                          <h3 className="text-lg font-semibold text-zinc-900 mt-1 leading-snug dark:text-zinc-100">{a.title}</h3>
+                          <p className="text-sm text-zinc-600 mt-2 line-clamp-3 dark:text-zinc-400">{a.excerpt || a.meta_description}</p>
                           <span className="text-[11px] text-zinc-400 mt-2 block">{a.published_at?.slice(0, 10)}</span>
                         </button>
                       </li>
@@ -386,7 +386,7 @@ export default function LearnLayout({ route, setActiveTab }) {
               <article>
                 {useMediumArticleChrome ? (
                   <>
-                    <p className="learn-article-hero-meta text-xs font-semibold uppercase tracking-wider text-indigo-600 mb-2">
+                    <p className="learn-article-hero-meta text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2 dark:text-zinc-400">
                       {article.cluster_key || 'Article'}
                     </p>
                     <h1 className="learn-article-hero-title text-[2.35rem] sm:text-[2.75rem] font-bold text-neutral-950 mb-3 leading-[1.06]">
@@ -399,7 +399,7 @@ export default function LearnLayout({ route, setActiveTab }) {
                       )}
                     </p>
                     <div className="learn-article-reading" dangerouslySetInnerHTML={{ __html: article.body_html }} />
-                    <aside className="learn-article-cta mt-14 mx-auto p-6 sm:p-7 rounded-2xl bg-white/95 shadow-lg shadow-zinc-900/8 ring-1 ring-zinc-200/70 backdrop-blur-sm">
+                    <aside className="learn-article-cta mt-14 mx-auto p-6 sm:p-7 rounded-2xl bg-white/95 shadow-lg shadow-zinc-900/8 ring-1 ring-zinc-200/70 backdrop-blur-sm dark:bg-zinc-900/95 dark:ring-zinc-700 dark:shadow-black/20">
                       <p className="learn-article-hero-meta text-sm font-semibold text-neutral-900 mb-1">Try it in Equilima</p>
                       <p className="learn-article-hero-meta text-xs text-neutral-500 mb-4">
                         Open the app to apply these ideas with live data.
@@ -408,7 +408,7 @@ export default function LearnLayout({ route, setActiveTab }) {
                         <button
                           type="button"
                           onClick={() => openAppTab('agent')}
-                          className="learn-article-hero-meta inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium"
+                          className="learn-article-hero-meta inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
                         >
                           <Sparkles className="w-3.5 h-3.5" /> AI Agent
                         </button>
@@ -438,37 +438,37 @@ export default function LearnLayout({ route, setActiveTab }) {
                   </>
                 ) : (
                   <>
-                    <p className="text-xs text-indigo-700 uppercase tracking-wider mb-2">{article.cluster_key || 'Article'}</p>
-                    <h1 className="text-3xl sm:text-4xl font-bold text-zinc-900 tracking-tight mb-4">{article.title}</h1>
-                    <p className="text-sm text-zinc-500 mb-8">
+                    <p className="text-xs text-zinc-600 uppercase tracking-wider mb-2 dark:text-zinc-400">{article.cluster_key || 'Article'}</p>
+                    <h1 className="text-3xl sm:text-4xl font-bold text-zinc-900 tracking-tight mb-4 dark:text-zinc-100">{article.title}</h1>
+                    <p className="text-sm text-zinc-500 mb-8 dark:text-zinc-400">
                       {article.author_name && <span>{article.author_name}</span>}
                       {article.published_at && (
                         <span className="ml-2">· {article.published_at.slice(0, 10)}</span>
                       )}
                     </p>
                     <div className={proseClass} dangerouslySetInnerHTML={{ __html: article.body_html }} />
-                    <aside className="mt-12 p-5 rounded-xl bg-indigo-50/80 ring-1 ring-indigo-100">
-                      <p className="text-sm font-medium text-zinc-900 mb-3">Try it in Equilima</p>
-                      <p className="text-xs text-zinc-600 mb-4">Open the app to explore live data alongside this guide.</p>
+                    <aside className="mt-12 p-5 rounded-xl bg-zinc-100/90 ring-1 ring-zinc-200/80 dark:bg-zinc-900/80 dark:ring-zinc-700">
+                      <p className="text-sm font-medium text-zinc-900 mb-3 dark:text-zinc-100">Try it in Equilima</p>
+                      <p className="text-xs text-zinc-600 mb-4 dark:text-zinc-400">Open the app to explore live data alongside this guide.</p>
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => openAppTab('agent')}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-sm"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium shadow-sm dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
                         >
                           <Sparkles className="w-3.5 h-3.5" /> AI Agent
                         </button>
                         <button
                           type="button"
                           onClick={() => openAppTab('screener')}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white text-zinc-800 text-xs font-medium ring-1 ring-zinc-200/80 hover:bg-zinc-50"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white text-zinc-800 text-xs font-medium ring-1 ring-zinc-200/80 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-600 dark:hover:bg-zinc-700"
                         >
                           <LayoutGrid className="w-3.5 h-3.5" /> Screener
                         </button>
                         <button
                           type="button"
                           onClick={() => openAppTab('backtest')}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white text-zinc-800 text-xs font-medium ring-1 ring-zinc-200/80 hover:bg-zinc-50"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white text-zinc-800 text-xs font-medium ring-1 ring-zinc-200/80 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-600 dark:hover:bg-zinc-700"
                         >
                           <LineChart className="w-3.5 h-3.5" /> Backtesting
                         </button>

@@ -49,7 +49,7 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
   };
 
   const itemClass =
-    'w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm text-zinc-700 hover:bg-zinc-50 rounded-lg transition-colors';
+    'w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm text-zinc-700 hover:bg-zinc-50 rounded-lg transition-colors dark:text-zinc-200 dark:hover:bg-zinc-800/80';
 
   return (
     <div className="relative z-[200]" ref={rootRef}>
@@ -62,11 +62,11 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
         onClick={() => setOpen((v) => !v)}
         className={`flex items-center gap-1.5 max-w-[200px] pl-2 pr-1.5 py-1.5 rounded-lg transition-colors ${
           open
-            ? 'bg-zinc-100 text-zinc-900 ring-1 ring-zinc-200/80'
-            : 'bg-zinc-50 text-zinc-700 hover:bg-zinc-100 ring-1 ring-transparent hover:ring-zinc-200/60'
+            ? 'bg-zinc-100 text-zinc-900 ring-1 ring-zinc-200/80 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-600'
+            : 'bg-zinc-50 text-zinc-700 hover:bg-zinc-100 ring-1 ring-transparent hover:ring-zinc-200/60 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:hover:ring-zinc-700'
         }`}
       >
-        <User className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+        <User className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
         <span className="text-xs truncate">{user.name || user.email}</span>
         <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -76,11 +76,11 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
           id="user-menu"
           role="menu"
           aria-labelledby="user-menu-button"
-          className="absolute right-0 top-full mt-1.5 w-56 py-1.5 rounded-xl bg-white shadow-lg shadow-zinc-900/10 ring-1 ring-zinc-200/70 z-[300]"
+          className="absolute right-0 top-full mt-1.5 w-56 py-1.5 rounded-xl bg-white shadow-lg shadow-zinc-900/10 ring-1 ring-zinc-200/70 z-[300] dark:bg-zinc-900 dark:ring-zinc-700 dark:shadow-black/30"
         >
-          <div className="px-3 py-2 border-b border-zinc-100">
-            <p className="text-[11px] text-zinc-500 uppercase tracking-wide">Signed in</p>
-            <p className="text-xs text-zinc-900 font-medium truncate" title={user.email}>
+          <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800">
+            <p className="text-[11px] text-zinc-500 uppercase tracking-wide dark:text-zinc-400">Signed in</p>
+            <p className="text-xs text-zinc-900 font-medium truncate dark:text-zinc-100" title={user.email}>
               {user.email}
             </p>
           </div>
@@ -110,7 +110,7 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
             </a>
           </div>
 
-          <div className="border-t border-zinc-100 mx-2" />
+          <div className="border-t border-zinc-100 mx-2 dark:border-zinc-800" />
           <div className="p-1">
             <a
               role="menuitem"
@@ -136,12 +136,12 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
             </a>
           </div>
 
-          <div className="border-t border-zinc-100 mx-2" />
+          <div className="border-t border-zinc-100 mx-2 dark:border-zinc-800" />
           <div className="p-1">
             <button
               type="button"
               role="menuitem"
-              className={`${itemClass} text-red-600 hover:text-red-700 hover:bg-red-50`}
+              className={`${itemClass} text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40`}
               onClick={() => {
                 setOpen(false);
                 onSignOut();
@@ -167,7 +167,7 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
   };
 
   return (
-    <header className="border-b border-zinc-200/50 bg-white/90 backdrop-blur-md overflow-visible relative z-40 shadow-sm shadow-zinc-900/[0.02]">
+    <header className="border-b border-zinc-200/50 bg-white/90 backdrop-blur-md overflow-visible relative z-40 shadow-sm shadow-zinc-900/[0.02] dark:border-zinc-800/80 dark:bg-zinc-950/90 dark:shadow-none">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 shrink-0">
           <img
@@ -178,19 +178,19 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
             className="w-5 h-5 sm:w-6 sm:h-6 shrink-0"
             aria-hidden
           />
-          <h1 className="text-base sm:text-lg font-semibold tracking-tight text-zinc-900">Equilima</h1>
+          <h1 className="text-base sm:text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Equilima</h1>
         </div>
 
         <nav className="hidden md:flex items-center gap-1">
-          <div className="flex gap-0.5 bg-zinc-100/80 rounded-lg p-1">
+          <div className="flex gap-0.5 bg-zinc-100/80 rounded-lg p-1 dark:bg-zinc-900/80">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => handleTab(tab.id)}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                   activeTab === tab.id
-                    ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-zinc-200/60'
-                    : 'text-zinc-600 hover:text-zinc-900'
+                    ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200/60 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-600'
+                    : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
                 }`}
               >
                 {tab.label}
@@ -201,7 +201,7 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
             <button
               type="button"
               onClick={openLearn}
-              className="ml-1 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-sm font-medium text-zinc-600 hover:text-indigo-700 hover:bg-zinc-50 transition-colors"
+              className="ml-1 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 transition-colors dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800/60"
             >
               <BookOpen className="w-3.5 h-3.5" />
               Learn
@@ -210,13 +210,15 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
         </nav>
 
         <nav className="md:hidden flex-1 min-w-0 overflow-x-auto no-scrollbar mx-1">
-          <div className="flex gap-0.5 bg-zinc-100/80 rounded-lg p-0.5 w-max items-center">
+          <div className="flex gap-0.5 bg-zinc-100/80 rounded-lg p-0.5 w-max items-center dark:bg-zinc-900/80">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => handleTab(tab.id)}
                 className={`px-2 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-all ${
-                  activeTab === tab.id ? 'bg-white text-indigo-700 shadow-sm' : 'text-zinc-500'
+                  activeTab === tab.id
+                    ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
+                    : 'text-zinc-500 dark:text-zinc-400'
                 }`}
               >
                 {tab.short}
@@ -226,7 +228,7 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
               <button
                 type="button"
                 onClick={openLearn}
-                className="px-2 py-1 rounded-md text-[11px] font-medium text-zinc-500 whitespace-nowrap"
+                className="px-2 py-1 rounded-md text-[11px] font-medium text-zinc-500 whitespace-nowrap dark:text-zinc-400"
               >
                 Learn
               </button>
@@ -239,12 +241,12 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
             <UserMenu user={user} setActiveTab={setActiveTab} onSignOut={onSignOut} />
           ) : (
             <>
-              <button onClick={onSignIn} className="hidden sm:block px-2 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900">
+              <button onClick={onSignIn} className="hidden sm:block px-2 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
                 Sign In
               </button>
               <button
                 onClick={onSignUp}
-                className="px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-500 shadow-sm"
+                className="px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-500 shadow-sm dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:shadow-none"
               >
                 Sign Up
               </button>
