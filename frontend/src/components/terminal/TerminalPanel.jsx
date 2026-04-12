@@ -72,6 +72,17 @@ function TerminalInner() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  useEffect(() => {
+    const onAgentTicker = (e) => {
+      const { tab, ticker } = e.detail || {};
+      if (tab !== 'terminal' || !ticker) return;
+      const sym = String(ticker).trim().toUpperCase();
+      dispatch({ type: 'SET_SYMBOL', pane: state.focusedPane, symbol: sym });
+    };
+    window.addEventListener('eq-agent-open-ticker', onAgentTicker);
+    return () => window.removeEventListener('eq-agent-open-ticker', onAgentTicker);
+  }, [dispatch, state.focusedPane]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 48px)' }}>
       {/* Toolbar */}

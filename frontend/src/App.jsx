@@ -263,7 +263,10 @@ function App() {
             <AgentPanel
               onNavigate={(tab, ticker) => {
                 setActiveTab(tab);
-                if (ticker) window.__equilima_nav_ticker = ticker;
+                if (ticker) {
+                  const t = String(ticker).trim().toUpperCase();
+                  window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab, ticker: t } }));
+                }
               }}
               user={user}
               dek={agentDek}

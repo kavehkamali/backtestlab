@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Loader2, Search, ExternalLink, Clock, TrendingUp, TrendingDown } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, ComposedChart, Line, PieChart, Pie } from 'recharts';
 import { fetchResearch } from '../api';
@@ -798,19 +798,31 @@ export default function ResearchPanel() {
   const [error, setError] = useState(null);
   const [tab, setTab] = useState('summary');
 
-  const loadSymbol = (sym) => {
-    setSymbol(sym);
+  const loadSymbol = useCallback((sym) => {
+    const s = String(sym).trim().toUpperCase();
+    setSymbol(s);
+    setSymbolInput(s);
     setLoading(true);
     setError(null);
     setData(null);
     setTab('summary');
-    fetchResearch(sym)
+    fetchResearch(s)
       .then(d => setData(d))
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
-  useEffect(() => { loadSymbol('AAPL'); }, []);
+  useEffect(() => { loadSymbol('AAPL'); }, [loadSymbol]);
+
+  useEffect(() => {
+    const onAgentTicker = (e) => {
+      const { tab, ticker } = e.detail || {};
+      if (tab !== 'research' || !ticker) return;
+      loadSymbol(ticker);
+    };
+    window.addEventListener('eq-agent-open-ticker', onAgentTicker);
+    return () => window.removeEventListener('eq-agent-open-ticker', onAgentTicker);
+  }, [loadSymbol]);
 
   const handleSubmit = (e) => {
     e.preventDefault();

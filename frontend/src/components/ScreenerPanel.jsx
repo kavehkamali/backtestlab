@@ -310,6 +310,26 @@ export default function ScreenerPanel() {
     finally { setDetailLoading(false); }
   };
 
+  useEffect(() => {
+    const onAgentTicker = async (e) => {
+      const { tab, ticker } = e.detail || {};
+      if (tab !== 'screener' || !ticker) return;
+      const sym = String(ticker).trim().toUpperCase();
+      setSearchTerm(sym);
+      setSelectedStock(sym);
+      setDetailLoading(true);
+      try {
+        setStockDetail(await fetchStockDetail(sym));
+      } catch {
+        setStockDetail(null);
+      } finally {
+        setDetailLoading(false);
+      }
+    };
+    window.addEventListener('eq-agent-open-ticker', onAgentTicker);
+    return () => window.removeEventListener('eq-agent-open-ticker', onAgentTicker);
+  }, []);
+
   const handleSort = (key) => {
     if (sortKey === key) setSortAsc(!sortAsc);
     else { setSortKey(key); setSortAsc(false); }

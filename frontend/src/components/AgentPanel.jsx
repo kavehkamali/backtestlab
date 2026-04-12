@@ -295,7 +295,9 @@ function TickerInsightCard({ ticker, onNavigate }) {
 // ─── Chat message ───
 function Message({ msg, onNavigate }) {
   const isUser = msg.role === 'user';
-  const tickers = !isUser ? extractTickers(msg.content) : [];
+  const tickers = !isUser
+    ? [...new Set([...extractTickers(msg.content), ...(msg.ticker ? [String(msg.ticker).trim().toUpperCase()] : [])])].filter(Boolean)
+    : [];
 
   return (
     <div className={`flex gap-3 ${isUser ? 'justify-end' : ''}`}>
@@ -304,7 +306,7 @@ function Message({ msg, onNavigate }) {
           <Bot className="w-4 h-4 text-indigo-600" />
         </div>
       )}
-      <div className={`max-w-[85%] ${isUser ? 'bg-indigo-600 text-white dark:bg-zinc-700 dark:text-zinc-100' : 'bg-white ring-1 ring-zinc-200/70 shadow-sm dark:bg-zinc-900 dark:ring-zinc-700'} rounded-2xl px-4 py-3`}>
+      <div className={`max-w-[92%] sm:max-w-[88%] ${isUser ? 'bg-indigo-600 text-white dark:bg-zinc-700 dark:text-zinc-100' : 'bg-white ring-1 ring-zinc-200/70 shadow-sm dark:bg-zinc-900 dark:ring-zinc-700'} rounded-2xl px-4 py-3`}>
         {isUser ? (
           <p className="text-sm">{msg.content}</p>
         ) : (
@@ -786,7 +788,7 @@ export default function AgentPanel({ onNavigate, user, dek }) {
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {!hasThread && (
           <div className="flex-1 flex flex-col items-center justify-center px-4 pb-8 min-h-0 overflow-y-auto">
-            <div className="w-full max-w-xl mx-auto text-center">
+            <div className="w-full max-w-2xl mx-auto text-center">
               <h1 className="text-3xl sm:text-4xl font-normal tracking-tight text-zinc-900 mb-2 dark:text-zinc-100">Equilima Agent</h1>
               <p className="text-sm text-zinc-500 max-w-md mx-auto dark:text-zinc-400">Ask about markets, fundamentals, or ideas — research and education only.</p>
               <p className="text-xs text-zinc-400 mt-2 max-w-lg mx-auto dark:text-zinc-500">Not investment advice. Not personalized financial guidance.</p>
@@ -841,7 +843,7 @@ export default function AgentPanel({ onNavigate, user, dek }) {
           <div className="flex-1 min-h-0 relative flex flex-col">
             <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-zinc-50 to-transparent z-10 pointer-events-none dark:from-zinc-950" />
             <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
-              <div className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-4 space-y-4">
+              <div className="max-w-4xl w-full mx-auto px-4 sm:px-6 py-4 space-y-4">
                 {messages.map((msg, i) => (
                   <Message key={i} msg={msg} onNavigate={onNavigate} />
                 ))}
@@ -850,7 +852,7 @@ export default function AgentPanel({ onNavigate, user, dek }) {
                     <div className="w-7 h-7 rounded-lg bg-zinc-200 flex items-center justify-center shrink-0 mt-0.5 dark:bg-zinc-800">
                       <Bot className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
                     </div>
-                    <div className="max-w-[85%] bg-white ring-1 ring-zinc-200/70 rounded-2xl px-4 py-3 shadow-sm dark:bg-zinc-900 dark:ring-zinc-700">
+                    <div className="max-w-[92%] sm:max-w-[88%] bg-white ring-1 ring-zinc-200/70 rounded-2xl px-4 py-3 shadow-sm dark:bg-zinc-900 dark:ring-zinc-700">
                       <RenderMarkdown text={streamingText} />
                       <span className="inline-block w-1.5 h-4 bg-zinc-400 animate-pulse ml-0.5 rounded-sm dark:bg-zinc-500" />
                     </div>
@@ -878,7 +880,7 @@ export default function AgentPanel({ onNavigate, user, dek }) {
 
       {hasThread && (
         <div className="shrink-0 bg-zinc-50/95 backdrop-blur-sm pt-2 pb-4 px-4 sm:px-6 dark:bg-zinc-950/95">
-          <div className="max-w-3xl w-full mx-auto space-y-2">
+          <div className="max-w-4xl w-full mx-auto space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               {modeToggle}
               <span className="text-[9px] text-zinc-400 dark:text-zinc-500">{mode === 'quick' ? 'Fast response' : 'Deeper multi-step run'}</span>
