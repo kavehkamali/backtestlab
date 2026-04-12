@@ -7,8 +7,8 @@
 html, body, #root {
   margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #0a0a0f;
-  color: #e8e8f0;
+  background: #fafafa;
+  color: #18181b;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
   max-width: 100vw;
@@ -16,8 +16,8 @@ html, body, #root {
 }
 
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #0a0a0f; }
-::-webkit-scrollbar-thumb { background: #2a2a3e; border-radius: 3px; }
+::-webkit-scrollbar-track { background: #f4f4f5; }
+::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 3px; }
 
 /* Hide scrollbar for horizontal scroll elements */
 .no-scrollbar::-webkit-scrollbar { display: none; }

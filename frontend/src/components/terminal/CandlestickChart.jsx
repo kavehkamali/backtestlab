@@ -14,9 +14,9 @@ const INDICATOR_COLORS = {
   sma_200: '#ef4444',
   ema_12: '#06b6d4',
   ema_26: '#8b5cf6',
-  bb_upper: '#ffffff30',
-  bb_lower: '#ffffff30',
-  bb_middle: '#ffffff18',
+  bb_upper: '#a1a1aa',
+  bb_lower: '#a1a1aa',
+  bb_middle: '#71717a',
 };
 
 export default function CandlestickChart({ symbol, timeframe, interval, indicators, focused, onSymbolChange }) {
@@ -53,26 +53,26 @@ export default function CandlestickChart({ symbol, timeframe, interval, indicato
           width: w || 600,
           height: h || 400,
           layout: {
-            background: { color: '#08080d' },
-            textColor: '#555',
+            background: { color: '#fafafa' },
+            textColor: '#52525b',
             fontFamily: "'Inter', -apple-system, sans-serif",
             fontSize: 11,
           },
           grid: {
-            vertLines: { color: '#ffffff06' },
-            horzLines: { color: '#ffffff06' },
+            vertLines: { color: '#e4e4e7' },
+            horzLines: { color: '#e4e4e7' },
           },
           crosshair: {
             mode: 0,
-            vertLine: { color: '#ffffff20', labelBackgroundColor: '#1a1a2e' },
-            horzLine: { color: '#ffffff20', labelBackgroundColor: '#1a1a2e' },
+            vertLine: { color: '#a1a1aa', labelBackgroundColor: '#f4f4f5' },
+            horzLine: { color: '#a1a1aa', labelBackgroundColor: '#f4f4f5' },
           },
           rightPriceScale: {
-            borderColor: '#ffffff10',
+            borderColor: '#e4e4e7',
             scaleMargins: { top: 0.05, bottom: 0.12 },
           },
           timeScale: {
-            borderColor: '#ffffff10',
+            borderColor: '#e4e4e7',
             timeVisible: !['1d', '1wk', '1mo'].includes(interval),
           },
         });
@@ -167,7 +167,7 @@ export default function CandlestickChart({ symbol, timeframe, interval, indicato
         for (const [key, data] of Object.entries(indData)) {
           if (key === 'volume' || key === 'rsi' || key.startsWith('macd')) continue;
           if (!data || data.length === 0) continue;
-          const color = INDICATOR_COLORS[key] || '#ffffff30';
+          const color = INDICATOR_COLORS[key] || '#a1a1aa';
           const ls = chart.addSeries(LineSeries, {
             color,
             lineWidth: key.startsWith('bb_') ? 1 : 2,
@@ -201,27 +201,27 @@ export default function CandlestickChart({ symbol, timeframe, interval, indicato
   return (
     <div style={{
       position: 'relative', display: 'flex', flexDirection: 'column', height: '100%',
-      background: '#08080d', borderRadius: 8, overflow: 'hidden',
-      border: focused ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.04)',
-      boxShadow: focused ? '0 0 12px rgba(99,102,241,0.08)' : 'none',
+      background: '#fafafa', borderRadius: 8, overflow: 'hidden',
+      border: focused ? '1px solid rgba(99,102,241,0.45)' : '1px solid #e4e4e7',
+      boxShadow: focused ? '0 0 12px rgba(99,102,241,0.12)' : 'none',
     }}>
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
-        borderBottom: '1px solid rgba(255,255,255,0.04)', background: '#0a0a10', flexShrink: 0,
+        borderBottom: '1px solid #e4e4e7', background: '#ffffff', flexShrink: 0,
       }}>
         <form onSubmit={handleSubmit}>
           <input
             type="text" value={symbolInput}
             onChange={e => setSymbolInput(e.target.value.toUpperCase())}
             style={{
-              width: 70, background: 'transparent', border: 'none', color: '#fff',
+              width: 70, background: 'transparent', border: 'none', color: '#18181b',
               fontSize: 12, fontWeight: 700, outline: 'none', fontFamily: 'inherit',
             }}
             spellCheck={false}
           />
         </form>
-        <span style={{ fontSize: 9, color: '#444', background: 'rgba(255,255,255,0.03)', padding: '2px 6px', borderRadius: 4 }}>{interval}</span>
+        <span style={{ fontSize: 9, color: '#52525b', background: '#f4f4f5', padding: '2px 6px', borderRadius: 4, border: '1px solid #e4e4e7' }}>{interval}</span>
         <div style={{ flex: 1 }} />
         {loading && <Loader2 className="w-3 h-3 animate-spin" style={{ color: '#6366f180' }} />}
       </div>
@@ -233,7 +233,7 @@ export default function CandlestickChart({ symbol, timeframe, interval, indicato
       {error && !loading && (
         <div style={{
           position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(8,8,13,0.9)', zIndex: 20,
+          background: 'rgba(250,250,250,0.92)', zIndex: 20,
         }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 4 }}>{error}</div>

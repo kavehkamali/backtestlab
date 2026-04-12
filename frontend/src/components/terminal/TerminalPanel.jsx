@@ -75,7 +75,7 @@ function TerminalInner() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 48px)' }}>
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-2 py-1.5 bg-[#08080d] border-b border-white/5 shrink-0 overflow-x-auto no-scrollbar">
+      <div className="flex items-center gap-2 px-2 py-1.5 bg-zinc-50 border-b border-zinc-200/80 shrink-0 overflow-x-auto no-scrollbar">
         {/* Timeframe buttons */}
         <div className="flex gap-0.5">
           {TIMEFRAMES.map(tf => {
@@ -86,7 +86,7 @@ function TerminalInner() {
                 timeframe: tf.timeframe, interval: tf.interval,
               })}
                 className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
-                  active ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'
+                  active ? 'bg-indigo-100 text-indigo-900' : 'text-zinc-500 hover:text-zinc-600'
                 }`}>
                 {tf.label}
               </button>
@@ -94,7 +94,7 @@ function TerminalInner() {
           })}
         </div>
 
-        <div className="w-px h-5 bg-white/10" />
+        <div className="w-px h-5 bg-zinc-200/60" />
 
         {/* Indicator toggles */}
         <div className="flex gap-0.5">
@@ -103,7 +103,7 @@ function TerminalInner() {
             return (
               <button key={ind.id} onClick={() => dispatch({ type: 'TOGGLE_INDICATOR', indicator: ind.id })}
                 className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
-                  active ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-600 hover:text-gray-400'
+                  active ? 'bg-indigo-500/20 text-indigo-700' : 'text-zinc-600 hover:text-zinc-500'
                 }`}>
                 {ind.label}
               </button>
@@ -118,27 +118,27 @@ function TerminalInner() {
           {LAYOUTS.map(l => (
             <button key={l.n} onClick={() => dispatch({ type: 'SET_LAYOUT', value: l.n })} title={l.label}
               className={`p-1.5 rounded transition-all ${
-                state.layout === l.n ? 'bg-white/10 text-white' : 'text-gray-600 hover:text-gray-300'
+                state.layout === l.n ? 'bg-indigo-100 text-indigo-900' : 'text-zinc-600 hover:text-zinc-600'
               }`}>
               <l.icon className="w-3.5 h-3.5" />
             </button>
           ))}
         </div>
 
-        <div className="w-px h-5 bg-white/10" />
+        <div className="w-px h-5 bg-zinc-200/60" />
 
         {/* Panel toggles */}
         <button onClick={() => dispatch({ type: 'TOGGLE_WATCHLIST' })} title="Watchlist (W)"
-          className={`p-1.5 rounded transition-all ${state.showWatchlist ? 'bg-white/10 text-white' : 'text-gray-600 hover:text-gray-300'}`}>
+          className={`p-1.5 rounded transition-all ${state.showWatchlist ? 'bg-indigo-100 text-indigo-900' : 'text-zinc-600 hover:text-zinc-600'}`}>
           <List className="w-3.5 h-3.5" />
         </button>
         <button onClick={() => dispatch({ type: 'TOGGLE_AI_PANEL' })} title="AI Insight (A)"
-          className={`p-1.5 rounded transition-all ${state.showAiPanel ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-600 hover:text-gray-300'}`}>
+          className={`p-1.5 rounded transition-all ${state.showAiPanel ? 'bg-indigo-500/20 text-indigo-700' : 'text-zinc-600 hover:text-zinc-600'}`}>
           <Brain className="w-3.5 h-3.5" />
         </button>
 
         {/* Shortcut hint */}
-        <span className="text-[9px] text-gray-700 ml-1">Keys: 1-4 layout · W watch · A ai · Tab focus</span>
+        <span className="text-[9px] text-zinc-700 ml-1">Keys: 1-4 layout · W watch · A ai · Tab focus</span>
       </div>
 
       {/* Main content */}
@@ -168,7 +168,7 @@ function TerminalInner() {
 
         {/* AI Panel — hidden on mobile */}
         {state.showAiPanel && (
-          <div className="hidden md:block" style={{ width: 288, flexShrink: 0, height: '100%', borderLeft: '1px solid rgba(255,255,255,0.05)', background: '#0a0a10', overflow: 'auto' }}>
+          <div className="hidden md:block border-l border-zinc-200/80 bg-zinc-50" style={{ width: 288, flexShrink: 0, height: '100%', overflow: 'auto' }}>
             <AiInsightPanel
               symbol={focusedPane.symbol}
               timeframe={focusedPane.timeframe}

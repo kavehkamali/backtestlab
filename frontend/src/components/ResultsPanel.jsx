@@ -5,12 +5,12 @@ import {
 import { TrendingUp, TrendingDown, Activity, Target, Loader2 } from 'lucide-react';
 
 function MetricCard({ label, value, suffix = '', icon: Icon, positive }) {
-  const color = positive === undefined ? 'text-indigo-400'
-    : positive ? 'text-emerald-400' : 'text-red-400';
+  const color = positive === undefined ? 'text-indigo-600'
+    : positive ? 'text-emerald-600' : 'text-red-600';
   return (
-    <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+    <div className="bg-white shadow-sm ring-1 ring-zinc-200/70 rounded-xl p-4">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-gray-500 uppercase tracking-wider">{label}</span>
+        <span className="text-xs text-zinc-500 uppercase tracking-wider">{label}</span>
         {Icon && <Icon className={`w-4 h-4 ${color}`} />}
       </div>
       <div className={`text-xl font-semibold ${color}`}>
@@ -23,8 +23,8 @@ function MetricCard({ label, value, suffix = '', icon: Icon, positive }) {
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#1a1a2e] border border-white/10 rounded-lg px-3 py-2 text-xs">
-      <p className="text-gray-400 mb-1">{label}</p>
+    <div className="bg-white ring-1 ring-zinc-200/80 rounded-lg px-3 py-2 text-xs">
+      <p className="text-zinc-500 mb-1">{label}</p>
       {payload.map((p, i) => (
         <p key={i} style={{ color: p.color }}>
           {p.name}: {typeof p.value === 'number' ? p.value.toLocaleString() : p.value}
@@ -37,7 +37,7 @@ function CustomTooltip({ active, payload, label }) {
 export default function ResultsPanel({ result, loading }) {
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96 text-gray-500">
+      <div className="flex items-center justify-center h-96 text-zinc-500">
         <Loader2 className="w-6 h-6 animate-spin mr-2" />
         Running backtest...
       </div>
@@ -46,7 +46,7 @@ export default function ResultsPanel({ result, loading }) {
 
   if (!result) {
     return (
-      <div className="flex items-center justify-center h-96 text-gray-600 text-sm">
+      <div className="flex items-center justify-center h-96 text-zinc-600 text-sm">
         Configure a strategy and run a backtest to see results
       </div>
     );
@@ -109,8 +109,8 @@ export default function ResultsPanel({ result, loading }) {
       </div>
 
       {/* Equity Curve */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-        <h3 className="text-sm font-medium text-gray-400 mb-4">Equity Curve</h3>
+      <div className="bg-white shadow-sm ring-1 ring-zinc-200/70 rounded-xl p-4">
+        <h3 className="text-sm font-medium text-zinc-500 mb-4">Equity Curve</h3>
         <ResponsiveContainer width="100%" height={300}>
           <AreaChart data={sampledEquity}>
             <defs>
@@ -119,7 +119,7 @@ export default function ResultsPanel({ result, loading }) {
                 <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
             <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#666' }} interval="preserveStartEnd" />
             <YAxis tick={{ fontSize: 10, fill: '#666' }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
             <Tooltip content={<CustomTooltip />} />
@@ -129,8 +129,8 @@ export default function ResultsPanel({ result, loading }) {
       </div>
 
       {/* Drawdown Chart */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-        <h3 className="text-sm font-medium text-gray-400 mb-4">Drawdown</h3>
+      <div className="bg-white shadow-sm ring-1 ring-zinc-200/70 rounded-xl p-4">
+        <h3 className="text-sm font-medium text-zinc-500 mb-4">Drawdown</h3>
         <ResponsiveContainer width="100%" height={150}>
           <AreaChart data={sampledEquity}>
             <defs>
@@ -139,7 +139,7 @@ export default function ResultsPanel({ result, loading }) {
                 <stop offset="100%" stopColor="#ef4444" stopOpacity={0.3} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
             <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#666' }} interval="preserveStartEnd" />
             <YAxis tick={{ fontSize: 10, fill: '#666' }} tickFormatter={v => `${v}%`} />
             <Tooltip content={<CustomTooltip />} />
@@ -150,11 +150,11 @@ export default function ResultsPanel({ result, loading }) {
 
       {/* Monthly Returns Heatmap */}
       {monthly_returns.length > 0 && (
-        <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-          <h3 className="text-sm font-medium text-gray-400 mb-4">Monthly Returns</h3>
+        <div className="bg-white shadow-sm ring-1 ring-zinc-200/70 rounded-xl p-4">
+          <h3 className="text-sm font-medium text-zinc-500 mb-4">Monthly Returns</h3>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={monthly_returns}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
               <XAxis dataKey="month" tick={{ fontSize: 9, fill: '#666' }} interval={Math.max(0, Math.floor(monthly_returns.length / 12))} />
               <YAxis tick={{ fontSize: 10, fill: '#666' }} tickFormatter={v => `${v}%`} />
               <Tooltip content={<CustomTooltip />} />
@@ -170,14 +170,14 @@ export default function ResultsPanel({ result, loading }) {
 
       {/* Recent Trades */}
       {trades.length > 0 && (
-        <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-          <h3 className="text-sm font-medium text-gray-400 mb-4">
+        <div className="bg-white shadow-sm ring-1 ring-zinc-200/70 rounded-xl p-4">
+          <h3 className="text-sm font-medium text-zinc-500 mb-4">
             Trades ({trades.length} total)
           </h3>
           <div className="overflow-x-auto max-h-64 overflow-y-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-gray-500 border-b border-white/5">
+                <tr className="text-zinc-500 border-b border-zinc-200/80">
                   <th className="text-left py-2 px-2">Date</th>
                   <th className="text-left py-2 px-2">Type</th>
                   <th className="text-right py-2 px-2">Price</th>
@@ -187,14 +187,14 @@ export default function ResultsPanel({ result, loading }) {
               </thead>
               <tbody>
                 {trades.slice(-50).map((t, i) => (
-                  <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
-                    <td className="py-1.5 px-2 text-gray-400">{t.date}</td>
-                    <td className={`py-1.5 px-2 font-medium ${t.type === 'buy' ? 'text-emerald-400' : 'text-red-400'}`}>
+                  <tr key={i} className="border-b border-zinc-100 hover:bg-zinc-50">
+                    <td className="py-1.5 px-2 text-zinc-500">{t.date}</td>
+                    <td className={`py-1.5 px-2 font-medium ${t.type === 'buy' ? 'text-emerald-600' : 'text-red-600'}`}>
                       {t.type.toUpperCase()}
                     </td>
-                    <td className="py-1.5 px-2 text-right text-gray-300">${t.price}</td>
-                    <td className="py-1.5 px-2 text-right text-gray-400">{t.shares}</td>
-                    <td className={`py-1.5 px-2 text-right font-medium ${t.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    <td className="py-1.5 px-2 text-right text-zinc-600">${t.price}</td>
+                    <td className="py-1.5 px-2 text-right text-zinc-500">{t.shares}</td>
+                    <td className={`py-1.5 px-2 text-right font-medium ${t.pnl >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                       {t.pnl !== 0 ? `$${t.pnl.toLocaleString()}` : '—'}
                     </td>
                   </tr>

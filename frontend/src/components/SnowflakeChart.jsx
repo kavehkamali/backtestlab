@@ -78,7 +78,7 @@ export default function SnowflakeChart({ data, size = 240, mini = false }) {
       {dataPts.map((p, i) => (
         <g key={i}>
           {!mini && <circle cx={p.x} cy={p.y} r={5} fill={dims[i].color} opacity={0.3} filter={`url(#${uid}_blur)`} />}
-          <circle cx={p.x} cy={p.y} r={mini ? 2 : 4} fill={dims[i].color} stroke="#08080d" strokeWidth={mini ? 1 : 2} />
+          <circle cx={p.x} cy={p.y} r={mini ? 2 : 4} fill={dims[i].color} stroke="#e4e4e7" strokeWidth={mini ? 1 : 2} />
         </g>
       ))}
 

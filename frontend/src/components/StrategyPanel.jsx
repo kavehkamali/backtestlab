@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Play, Loader2 } from 'lucide-react';
 
+const inputClass = 'w-full bg-zinc-50 rounded-lg px-3 py-2 text-zinc-900 text-sm ring-1 ring-zinc-200/80 focus:outline-none focus:ring-2 focus:ring-indigo-200';
+const cardClass = 'bg-white rounded-xl p-4 shadow-sm ring-1 ring-zinc-200/70';
+
 export default function StrategyPanel({ strategies, onRun, loading }) {
   const [symbol, setSymbol] = useState('AAPL');
   const [strategy, setStrategy] = useState('sma_crossover');
@@ -36,23 +39,21 @@ export default function StrategyPanel({ strategies, onRun, loading }) {
 
   return (
     <div className="space-y-4">
-      {/* Symbol */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-        <label className="block text-xs text-gray-500 uppercase tracking-wider mb-2">
+      <div className={cardClass}>
+        <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-2">
           Symbol
         </label>
         <input
           type="text"
           value={symbol}
           onChange={e => setSymbol(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500/50 transition-colors"
+          className={inputClass}
           placeholder="AAPL, MSFT, TSLA..."
         />
       </div>
 
-      {/* History Period */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-        <label className="block text-xs text-gray-500 uppercase tracking-wider mb-2">
+      <div className={cardClass}>
+        <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-2">
           Data History
         </label>
         <div className="flex gap-1.5">
@@ -68,8 +69,8 @@ export default function StrategyPanel({ strategies, onRun, loading }) {
               onClick={() => setPeriod(opt.value)}
               className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 period === opt.value
-                  ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                  : 'bg-white/5 text-gray-500 border border-white/5 hover:text-gray-300'
+                  ? 'bg-indigo-100 text-indigo-800 ring-1 ring-indigo-200'
+                  : 'bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200/60 hover:text-zinc-900'
               }`}
             >
               {opt.label}
@@ -78,38 +79,36 @@ export default function StrategyPanel({ strategies, onRun, loading }) {
         </div>
       </div>
 
-      {/* Strategy */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-        <label className="block text-xs text-gray-500 uppercase tracking-wider mb-2">
+      <div className={cardClass}>
+        <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-2">
           Strategy
         </label>
         <select
           value={strategy}
           onChange={e => handleStrategyChange(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500/50 transition-colors appearance-none"
+          className={`${inputClass} appearance-none`}
         >
           {strategies.map(s => (
-            <option key={s.id} value={s.id} className="bg-[#1a1a2e]">
+            <option key={s.id} value={s.id}>
               {s.name}
             </option>
           ))}
         </select>
         {selected && (
-          <p className="mt-2 text-xs text-gray-500">{selected.description}</p>
+          <p className="mt-2 text-xs text-zinc-500">{selected.description}</p>
         )}
       </div>
 
-      {/* Strategy Parameters */}
       {selected?.params?.length > 0 && (
-        <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4 space-y-3">
-          <label className="block text-xs text-gray-500 uppercase tracking-wider">
+        <div className={`${cardClass} space-y-3`}>
+          <label className="block text-xs text-zinc-500 uppercase tracking-wider">
             Parameters
           </label>
           {selected.params.map(p => (
             <div key={p.name}>
               <div className="flex justify-between text-xs mb-1">
-                <span className="text-gray-400">{p.name.replace(/_/g, ' ')}</span>
-                <span className="text-indigo-400">{params[p.name] ?? p.default}</span>
+                <span className="text-zinc-600">{p.name.replace(/_/g, ' ')}</span>
+                <span className="text-indigo-600">{params[p.name] ?? p.default}</span>
               </div>
               <input
                 type="range"
@@ -121,66 +120,42 @@ export default function StrategyPanel({ strategies, onRun, loading }) {
                   ...params,
                   [p.name]: p.type === 'float' ? parseFloat(e.target.value) : parseInt(e.target.value),
                 })}
-                className="w-full accent-indigo-500 h-1"
+                className="w-full accent-indigo-600 h-1"
               />
             </div>
           ))}
         </div>
       )}
 
-      {/* Date Range */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-        <label className="block text-xs text-gray-500 uppercase tracking-wider mb-2">
+      <div className={cardClass}>
+        <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-2">
           Date Range (optional)
         </label>
         <div className="grid grid-cols-2 gap-2">
-          <input
-            type="text" placeholder="YYYY-MM-DD"
-            value={startDate}
-            onChange={e => setStartDate(e.target.value)}
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500/50"
-          />
-          <input
-            type="text" placeholder="YYYY-MM-DD"
-            value={endDate}
-            onChange={e => setEndDate(e.target.value)}
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500/50"
-          />
+          <input type="text" placeholder="YYYY-MM-DD" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputClass} />
+          <input type="text" placeholder="YYYY-MM-DD" value={endDate} onChange={e => setEndDate(e.target.value)} className={inputClass} />
         </div>
       </div>
 
-      {/* Capital & Commission */}
-      <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4 space-y-3">
+      <div className={`${cardClass} space-y-3`}>
         <div>
-          <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">
+          <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-1">
             Initial Capital ($)
           </label>
-          <input
-            type="text" inputMode="decimal"
-            value={capital}
-            onChange={e => setCapital(Number(e.target.value))}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500/50"
-          />
+          <input type="text" inputMode="decimal" value={capital} onChange={e => setCapital(Number(e.target.value))} className={inputClass} />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">
+          <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-1">
             Commission (%)
           </label>
-          <input
-            type="text" inputMode="decimal"
-            step="0.01"
-            value={commission}
-            onChange={e => setCommission(Number(e.target.value))}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500/50"
-          />
+          <input type="text" inputMode="decimal" step="0.01" value={commission} onChange={e => setCommission(Number(e.target.value))} className={inputClass} />
         </div>
       </div>
 
-      {/* Run Button */}
       <button
         onClick={handleRun}
         disabled={loading}
-        className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors"
+        className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors shadow-sm"
       >
         {loading ? (
           <><Loader2 className="w-4 h-4 animate-spin" /> Running...</>

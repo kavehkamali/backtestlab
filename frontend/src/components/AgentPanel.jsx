@@ -4,7 +4,6 @@ import {
   Loader2,
   Bot,
   User,
-  Sparkles,
   TrendingUp,
   Zap,
   BarChart3,
@@ -13,12 +12,7 @@ import {
   SquarePen,
   PanelLeft,
   MessageSquare,
-  ChevronLeft,
-  ChevronRight,
-  LayoutDashboard,
-  CandlestickChart,
-  Scale,
-  Coins,
+  X,
   Trash2,
 } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, YAxis, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
@@ -32,16 +26,6 @@ const CHAT_STORAGE_KEY = 'eq_agent_chat_sessions_v1';
 function chatPlainStorageKey(userId) {
   return `eq_agent_chat_sessions_plain_v1:${userId}`;
 }
-
-/** Cross-links to other app tabs — minimal cards on the empty state */
-const EXPLORE_TABS = [
-  { id: 'research', label: 'Research', hint: 'Fundamentals', Icon: FileText },
-  { id: 'markets', label: 'Markets', hint: 'Indices & breadth', Icon: LayoutDashboard },
-  { id: 'screener', label: 'Screener', hint: 'Filter & rank', Icon: Search },
-  { id: 'crypto', label: 'Crypto', hint: 'Digital assets', Icon: Coins },
-  { id: 'terminal', label: 'Terminal', hint: 'Charts & TA', Icon: CandlestickChart },
-  { id: 'backtest', label: 'Backtest', hint: 'Test strategies', Icon: Scale },
-];
 
 // ─── Known tickers for detection ───
 const KNOWN_TICKERS = new Set(['AAPL','MSFT','GOOGL','GOOG','AMZN','NVDA','TSLA','META','JPM','V','WMT','UNH','JNJ','XOM','PG','MA','HD','CVX','MRK','ABBV','LLY','PEP','KO','COST','AVGO','MCD','CSCO','TMO','ABT','ACN','AMD','INTC','QCOM','CRM','ADBE','NFLX','DIS','BA','GE','CAT','GS','BLK','PYPL','SQ','COIN','SHOP','SNAP','UBER','ABNB','RIVN','PLTR','SOFI','NET','CRWD','DDOG','ZS','BTC','ETH','SOL','SPY','QQQ']);
@@ -64,18 +48,13 @@ function extractTickers(text) {
 function inlineFormat(text) {
   if (!text) return '';
   return text
-    // Code first (protect from other replacements)
-    .replace(/`([^`]+)`/g, '<code class="bg-white/5 px-1 rounded text-indigo-300 text-[10px]">$1</code>')
-    // Bold+italic
-    .replace(/\*{3}([^*]+)\*{3}/g, '<strong class="text-white font-semibold"><em>$1</em></strong>')
-    // Bold (both ** and __)
-    .replace(/\*{2}([^*]+)\*{2}/g, '<strong class="text-white font-semibold">$1</strong>')
-    .replace(/__([^_]+)__/g, '<strong class="text-white font-semibold">$1</strong>')
-    // Italic (single * or _) — but not inside URLs or already-processed HTML
-    .replace(/(?<![<\w])\*([^*]+)\*(?![>\w])/g, '<em class="text-gray-200">$1</em>')
-    .replace(/(?<![<\w])_([^_]+)_(?![>\w])/g, '<em class="text-gray-200">$1</em>')
-    // Links
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="text-indigo-400 hover:underline">$1</a>');
+    .replace(/`([^`]+)`/g, '<code class="bg-zinc-100 px-1 rounded text-indigo-700 text-[10px]">$1</code>')
+    .replace(/\*{3}([^*]+)\*{3}/g, '<strong class="text-zinc-900 font-semibold"><em>$1</em></strong>')
+    .replace(/\*{2}([^*]+)\*{2}/g, '<strong class="text-zinc-900 font-semibold">$1</strong>')
+    .replace(/__([^_]+)__/g, '<strong class="text-zinc-900 font-semibold">$1</strong>')
+    .replace(/(?<![<\w])\*([^*]+)\*(?![>\w])/g, '<em class="text-zinc-600">$1</em>')
+    .replace(/(?<![<\w])_([^_]+)_(?![>\w])/g, '<em class="text-zinc-600">$1</em>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline">$1</a>');
 }
 
 function parseTable(lines, startIdx) {
@@ -114,27 +93,26 @@ function RenderMarkdown({ text }) {
       const table = parseTable(lines, i);
       if (table && table.headers.length > 0) {
         elements.push(
-          <div key={i} className="overflow-x-auto my-3 rounded-lg border border-white/5">
+          <div key={i} className="overflow-x-auto my-3 rounded-xl bg-zinc-50 ring-1 ring-zinc-200/60">
             <table className="w-full text-[11px]">
               <thead>
-                <tr className="border-b border-white/5 bg-white/[0.03]">
+                <tr className="border-b border-zinc-200/80 bg-white">
                   {table.headers.map((h, j) => (
-                    <th key={j} className="text-left py-2 px-3 text-gray-400 font-semibold whitespace-nowrap"
+                    <th key={j} className="text-left py-2 px-3 text-zinc-500 font-semibold whitespace-nowrap"
                       dangerouslySetInnerHTML={{ __html: inlineFormat(h) }} />
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {table.body.map((row, ri) => (
-                  <tr key={ri} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
+                  <tr key={ri} className="border-b border-zinc-100 hover:bg-white">
                     {row.map((cell, ci) => {
-                      // Color numbers green/red
                       const numMatch = cell.match(/^([+-]?\d+\.?\d*)\s*%?$/);
                       const isPositive = numMatch && parseFloat(numMatch[1]) > 0;
                       const isNegative = numMatch && parseFloat(numMatch[1]) < 0;
-                      const color = isPositive ? 'text-emerald-400' : isNegative ? 'text-red-400' : 'text-gray-300';
+                      const color = isPositive ? 'text-emerald-600' : isNegative ? 'text-red-600' : 'text-zinc-600';
                       return (
-                        <td key={ci} className={`py-1.5 px-3 whitespace-nowrap ${ci === 0 ? 'text-white font-medium' : color}`}
+                        <td key={ci} className={`py-1.5 px-3 whitespace-nowrap ${ci === 0 ? 'text-zinc-900 font-medium' : color}`}
                           dangerouslySetInnerHTML={{ __html: inlineFormat(cell) }} />
                       );
                     })}
@@ -150,17 +128,16 @@ function RenderMarkdown({ text }) {
     }
 
     // Headings
-    if (trimmed.startsWith('#### ')) { elements.push(<h4 key={i} className="text-xs font-bold text-white mt-2 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(5)) }} />); i++; continue; }
-    if (trimmed.startsWith('### ')) { elements.push(<h3 key={i} className="text-sm font-bold text-white mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(4)) }} />); i++; continue; }
-    if (trimmed.startsWith('## ')) { elements.push(<h2 key={i} className="text-base font-bold text-white mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(3)) }} />); i++; continue; }
-    if (trimmed.startsWith('# ')) { elements.push(<h1 key={i} className="text-lg font-bold text-white mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(2)) }} />); i++; continue; }
-    // Horizontal rule
-    if (/^([-]{3,}|[*]{3,}|[_]{3,})\s*$/.test(trimmed) && !/[a-zA-Z]/.test(trimmed)) { elements.push(<hr key={i} className="border-white/5 my-2" />); i++; continue; }
+    if (trimmed.startsWith('#### ')) { elements.push(<h4 key={i} className="text-xs font-bold text-zinc-900 mt-2 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(5)) }} />); i++; continue; }
+    if (trimmed.startsWith('### ')) { elements.push(<h3 key={i} className="text-sm font-bold text-zinc-900 mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(4)) }} />); i++; continue; }
+    if (trimmed.startsWith('## ')) { elements.push(<h2 key={i} className="text-base font-bold text-zinc-900 mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(3)) }} />); i++; continue; }
+    if (trimmed.startsWith('# ')) { elements.push(<h1 key={i} className="text-lg font-bold text-zinc-900 mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(2)) }} />); i++; continue; }
+    if (/^([-]{3,}|[*]{3,}|[_]{3,})\s*$/.test(trimmed) && !/[a-zA-Z]/.test(trimmed)) { elements.push(<hr key={i} className="border-zinc-200 my-2" />); i++; continue; }
     // Unordered list
     if (/^[-*+]\s/.test(trimmed)) {
       elements.push(
-        <div key={i} className="flex gap-2 text-xs text-gray-300 ml-2 my-0.5">
-          <span className="text-indigo-400 mt-0.5 shrink-0">•</span>
+        <div key={i} className="flex gap-2 text-xs text-zinc-600 ml-2 my-0.5">
+          <span className="text-indigo-500 mt-0.5 shrink-0">•</span>
           <span dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.replace(/^[-*+]\s/, '')) }} />
         </div>
       );
@@ -170,8 +147,8 @@ function RenderMarkdown({ text }) {
     if (/^\d+\.\s/.test(trimmed)) {
       const num = trimmed.match(/^(\d+)\./)[1];
       elements.push(
-        <div key={i} className="flex gap-2 text-xs text-gray-300 ml-2 my-0.5">
-          <span className="text-indigo-400 mt-0.5 shrink-0 w-4 text-right">{num}.</span>
+        <div key={i} className="flex gap-2 text-xs text-zinc-600 ml-2 my-0.5">
+          <span className="text-indigo-500 mt-0.5 shrink-0 w-4 text-right">{num}.</span>
           <span dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.replace(/^\d+\.\s/, '')) }} />
         </div>
       );
@@ -179,13 +156,13 @@ function RenderMarkdown({ text }) {
     }
     // Blockquote
     if (trimmed.startsWith('> ')) {
-      elements.push(<div key={i} className="border-l-2 border-indigo-500/30 pl-3 my-1 text-xs text-gray-400 italic" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(2)) }} />);
+      elements.push(<div key={i} className="border-l-2 border-indigo-200 pl-3 my-1 text-xs text-zinc-500 italic" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(2)) }} />);
       i++; continue;
     }
     // Empty line
     if (trimmed === '') { elements.push(<div key={i} className="h-2" />); i++; continue; }
     // Regular paragraph
-    elements.push(<p key={i} className="text-xs text-gray-300 leading-relaxed my-1" dangerouslySetInnerHTML={{ __html: inlineFormat(line) }} />);
+    elements.push(<p key={i} className="text-xs text-zinc-600 leading-relaxed my-1" dangerouslySetInnerHTML={{ __html: inlineFormat(line) }} />);
     i++;
   }
 
@@ -224,26 +201,24 @@ function TickerInsightCard({ ticker, onNavigate }) {
   }
 
   return (
-    <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 mt-3">
-      {/* Header */}
+    <div className="bg-zinc-50 rounded-xl p-3 mt-3 ring-1 ring-zinc-200/70 shadow-sm">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <span className="text-sm font-bold text-white">{ticker}</span>
-          {s.name && <span className="text-[10px] text-gray-500 ml-2">{s.name}</span>}
+          <span className="text-sm font-bold text-zinc-900">{ticker}</span>
+          {s.name && <span className="text-[10px] text-zinc-500 ml-2">{s.name}</span>}
         </div>
         <div className="text-right">
-          <span className="text-sm font-bold text-white">${last.toFixed(2)}</span>
-          <span className={`text-[10px] ml-1 ${up ? 'text-emerald-400' : 'text-red-400'}`}>{up ? '+' : ''}{changePct}%</span>
+          <span className="text-sm font-bold text-zinc-900">${last.toFixed(2)}</span>
+          <span className={`text-[10px] ml-1 ${up ? 'text-emerald-600' : 'text-red-600'}`}>{up ? '+' : ''}{changePct}%</span>
         </div>
       </div>
 
-      {/* Key stats row */}
       {s.pe_trailing && (
         <div className="flex gap-3 mb-2 text-[10px] flex-wrap">
-          {s.market_cap_fmt && <span className="text-gray-500">MCap <span className="text-gray-300">{s.market_cap_fmt}</span></span>}
-          {s.pe_trailing && <span className="text-gray-500">P/E <span className="text-gray-300">{s.pe_trailing.toFixed(1)}</span></span>}
-          {s.dividend_yield_pct && <span className="text-gray-500">Div <span className="text-gray-300">{s.dividend_yield_pct}%</span></span>}
-          {s.eps_trailing && <span className="text-gray-500">EPS <span className="text-gray-300">${s.eps_trailing.toFixed(2)}</span></span>}
+          {s.market_cap_fmt && <span className="text-zinc-500">MCap <span className="text-zinc-800">{s.market_cap_fmt}</span></span>}
+          {s.pe_trailing && <span className="text-zinc-500">P/E <span className="text-zinc-800">{s.pe_trailing.toFixed(1)}</span></span>}
+          {s.dividend_yield_pct && <span className="text-zinc-500">Div <span className="text-zinc-800">{s.dividend_yield_pct}%</span></span>}
+          {s.eps_trailing && <span className="text-zinc-500">EPS <span className="text-zinc-800">${s.eps_trailing.toFixed(2)}</span></span>}
         </div>
       )}
 
@@ -251,7 +226,7 @@ function TickerInsightCard({ ticker, onNavigate }) {
       <div className="flex gap-3">
         {/* Price chart */}
         <div className="flex-1 min-w-0">
-          <div className="text-[9px] text-gray-600 mb-1">6M Price</div>
+          <div className="text-[9px] text-zinc-500 mb-1">6M Price</div>
           <ResponsiveContainer width="100%" height={60}>
             <AreaChart data={chart.slice(-126)}>
               <defs><linearGradient id={`ag_${ticker}`} x1="0" y1="0" x2="0" y2="1">
@@ -267,7 +242,7 @@ function TickerInsightCard({ ticker, onNavigate }) {
         {/* Monthly returns bar */}
         {monthlyData.length > 2 && (
           <div style={{ width: 100 }}>
-            <div className="text-[9px] text-gray-600 mb-1">Monthly</div>
+            <div className="text-[9px] text-zinc-500 mb-1">Monthly</div>
             <ResponsiveContainer width="100%" height={60}>
               <BarChart data={monthlyData}>
                 <Bar dataKey="ret" radius={[2, 2, 0, 0]}>
@@ -281,7 +256,7 @@ function TickerInsightCard({ ticker, onNavigate }) {
         {/* Mini snowflake */}
         {sf && (
           <div style={{ width: 65 }}>
-            <div className="text-[9px] text-gray-600 mb-1 text-center">Quality</div>
+            <div className="text-[9px] text-zinc-500 mb-1 text-center">Quality</div>
             <SnowflakeChart data={sf} size={55} mini />
           </div>
         )}
@@ -291,7 +266,7 @@ function TickerInsightCard({ ticker, onNavigate }) {
       {Object.keys(perf).length > 0 && (
         <div className="flex gap-1.5 mt-2 flex-wrap">
           {Object.entries(perf).map(([k, v]) => (
-            <span key={k} className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${v >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+            <span key={k} className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${v >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
               {k}: {v > 0 ? '+' : ''}{v}%
             </span>
           ))}
@@ -299,17 +274,17 @@ function TickerInsightCard({ ticker, onNavigate }) {
       )}
 
       {/* Navigation links */}
-      <div className="flex gap-2 mt-2 pt-2 border-t border-white/5">
+      <div className="flex gap-2 mt-2 pt-2 border-t border-zinc-200/80">
         <button onClick={() => onNavigate('research', ticker)}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-indigo-400 hover:bg-indigo-500/10 transition-colors">
+          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-indigo-600 hover:bg-indigo-50 transition-colors">
           <FileText className="w-3 h-3" /> Full Research
         </button>
         <button onClick={() => onNavigate('terminal', ticker)}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-indigo-400 hover:bg-indigo-500/10 transition-colors">
+          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-indigo-600 hover:bg-indigo-50 transition-colors">
           <BarChart3 className="w-3 h-3" /> Chart
         </button>
         <button onClick={() => onNavigate('screener', ticker)}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-indigo-400 hover:bg-indigo-500/10 transition-colors">
+          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-indigo-600 hover:bg-indigo-50 transition-colors">
           <Search className="w-3 h-3" /> Screener
         </button>
       </div>
@@ -325,13 +300,13 @@ function Message({ msg, onNavigate }) {
   return (
     <div className={`flex gap-3 ${isUser ? 'justify-end' : ''}`}>
       {!isUser && (
-        <div className="w-7 h-7 rounded-lg bg-indigo-500/20 flex items-center justify-center shrink-0 mt-0.5">
-          <Bot className="w-4 h-4 text-indigo-400" />
+        <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+          <Bot className="w-4 h-4 text-indigo-600" />
         </div>
       )}
-      <div className={`max-w-[85%] ${isUser ? 'bg-indigo-600/20 border-indigo-500/20' : 'bg-white/[0.03] border-white/5'} border rounded-xl px-4 py-3`}>
+      <div className={`max-w-[85%] ${isUser ? 'bg-indigo-600 text-white' : 'bg-white ring-1 ring-zinc-200/70 shadow-sm'} rounded-2xl px-4 py-3`}>
         {isUser ? (
-          <p className="text-sm text-white">{msg.content}</p>
+          <p className="text-sm">{msg.content}</p>
         ) : (
           <>
             <RenderMarkdown text={msg.content} />
@@ -340,8 +315,8 @@ function Message({ msg, onNavigate }) {
         )}
       </div>
       {isUser && (
-        <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center shrink-0 mt-0.5">
-          <User className="w-4 h-4 text-gray-400" />
+        <div className="w-7 h-7 rounded-lg bg-zinc-200 flex items-center justify-center shrink-0 mt-0.5">
+          <User className="w-4 h-4 text-zinc-600" />
         </div>
       )}
     </div>
@@ -396,11 +371,8 @@ export default function AgentPanel({ onNavigate, user, dek }) {
   const streamTickerRef = useRef('');
   const [hydrated, setHydrated] = useState(false);
 
-  // Mobile: start with sidebar folded so the thread gets the space; desktop: expanded.
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(max-width: 767px)').matches;
-  });
+  /** Chat history drawer — default closed for a minimal, Google-like landing. */
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [sessions, setSessions] = useState([newSession('New chat')]);
   const [activeSessionId, setActiveSessionId] = useState(null);
 
@@ -664,278 +636,281 @@ export default function AgentPanel({ onNavigate, user, dek }) {
 
   const hasThread = messages.length > 0 || loading;
 
-  return (
-    <div className="flex h-full w-full min-h-0 min-w-0">
-      {/* Left rail — ChatGPT-style: fixed width, flush to viewport edge, no rounding */}
-      <aside
-        className={`${
-          sidebarCollapsed ? 'w-11 sm:w-[52px]' : 'w-[260px]'
-        } shrink-0 flex flex-col border-r border-white/[0.08] bg-[#0c0c0f] h-full min-h-0`}
+  const modeToggle = (
+    <div className="flex gap-0.5 bg-zinc-100 rounded-full p-0.5">
+      <button
+        type="button"
+        onClick={() => {
+          setMode('quick');
+          updateActiveSession({ mode: 'quick' });
+        }}
+        className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium transition-all ${
+          mode === 'quick' ? 'bg-white text-indigo-700 shadow-sm' : 'text-zinc-500'
+        }`}
       >
-        <div className="h-full flex flex-col min-h-0">
+        <Zap className="w-3 h-3" /> Quick
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setMode('full');
+          updateActiveSession({ mode: 'full' });
+        }}
+        className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium transition-all ${
+          mode === 'full' ? 'bg-white text-indigo-700 shadow-sm' : 'text-zinc-500'
+        }`}
+      >
+        <Bot className="w-3 h-3" /> Full
+      </button>
+    </div>
+  );
+
+  const historyList = (
+    <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
+      {sessions.map((s) => {
+        const active = s.id === activeSession.id;
+        return (
           <div
-            className={`px-2 py-2.5 sm:px-2.5 sm:py-3 flex items-center gap-2 border-b border-white/[0.06] ${
-              sidebarCollapsed ? 'justify-center' : 'justify-between'
+            key={s.id}
+            className={`group flex items-stretch rounded-xl transition-colors ${
+              active ? 'bg-indigo-50 ring-1 ring-indigo-100' : 'hover:bg-zinc-50'
             }`}
           >
             <button
               type="button"
-              onClick={() => setSidebarCollapsed((v) => !v)}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5"
-              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              onClick={() => {
+                if (loading) return;
+                setActiveSessionId(s.id);
+                setLastRun(s.lastRun || null);
+                setStreamingText('');
+                setInput('');
+                setHistoryOpen(false);
+              }}
+              className="flex-1 min-w-0 text-left px-2.5 py-2 rounded-l-xl"
             >
-              {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+              <div className="flex items-start gap-2">
+                <MessageSquare className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${active ? 'text-indigo-600' : 'text-zinc-400'}`} />
+                <div className="min-w-0 flex-1">
+                  <div className={`text-[11px] font-medium truncate ${active ? 'text-zinc-900' : 'text-zinc-600'}`}>
+                    {s.title || 'New chat'}
+                  </div>
+                  <div className="text-[10px] text-zinc-400 mt-0.5">
+                    {(s.messages?.length || 0)} · {s.mode === 'full' ? 'Full' : 'Quick'}
+                  </div>
+                </div>
+              </div>
             </button>
-            {!sidebarCollapsed && (
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <PanelLeft className="w-4 h-4 text-indigo-400 shrink-0" />
-                <span className="text-xs font-semibold text-gray-200 truncate">Chats</span>
-              </div>
-            )}
-            {!sidebarCollapsed && (
-              <button
-                type="button"
-                onClick={createNewChat}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5"
-                title="New chat"
-              >
-                <SquarePen className="w-4 h-4" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                removeSession(s.id);
+              }}
+              disabled={loading}
+              className="shrink-0 px-1.5 py-2 rounded-r-xl text-zinc-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:pointer-events-none"
+              title="Delete chat"
+              aria-label={`Delete chat: ${s.title || 'New chat'}`}
+            >
+              <Trash2 className="w-3.5 h-3.5" strokeWidth={2} />
+            </button>
           </div>
+        );
+      })}
+    </div>
+  );
 
-          {!sidebarCollapsed && (
-            <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
-              {sessions.map((s) => {
-                const active = s.id === activeSession.id;
-                return (
-                  <div
-                    key={s.id}
-                    className={`group flex items-stretch rounded-lg border transition-colors ${
-                      active ? 'bg-white/[0.08] border-white/10' : 'border-transparent hover:bg-white/[0.04]'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (loading) return;
-                        setActiveSessionId(s.id);
-                        setLastRun(s.lastRun || null);
-                        setStreamingText('');
-                        setInput('');
-                      }}
-                      className="flex-1 min-w-0 text-left px-2.5 py-2 rounded-l-lg"
-                    >
-                      <div className="flex items-start gap-2">
-                        <MessageSquare className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${active ? 'text-indigo-300' : 'text-gray-600'}`} />
-                        <div className="min-w-0 flex-1">
-                          <div className={`text-[11px] font-medium truncate ${active ? 'text-white' : 'text-gray-300'}`}>
-                            {s.title || 'New chat'}
-                          </div>
-                          <div className="text-[10px] text-gray-600 mt-0.5">
-                            {(s.messages?.length || 0)} · {s.mode === 'full' ? 'Full' : 'Quick'}
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        removeSession(s.id);
-                      }}
-                      disabled={loading}
-                      className="shrink-0 px-1.5 py-2 rounded-r-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-40 disabled:pointer-events-none"
-                      title="Delete chat"
-                      aria-label={`Delete chat: ${s.title || 'New chat'}`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" strokeWidth={2} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-        </div>
-      </aside>
-
-      {/* Main — centered thread column (ChatGPT-like max-w-3xl) + composer docked at bottom */}
-      <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-[#0a0a0f]">
-        <div className="flex flex-col flex-1 min-h-0 min-w-0">
-          {/* Scrollable thread */}
-          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-            {!hasThread && (
-              <div className="flex-1 flex flex-col items-center justify-center px-4 py-6 sm:py-10 min-h-0 overflow-y-auto">
-                <div className="relative w-full max-w-3xl lg:max-w-6xl mx-auto text-center">
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-8 w-[min(100%,28rem)] h-40 bg-[radial-gradient(ellipse_80%_70%_at_50%_0%,rgba(99,102,241,0.14),transparent)]"
-                  />
-                  <div className="relative">
-                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-indigo-500/25 bg-indigo-500/[0.08] shadow-[0_0_48px_-12px_rgba(99,102,241,0.45)] ring-1 ring-white/5">
-                      <Sparkles className="h-8 w-8 text-indigo-300" strokeWidth={1.5} />
-                    </div>
-                    <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-white mb-3">Equilima Agent</h1>
-                    <p className="text-sm text-gray-500 max-w-md mx-auto leading-snug">
-                      Ask naturally, explore charts, screeners, and backtests.
-                    </p>
-                    <p className="text-sm font-semibold text-gray-200 max-w-xl mx-auto mt-3 leading-snug">
-                      For research and education only — not investment advice. We are not financial advisors and do not offer personalized guidance.
-                    </p>
-
-                    <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-gray-600 mb-3 mt-10">Explore Equilima</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-8 text-left">
-                      {EXPLORE_TABS.map(({ id, label, hint, Icon }) => (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => onNavigate?.(id)}
-                          className="group min-w-0 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2.5 lg:px-2.5 lg:py-2 transition hover:border-indigo-500/30 hover:bg-indigo-500/[0.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
-                        >
-                          <Icon className="h-4 w-4 text-indigo-400/90 mb-1.5 opacity-90 group-hover:opacity-100" strokeWidth={1.75} />
-                          <div className="text-[11px] font-medium text-white leading-snug">{label}</div>
-                          <div className="text-[10px] text-gray-500 group-hover:text-gray-400 leading-snug">{hint}</div>
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="border-t border-white/[0.06] pt-6">
-                      <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-gray-600 mb-3">Try asking</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left">
-                        {suggestions.map((s, i) => (
-                          <button
-                            key={i}
-                            type="button"
-                            onClick={() => setInput(s)}
-                            className="text-left px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:border-indigo-500/30 hover:bg-white/[0.05] transition-all group"
-                          >
-                            <div className="flex items-start gap-2.5">
-                              <TrendingUp className="w-3.5 h-3.5 text-gray-500 group-hover:text-indigo-400 mt-0.5 shrink-0 transition-colors" />
-                              <span className="text-[11px] text-gray-400 group-hover:text-gray-200 leading-snug">{s}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {hasThread && (
-              <div className="flex-1 min-h-0 relative flex flex-col">
-                <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0a0a0f] to-transparent z-10 pointer-events-none" />
-                <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
-                  <div className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 space-y-4">
-                    {messages.map((msg, i) => (
-                      <Message key={i} msg={msg} onNavigate={onNavigate} />
-                    ))}
-                    {loading && streamingText && (
-                      <div className="flex gap-3">
-                        <div className="w-7 h-7 rounded-lg bg-indigo-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                          <Bot className="w-4 h-4 text-indigo-400" />
-                        </div>
-                        <div className="max-w-[85%] bg-white/[0.03] border border-white/5 rounded-xl px-4 py-3">
-                          <RenderMarkdown text={streamingText} />
-                          <span className="inline-block w-1.5 h-4 bg-indigo-400 animate-pulse ml-0.5 rounded-sm" />
-                        </div>
-                      </div>
-                    )}
-                    {loading && !streamingText && (
-                      <div className="flex gap-3">
-                        <div className="w-7 h-7 rounded-lg bg-indigo-500/20 flex items-center justify-center shrink-0">
-                          <Bot className="w-4 h-4 text-indigo-400" />
-                        </div>
-                        <div className="bg-white/[0.03] border border-white/5 rounded-xl px-4 py-3">
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
-                            {mode === 'full' ? 'Running multi-agent analysis...' : 'Thinking...'}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    <div className="h-8" />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Bottom composer — ChatGPT-style dock */}
-          <div className="shrink-0 border-t border-white/[0.08] bg-[#0a0a0f] pt-3 pb-4">
-            <div className="max-w-3xl w-full mx-auto px-4 sm:px-6">
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <div className="flex gap-0.5 bg-white/5 rounded-lg p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode('quick');
-                      updateActiveSession({ mode: 'quick' });
-                    }}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
-                      mode === 'quick' ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500'
-                    }`}
-                  >
-                    <Zap className="w-3 h-3" /> Quick
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode('full');
-                      updateActiveSession({ mode: 'full' });
-                    }}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
-                      mode === 'full' ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500'
-                    }`}
-                  >
-                    <Bot className="w-3 h-3" /> Full Analysis
-                  </button>
-                </div>
-                <span className="text-[9px] text-gray-600">{mode === 'quick' ? 'Fast response' : 'Multi-agent deep analysis'}</span>
-                {lastRun && !loading && (
-                  <span className="text-[9px] text-gray-700">
-                    {lastRun.mode === 'full' ? 'Full' : 'Quick'} via <span className="font-mono">{lastRun.url}</span> · {(lastRun.elapsedMs / 1000).toFixed(1)}s
-                  </span>
-                )}
-                {messages.length > 0 && !loading && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      createNewChat();
-                    }}
-                    className="ml-auto p-2 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
-                    title="New chat"
-                  >
-                    <SquarePen className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                  placeholder="Message Equilima Agent…"
-                  disabled={loading}
-                  className="flex-1 bg-white/[0.06] border border-white/10 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/20 disabled:opacity-50 placeholder-gray-500"
-                />
+  return (
+    <div className="flex flex-col h-full w-full min-h-0 min-w-0 bg-zinc-50 relative">
+      {historyOpen && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-zinc-900/25"
+            aria-label="Close chat history"
+            onClick={() => setHistoryOpen(false)}
+          />
+          <aside className="fixed left-0 top-0 bottom-0 z-50 w-[min(100%,300px)] flex flex-col bg-white shadow-xl shadow-zinc-900/10 ring-1 ring-zinc-200/60">
+            <div className="flex items-center justify-between px-3 py-3 border-b border-zinc-100">
+              <span className="text-sm font-semibold text-zinc-900">Chats</span>
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={handleSend}
-                  disabled={loading || !input.trim()}
-                  className="px-4 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-white rounded-2xl transition-colors shrink-0"
+                  onClick={() => {
+                    createNewChat();
+                    setHistoryOpen(false);
+                  }}
+                  className="p-2 rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
+                  title="New chat"
                 >
-                  <Send className="w-4 h-4" />
+                  <SquarePen className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHistoryOpen(false)}
+                  className="p-2 rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
+                  title="Close"
+                >
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-              <p className="text-[9px] text-gray-600 text-center mt-3">Powered by Gemma3 · Not financial advice</p>
+            </div>
+            {historyList}
+          </aside>
+        </>
+      )}
+
+      <div className="shrink-0 flex items-center justify-between px-3 sm:px-5 py-2.5">
+        <button
+          type="button"
+          onClick={() => setHistoryOpen(true)}
+          className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80 transition-colors"
+          title="Chat history"
+        >
+          <PanelLeft className="w-4 h-4 text-zinc-500" />
+          Chats
+        </button>
+        {hasThread && (
+          <button
+            type="button"
+            onClick={() => createNewChat()}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 transition-colors"
+            title="New chat"
+          >
+            <SquarePen className="w-3.5 h-3.5" />
+            New
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        {!hasThread && (
+          <div className="flex-1 flex flex-col items-center justify-center px-4 pb-8 min-h-0 overflow-y-auto">
+            <div className="w-full max-w-xl mx-auto text-center">
+              <h1 className="text-3xl sm:text-4xl font-normal tracking-tight text-zinc-900 mb-2">Equilima Agent</h1>
+              <p className="text-sm text-zinc-500 max-w-md mx-auto">Ask about markets, fundamentals, or ideas — research and education only.</p>
+              <p className="text-xs text-zinc-400 mt-2 max-w-lg mx-auto">Not investment advice. Not personalized financial guidance.</p>
+
+              <div className="mt-10 w-full flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex flex-1 items-center gap-2 rounded-full bg-white pl-5 pr-2 py-2 shadow-md shadow-zinc-900/5 ring-1 ring-zinc-200/70">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                    placeholder="Ask anything…"
+                    disabled={loading}
+                    className="flex-1 min-w-0 bg-transparent border-0 text-zinc-900 text-[15px] focus:ring-0 focus:outline-none placeholder:text-zinc-400 disabled:opacity-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSend}
+                    disabled={loading || !input.trim()}
+                    className="shrink-0 p-3 rounded-full bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-30 transition-colors"
+                    aria-label="Send"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex justify-center shrink-0">{modeToggle}</div>
+              </div>
+
+              <div className="mt-10 w-full text-left">
+                <p className="text-[11px] font-medium text-zinc-400 mb-2">Suggestions</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setInput(s)}
+                      className="text-left px-3 py-2.5 rounded-xl bg-zinc-100/80 hover:bg-zinc-200/80 transition-colors group"
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <TrendingUp className="w-3.5 h-3.5 text-zinc-400 group-hover:text-indigo-600 mt-0.5 shrink-0" />
+                        <span className="text-[11px] text-zinc-600 group-hover:text-zinc-900 leading-snug">{s}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {hasThread && (
+          <div className="flex-1 min-h-0 relative flex flex-col">
+            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-zinc-50 to-transparent z-10 pointer-events-none" />
+            <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
+              <div className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-4 space-y-4">
+                {messages.map((msg, i) => (
+                  <Message key={i} msg={msg} onNavigate={onNavigate} />
+                ))}
+                {loading && streamingText && (
+                  <div className="flex gap-3">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+                      <Bot className="w-4 h-4 text-indigo-600" />
+                    </div>
+                    <div className="max-w-[85%] bg-white ring-1 ring-zinc-200/70 rounded-2xl px-4 py-3 shadow-sm">
+                      <RenderMarkdown text={streamingText} />
+                      <span className="inline-block w-1.5 h-4 bg-indigo-500 animate-pulse ml-0.5 rounded-sm" />
+                    </div>
+                  </div>
+                )}
+                {loading && !streamingText && (
+                  <div className="flex gap-3">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                      <Bot className="w-4 h-4 text-indigo-600" />
+                    </div>
+                    <div className="bg-white ring-1 ring-zinc-200/70 rounded-2xl px-4 py-3 shadow-sm">
+                      <div className="flex items-center gap-2 text-xs text-zinc-500">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                        {mode === 'full' ? 'Running multi-agent analysis...' : 'Thinking...'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div className="h-6" />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {hasThread && (
+        <div className="shrink-0 bg-zinc-50/95 backdrop-blur-sm pt-2 pb-4 px-4 sm:px-6">
+          <div className="max-w-3xl w-full mx-auto space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {modeToggle}
+              <span className="text-[9px] text-zinc-400">{mode === 'quick' ? 'Fast response' : 'Deeper multi-step run'}</span>
+              {lastRun && !loading && (
+                <span className="text-[9px] text-zinc-400">
+                  {lastRun.mode === 'full' ? 'Full' : 'Quick'} · {(lastRun.elapsedMs / 1000).toFixed(1)}s
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2 items-stretch">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                placeholder="Message Equilima Agent…"
+                disabled={loading}
+                className="flex-1 bg-white rounded-2xl px-4 py-3 text-zinc-900 text-sm shadow-sm ring-1 ring-zinc-200/70 focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:opacity-50 placeholder:text-zinc-400"
+              />
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={loading || !input.trim()}
+                className="px-4 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-white rounded-2xl transition-colors shrink-0 shadow-sm"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-[9px] text-zinc-400 text-center">Powered by Gemma3 · Not financial advice</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

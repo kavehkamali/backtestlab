@@ -4,8 +4,8 @@ import { signup, signin, forgotPassword, resetPassword, verifyEmail, resendVerif
 
 function Req({ met, children }) {
   return (
-    <div className={`flex items-center gap-1.5 text-[10px] ${met ? 'text-emerald-400' : 'text-gray-500'}`}>
-      {met ? <Check className="w-3 h-3" /> : <div className="w-3 h-3 rounded-full border border-gray-600" />}
+    <div className={`flex items-center gap-1.5 text-[10px] ${met ? 'text-emerald-700' : 'text-zinc-500'}`}>
+      {met ? <Check className="w-3 h-3" /> : <div className="w-3 h-3 rounded-full ring-1 ring-zinc-300" />}
       {children}
     </div>
   );
@@ -14,12 +14,12 @@ function Req({ met, children }) {
 function CustomCheck({ checked, onChange, children }) {
   return (
     <div className="flex items-start gap-2.5 cursor-pointer group" onClick={() => onChange(!checked)}>
-      <div className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-        checked ? 'bg-indigo-500 border-indigo-500' : 'border-gray-600 group-hover:border-gray-400'
+      <div className={`mt-0.5 w-4 h-4 rounded flex items-center justify-center shrink-0 transition-colors ring-1 ${
+        checked ? 'bg-indigo-600 ring-indigo-600' : 'ring-zinc-300 group-hover:ring-zinc-400 bg-white'
       }`}>
         {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
       </div>
-      <span className="text-xs text-gray-400 group-hover:text-gray-300 leading-relaxed select-none">{children}</span>
+      <span className="text-xs text-zinc-600 group-hover:text-zinc-800 leading-relaxed select-none">{children}</span>
     </div>
   );
 }
@@ -130,12 +130,12 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
   if (mode === 'verify') {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-        <div className="relative bg-[#12121a] border border-white/10 rounded-2xl w-full max-w-sm mx-4 p-6 text-center">
-          <Mail className="w-10 h-10 text-indigo-400 mx-auto mb-3" />
-          <h2 className="text-lg font-bold text-white mb-2">Email Verification</h2>
-          {success && <p className="text-emerald-400 text-sm mb-4">{success}</p>}
-          {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
+        <div className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm" />
+        <div className="relative bg-white rounded-2xl w-full max-w-sm mx-4 p-6 text-center shadow-xl shadow-zinc-900/10 ring-1 ring-zinc-200/80">
+          <Mail className="w-10 h-10 text-indigo-600 mx-auto mb-3" />
+          <h2 className="text-lg font-bold text-zinc-900 mb-2">Email Verification</h2>
+          {success && <p className="text-emerald-700 text-sm mb-4">{success}</p>}
+          {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
           <button onClick={() => { if (onClose) onClose(); else switchMode('signin'); }}
             className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm">Continue</button>
         </div>
@@ -145,43 +145,43 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={forced ? undefined : onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm" />
 
-      <div className="relative bg-[#12121a] border border-white/10 rounded-2xl w-full max-w-md mx-3 sm:mx-4 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="relative bg-white rounded-2xl w-full max-w-md mx-3 sm:mx-4 shadow-xl shadow-zinc-900/10 ring-1 ring-zinc-200/80 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         {!forced && onClose && (
-          <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors">
+          <button onClick={onClose} className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-800 transition-colors">
             <X className="w-5 h-5" />
           </button>
         )}
 
         <div className="p-6">
           <div className="text-center mb-6">
-            <h2 className="text-xl font-bold text-white">
+            <h2 className="text-xl font-bold text-zinc-900">
               {mode === 'signup' ? 'Create your account' : mode === 'signin' ? 'Welcome back' : mode === 'forgot' ? 'Forgot password' : 'Reset password'}
             </h2>
-            {message && <p className="text-sm text-indigo-400 mt-2">{message}</p>}
-            {!message && mode === 'signup' && <p className="text-sm text-gray-500 mt-1">Get unlimited access to Equilima</p>}
-            {mode === 'forgot' && <p className="text-sm text-gray-500 mt-1">Enter your email to receive a reset link</p>}
-            {mode === 'reset' && <p className="text-sm text-gray-500 mt-1">Choose a new password</p>}
+            {message && <p className="text-sm text-indigo-600 mt-2">{message}</p>}
+            {!message && mode === 'signup' && <p className="text-sm text-zinc-500 mt-1">Get unlimited access to Equilima</p>}
+            {mode === 'forgot' && <p className="text-sm text-zinc-500 mt-1">Enter your email to receive a reset link</p>}
+            {mode === 'reset' && <p className="text-sm text-zinc-500 mt-1">Choose a new password</p>}
           </div>
 
           <div className="space-y-4" onKeyDown={handleKeyDown}>
             {/* Name — signup only */}
             {mode === 'signup' && (
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Name</label>
+                <label className="block text-xs text-zinc-500 mb-1">Name</label>
                 <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your name"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500/50" />
+                  className="w-full bg-zinc-50 rounded-lg px-4 py-2.5 text-zinc-900 text-sm ring-1 ring-zinc-200/80 focus:outline-none focus:ring-2 focus:ring-indigo-200" />
               </div>
             )}
 
             {/* Email — signup, signin, forgot */}
             {(mode === 'signup' || mode === 'signin' || mode === 'forgot') && (
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Email</label>
+                <label className="block text-xs text-zinc-500 mb-1">Email</label>
                 <input type="text" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@example.com"
-                  className={`w-full bg-white/5 border rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none transition-colors ${
-                    email && !emailValid ? 'border-red-500/50' : 'border-white/10 focus:border-indigo-500/50'
+                  className={`w-full bg-zinc-50 rounded-lg px-4 py-2.5 text-zinc-900 text-sm focus:outline-none transition-shadow ring-1 ${
+                    email && !emailValid ? 'ring-red-300' : 'ring-zinc-200/80 focus:ring-2 focus:ring-indigo-200'
                   }`} />
                 {email && !emailValid && (
                   <p className="text-[10px] text-red-400 mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Enter a valid email</p>
@@ -192,14 +192,14 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
             {/* Password — signup, signin, reset */}
             {(mode === 'signup' || mode === 'signin' || mode === 'reset') && (
               <div>
-                <label className="block text-xs text-gray-400 mb-1">
+                <label className="block text-xs text-zinc-500 mb-1">
                   {mode === 'reset' ? 'New password' : 'Password'}
                 </label>
                 <div className="relative">
                   <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 pr-10 text-white text-sm focus:outline-none focus:border-indigo-500/50" />
+                    className="w-full bg-zinc-50 rounded-lg px-4 py-2.5 pr-10 text-zinc-900 text-sm ring-1 ring-zinc-200/80 focus:outline-none focus:ring-2 focus:ring-indigo-200" />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700">
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
@@ -215,7 +215,7 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
 
             {/* Forgot password link — signin only */}
             {mode === 'signin' && (
-              <button onClick={() => switchMode('forgot')} className="text-[11px] text-indigo-400 hover:underline">
+              <button onClick={() => switchMode('forgot')} className="text-[11px] text-indigo-600 hover:underline">
                 Forgot your password?
               </button>
             )}
@@ -225,9 +225,9 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
               <div className="space-y-3 pt-1">
                 <CustomCheck checked={consentPolicy} onChange={setConsentPolicy}>
                   I agree to the{' '}
-                  <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline" onClick={e => e.stopPropagation()}>Terms of Service</a>
+                  <a href="/terms.html" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline" onClick={e => e.stopPropagation()}>Terms of Service</a>
                   {' '}and{' '}
-                  <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline" onClick={e => e.stopPropagation()}>Privacy Policy</a>
+                  <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline" onClick={e => e.stopPropagation()}>Privacy Policy</a>
                   {' '}<span className="text-red-400">*</span>
                 </CustomCheck>
                 <CustomCheck checked={consentNewsletter} onChange={setConsentNewsletter}>
@@ -238,12 +238,12 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
 
             {/* Messages */}
             {error && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-start gap-2">
+              <div className="p-3 rounded-lg bg-red-50 text-red-800 text-xs flex items-start gap-2 ring-1 ring-red-200/80">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><span>{error}</span>
               </div>
             )}
             {success && (
-              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-start gap-2">
+              <div className="p-3 rounded-lg bg-emerald-50 text-emerald-800 text-xs flex items-start gap-2 ring-1 ring-emerald-200/80">
                 <Check className="w-4 h-4 shrink-0 mt-0.5" /><span>{success}</span>
               </div>
             )}
@@ -268,7 +268,7 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
                     setResendLoading(false);
                   }
                 }}
-                className="w-full flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-50 text-gray-200 font-medium py-2.5 rounded-lg transition-colors text-sm"
+                className="w-full flex items-center justify-center gap-2 bg-zinc-100 hover:bg-zinc-200/80 disabled:opacity-50 text-zinc-800 font-medium py-2.5 rounded-lg transition-colors text-sm ring-1 ring-zinc-200/80"
               >
                 {resendLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
                 Resend verification email
@@ -284,11 +284,11 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
           </div>
 
           {/* Mode switchers */}
-          <div className="text-center mt-4 text-xs text-gray-500">
-            {mode === 'signup' && <>Already have an account? <button onClick={() => switchMode('signin')} className="text-indigo-400 hover:underline">Sign in</button></>}
-            {mode === 'signin' && <>Don't have an account? <button onClick={() => switchMode('signup')} className="text-indigo-400 hover:underline">Create one</button></>}
-            {mode === 'forgot' && <><button onClick={() => switchMode('signin')} className="text-indigo-400 hover:underline">Back to sign in</button></>}
-            {mode === 'reset' && <><button onClick={() => switchMode('signin')} className="text-indigo-400 hover:underline">Back to sign in</button></>}
+          <div className="text-center mt-4 text-xs text-zinc-500">
+            {mode === 'signup' && <>Already have an account? <button onClick={() => switchMode('signin')} className="text-indigo-600 hover:underline">Sign in</button></>}
+            {mode === 'signin' && <>Don't have an account? <button onClick={() => switchMode('signup')} className="text-indigo-600 hover:underline">Create one</button></>}
+            {mode === 'forgot' && <><button onClick={() => switchMode('signin')} className="text-indigo-600 hover:underline">Back to sign in</button></>}
+            {mode === 'reset' && <><button onClick={() => switchMode('signin')} className="text-indigo-600 hover:underline">Back to sign in</button></>}
           </div>
         </div>
       </div>

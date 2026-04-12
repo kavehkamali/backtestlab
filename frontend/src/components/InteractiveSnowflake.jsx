@@ -136,7 +136,7 @@ export default function InteractiveSnowflake({ dims, values, onChange, enabled, 
         >
           <div className={`w-3 h-3 rounded-full bg-white absolute top-0.5 transition-all ${enabled ? 'left-3.5' : 'left-0.5'}`} />
         </button>
-        <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">{title}</span>
+        <span className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">{title}</span>
       </div>
 
       <svg
@@ -171,7 +171,7 @@ export default function InteractiveSnowflake({ dims, values, onChange, enabled, 
 
         {/* Grid rings */}
         {ringPaths.map((path, i) => (
-          <path key={i} d={path} fill="none" stroke="#ffffff06" strokeWidth={0.8} />
+          <path key={i} d={path} fill="none" stroke="#e4e4e7" strokeWidth={0.8} />
         ))}
 
         {/* Axis lines — highlighted when hovered/dragging */}
@@ -202,7 +202,7 @@ export default function InteractiveSnowflake({ dims, values, onChange, enabled, 
                 cx={p.x} cy={p.y}
                 r={isActive && enabled ? 7 : 4.5}
                 fill={enabled ? dims[i].color : '#555'}
-                stroke="#08080d"
+                stroke="#e4e4e7"
                 strokeWidth={2}
               />
             </g>

@@ -161,7 +161,7 @@ function App() {
   // Learn hub (/learn, /learn/:slug, or #/learn …) — SEO articles
   if (learnRoute && !isAdmin) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] overflow-x-hidden">
+      <div className="min-h-screen bg-zinc-50 overflow-x-hidden">
         <LearnLayout route={learnRoute} setActiveTab={setActiveTab} />
         {showAuth && (
           <AuthModal
@@ -180,8 +180,8 @@ function App() {
   // Admin panel — hidden route via #admin
   if (isAdmin) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] overflow-x-auto">
-        <header className="border-b border-white/5">
+      <div className="min-h-screen bg-zinc-50 overflow-x-auto text-zinc-900">
+        <header className="border-b border-zinc-200/60 bg-white/80 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img
@@ -192,9 +192,9 @@ function App() {
                 className="w-6 h-6 shrink-0"
                 aria-hidden
               />
-              <h1 className="text-lg font-semibold tracking-tight text-white">Equilima Admin</h1>
+              <h1 className="text-lg font-semibold tracking-tight text-zinc-900">Equilima Admin</h1>
             </div>
-            <a href="/" className="text-xs text-gray-500 hover:text-white">Back to site</a>
+            <a href="/" className="text-xs text-zinc-500 hover:text-zinc-900">Back to site</a>
           </div>
         </header>
         <main className="max-w-7xl mx-auto px-3 sm:px-6 pb-8 sm:pb-12 mt-2 sm:mt-4">
@@ -205,7 +205,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] overflow-x-hidden">
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 overflow-x-hidden">
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -233,8 +233,8 @@ function App() {
             <div
               className={
                 activeTab === 'agent'
-                  ? 'max-w-7xl mx-auto px-3 sm:px-6 mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm'
-                  : 'mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm'
+                  ? 'max-w-7xl mx-auto px-3 sm:px-6 mb-4 p-3 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80'
+                  : 'mb-4 p-3 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80'
               }
             >
               {error}

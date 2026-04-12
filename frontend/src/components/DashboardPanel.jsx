@@ -32,46 +32,40 @@ const PERIOD_DAYS = {
 
 function pickSparkline(item, periodKey) {
   if (!item) return null;
-  // 1D: use intraday (15m) closes if available
   if (periodKey === null) return item.sparkline_1d?.length ? item.sparkline_1d : item.sparkline;
-  // 1W: use open+close per day if available
   if (periodKey === '1W') return item.sparkline_1w?.length ? item.sparkline_1w : item.sparkline;
   return item.sparkline;
 }
 
 function sliceSparkline(data, periodKey) {
   if (!data?.length) return data;
-  // For 1W open/close series, we already have exactly what we want (5 days * 2 points)
   if (periodKey === '1W') return data;
-  // For 1D intraday series, show the full session we received
   if (periodKey === null) return data;
   const days = PERIOD_DAYS[periodKey] ?? 60;
   const n = Math.min(days, data.length);
   return data.slice(-n);
 }
 
-// ─── Hero chart tooltip ───
 function HeroTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#1a1a2e] border border-white/10 rounded-lg px-3 py-1.5 text-[10px]">
-      <span className="text-white font-medium">${payload[0]?.value?.toLocaleString()}</span>
+    <div className="bg-white rounded-lg px-3 py-1.5 text-[10px] shadow-md ring-1 ring-zinc-200/80">
+      <span className="text-zinc-900 font-medium">${payload[0]?.value?.toLocaleString()}</span>
     </div>
   );
 }
 
-// ─── Helpers ───
 function Sparkline({ data, height = 32 }) {
   if (!data?.length) return null;
-  const w = 200; // viewBox width, SVG scales to container
+  const w = 200;
   const min = Math.min(...data), max = Math.max(...data), range = max - min || 1;
   const denom = Math.max(data.length - 1, 1);
   const pts = data.map((v, i) => `${(i / denom) * w},${height - ((v - min) / range) * height}`).join(' ');
-  return <svg viewBox={`0 0 ${w} ${height}`} className="w-full" style={{ height }}><polyline fill="none" stroke={data[data.length - 1] >= data[0] ? '#22c55e' : '#ef4444'} strokeWidth="2" points={pts} /></svg>;
+  return <svg viewBox={`0 0 ${w} ${height}`} className="w-full" style={{ height }}><polyline fill="none" stroke={data[data.length - 1] >= data[0] ? '#16a34a' : '#dc2626'} strokeWidth="2" points={pts} /></svg>;
 }
 function Pct({ value }) {
-  if (value == null) return <span className="text-gray-600">—</span>;
-  const c = value > 0 ? 'text-emerald-400' : value < 0 ? 'text-red-400' : 'text-gray-500';
+  if (value == null) return <span className="text-zinc-400">—</span>;
+  const c = value > 0 ? 'text-emerald-600' : value < 0 ? 'text-red-600' : 'text-zinc-500';
   return <span className={`${c} font-mono text-xs`}>{value > 0 ? '+' : ''}{value}%</span>;
 }
 function fmtPrice(v) {
@@ -79,7 +73,6 @@ function fmtPrice(v) {
   return v.toFixed(2);
 }
 
-/** Minimal hero chart Y ticks (indices, VIX, large caps) */
 function formatHeroAxisY(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) return '';
@@ -107,7 +100,7 @@ function timeAgo(dateStr) {
 }
 
 function getChange(item, period) {
-  if (!period) return item.change_1d; // 1D is the default
+  if (!period) return item.change_1d;
   return item.changes?.[period] ?? null;
 }
 
@@ -117,23 +110,22 @@ function MarketCard({ item, period }) {
   const rawSpark = pickSparkline(item, period);
   const sparkData = sliceSparkline(rawSpark, period);
   return (
-    <div className="bg-white/[0.03] border border-white/5 rounded-xl p-3 hover:border-white/10 transition-all overflow-hidden min-w-0">
+    <div className="bg-white rounded-xl p-3 shadow-sm ring-1 ring-zinc-200/70 hover:ring-zinc-300/80 transition-all overflow-hidden min-w-0">
       <div className="flex items-start justify-between mb-1.5">
-        <div className="text-[10px] text-gray-500 truncate max-w-[80px]">{item.name}</div>
-        <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${change == null ? 'bg-white/5 text-gray-500' : up ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+        <div className="text-[10px] text-zinc-500 truncate max-w-[80px]">{item.name}</div>
+        <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${change == null ? 'bg-zinc-100 text-zinc-500' : up ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
           {change != null ? `${up ? '+' : ''}${change}%` : '—'}
         </div>
       </div>
-      <div className={`text-sm font-bold ${change == null ? 'text-gray-400' : up ? 'text-emerald-400' : 'text-red-400'}`}>{fmtPrice(item.price)}</div>
+      <div className={`text-sm font-bold ${change == null ? 'text-zinc-400' : up ? 'text-emerald-600' : 'text-red-600'}`}>{fmtPrice(item.price)}</div>
       <div className="mt-1.5"><Sparkline data={sparkData} height={28} /></div>
-      {/* Show other periods as context */}
       <div className="flex gap-2 mt-1.5 flex-wrap">
         {PERIODS.filter(p => p.id !== '1D' && p.key !== period).slice(0, 3).map(p => {
           const val = item.changes?.[p.key];
           if (val == null) return null;
           return (
             <div key={p.id} className="text-center">
-              <div className="text-[7px] text-gray-600">{p.label}</div>
+              <div className="text-[7px] text-zinc-500">{p.label}</div>
               <Pct value={val} />
             </div>
           );
@@ -152,11 +144,11 @@ function SectorHeatmap({ sectors, period }) {
       {sectors.map(s => {
         const change = getChange(s, period) ?? 0;
         const intensity = Math.min(Math.abs(change) / maxAbs, 1);
-        const bg = change >= 0 ? `rgba(34,197,94,${0.1 + intensity * 0.4})` : `rgba(239,68,68,${0.1 + intensity * 0.4})`;
+        const bg = change >= 0 ? `rgba(34,197,94,${0.08 + intensity * 0.35})` : `rgba(239,68,68,${0.08 + intensity * 0.35})`;
         return (
-          <div key={s.symbol} className="rounded-lg p-2.5 text-center border border-white/5" style={{ background: bg }}>
-            <div className="text-[10px] text-gray-300 font-medium truncate">{s.name}</div>
-            <div className={`text-sm font-bold ${change >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>{change > 0 ? '+' : ''}{change}%</div>
+          <div key={s.symbol} className="rounded-lg p-2.5 text-center ring-1 ring-zinc-200/50" style={{ background: bg }}>
+            <div className="text-[10px] text-zinc-800 font-medium truncate">{s.name}</div>
+            <div className={`text-sm font-bold ${change >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{change > 0 ? '+' : ''}{change}%</div>
           </div>
         );
       })}
@@ -168,7 +160,7 @@ function Section({ title, children, right }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{title}</h3>
+        <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{title}</h3>
         {right}
       </div>
       {children}
@@ -193,7 +185,7 @@ export default function DashboardPanel() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-gray-500">
+      <div className="flex items-center justify-center h-64 text-zinc-500">
         <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading market overview...
       </div>
     );
@@ -206,17 +198,16 @@ export default function DashboardPanel() {
 
   return (
     <div className="space-y-6">
-      {/* Period Toggle */}
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-white">Market Overview</h2>
-        <div className="flex gap-0.5 bg-white/5 rounded-lg p-0.5 flex-wrap justify-end">
+        <h2 className="text-sm font-semibold text-zinc-900">Market Overview</h2>
+        <div className="flex gap-0.5 bg-zinc-100 rounded-lg p-0.5 flex-wrap justify-end">
           {PERIODS.map((p) => (
             <button
               key={p.id}
               type="button"
               onClick={() => setPeriod(p.key)}
               className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
-                period === p.key ? 'bg-indigo-500/20 text-indigo-300' : 'text-gray-500 hover:text-gray-300'
+                period === p.key ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-zinc-200/60' : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
               {p.label}
@@ -225,7 +216,6 @@ export default function DashboardPanel() {
         </div>
       </div>
 
-      {/* Hero Charts — big visual for key indices */}
       {market?.indices && (() => {
         const heroItems = [
           { name: 'S&P 500', symbol: '^GSPC', color: '#6366f1', gradId: 'hg1' },
@@ -242,13 +232,13 @@ export default function DashboardPanel() {
               const change = getChange(item, activePeriodKey);
               const up = change != null && change >= 0;
               return (
-                <div key={h.symbol} className="bg-white/[0.02] border border-white/5 rounded-xl p-4">
+                <div key={h.symbol} className="bg-white rounded-xl p-4 shadow-sm ring-1 ring-zinc-200/70">
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <div className="text-xs text-gray-500">{h.name}</div>
-                      <div className="text-xl font-bold text-white">{fmtPrice(item.price)}</div>
+                      <div className="text-xs text-zinc-500">{h.name}</div>
+                      <div className="text-xl font-bold text-zinc-900">{fmtPrice(item.price)}</div>
                     </div>
-                    <div className={`text-sm font-bold px-2 py-1 rounded-lg ${change == null ? 'text-gray-500' : up ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                    <div className={`text-sm font-bold px-2 py-1 rounded-lg ${change == null ? 'text-zinc-500' : up ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
                       {change != null ? `${up ? '+' : ''}${change}%` : '—'}
                     </div>
                   </div>
@@ -256,32 +246,32 @@ export default function DashboardPanel() {
                     <AreaChart data={chartData} margin={{ top: 4, right: 2, left: 4, bottom: 4 }}>
                       <defs>
                         <linearGradient id={h.gradId} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={up ? '#22c55e' : '#ef4444'} stopOpacity={0.15} />
+                          <stop offset="0%" stopColor={up ? '#22c55e' : '#ef4444'} stopOpacity={0.12} />
                           <stop offset="100%" stopColor={up ? '#22c55e' : '#ef4444'} stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#ffffff06" vertical={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
                       <XAxis
                         dataKey="i"
                         type="number"
                         domain={['dataMin', 'dataMax']}
                         tickCount={4}
-                        tick={{ fontSize: 9, fill: 'rgba(148,163,184,0.65)' }}
+                        tick={{ fontSize: 9, fill: '#71717a' }}
                         tickLine={false}
-                        axisLine={{ stroke: 'rgba(255,255,255,0.06)' }}
+                        axisLine={{ stroke: '#d4d4d8' }}
                         tickFormatter={(x) => Math.round(Number(x))}
                       />
                       <YAxis
                         domain={['auto', 'auto']}
                         tickCount={4}
                         width={40}
-                        tick={{ fontSize: 9, fill: 'rgba(148,163,184,0.65)' }}
+                        tick={{ fontSize: 9, fill: '#71717a' }}
                         tickLine={false}
                         axisLine={false}
                         tickFormatter={formatHeroAxisY}
                       />
                       <Tooltip content={<HeroTooltip />} />
-                      <Area type="monotone" dataKey="price" stroke={up ? '#22c55e' : '#ef4444'} fill={`url(#${h.gradId})`} strokeWidth={2} dot={false} />
+                      <Area type="monotone" dataKey="price" stroke={up ? '#16a34a' : '#dc2626'} fill={`url(#${h.gradId})`} strokeWidth={2} dot={false} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -291,7 +281,6 @@ export default function DashboardPanel() {
         );
       })()}
 
-      {/* Indices */}
       {market?.indices && (
         <Section title={`Indices — ${activePeriodLabel} Change`}>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
@@ -300,14 +289,12 @@ export default function DashboardPanel() {
         </Section>
       )}
 
-      {/* Sector Heatmap */}
       {market?.sectors && (
         <Section title={`Sector Performance — ${activePeriodLabel}`}>
           <SectorHeatmap sectors={market.sectors} period={activePeriodKey} />
         </Section>
       )}
 
-      {/* Commodities, rates, housing + news (crypto has its own tab) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-5">
           {market?.commodities && (
@@ -357,14 +344,14 @@ export default function DashboardPanel() {
                   href={a.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block bg-white/[0.02] border border-white/5 rounded-lg p-2.5 hover:bg-white/[0.04] hover:border-white/10 transition-all group"
+                  className="block bg-white rounded-lg p-2.5 shadow-sm ring-1 ring-zinc-200/70 hover:bg-zinc-50 hover:ring-zinc-300/80 transition-all group"
                 >
-                  <div className="text-[11px] font-medium text-gray-200 group-hover:text-white line-clamp-2">{a.title}</div>
-                  <div className="flex items-center gap-2 mt-1 text-[9px] text-gray-500">
+                  <div className="text-[11px] font-medium text-zinc-800 group-hover:text-zinc-950 line-clamp-2">{a.title}</div>
+                  <div className="flex items-center gap-2 mt-1 text-[9px] text-zinc-500">
                     {a.source && <span>{a.source}</span>}
                     <span>{timeAgo(a.date)} ago</span>
                     {a.tickers?.slice(0, 3).map((t, j) => (
-                      <span key={j} className="px-1 rounded bg-white/5 text-indigo-400 text-[8px]">
+                      <span key={j} className="px-1 rounded bg-indigo-50 text-indigo-700 text-[8px] ring-1 ring-indigo-100">
                         {t}
                       </span>
                     ))}
