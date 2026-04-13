@@ -1,0 +1,6 @@
+# Minimal deps for agent_api.py (Equilima sidecar on e.g. home-linux).
+# TradingAgents has its own pyproject — install that tree separately.
+fastapi>=0.100.0
+uvicorn[standard]>=0.22.0
+pydantic>=2.0.0
+requests>=2.28.0

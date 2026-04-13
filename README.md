@@ -119,6 +119,9 @@ export EQUILIMA_PUBLIC_URL=https://equilima.com
 
 # Optional — analytics “calendar day” timezone (IANA); default America/New_York (EST/EDT)
 # export EQUILIMA_ANALYTICS_TZ=America/New_York
+
+# Optional — AI agent HTTP base (default http://localhost:8888). Use when agent runs elsewhere or via SSH tunnel.
+# export EQUILIMA_AGENT_URL=http://127.0.0.1:8888
 ```
 
 ### Production Deployment
@@ -133,6 +136,35 @@ The deploy script:
 2. Clones/pulls the repo
 3. Builds the frontend
 4. Starts uvicorn on port 8080
+
+That updates **Equilima only** (this repo). It does **not** update the AI agent.
+
+### AI research agent (home-linux or other host)
+
+The chat UI calls FastAPI, which **proxies** to a separate HTTP service (`POST /chat` and `POST /quick`, `GET /health`). In code the default base URL is `http://localhost:8888`. That service is **not** part of this repository — it is typically a clone of something like [TradingAgents](https://github.com/TauricResearch/TradingAgents) plus your own runner (Ollama, env keys, etc.).
+
+**Finding it on `home-linux`:** SSH in and search for what listens on 8888 or for your agent repo, for example:
+
+```bash
+ss -tlnp | grep 8888
+# or
+sudo lsof -i :8888
+pgrep -af python | grep -i agent
+ls ~ ~/projects ~/src 2>/dev/null
+```
+
+**Updating it:** whatever directory holds that agent — usually `git pull` (or your branch), reinstall deps if `requirements.txt` / lockfile changed, then **restart the process** (systemd unit, Docker compose, `tmux`, `screen`, or whatever you use). Pull alone does nothing until the server reloads.
+
+**Pointing Equilima at it:** on the machine that runs `uvicorn`, set the base URL (no trailing slash):
+
+```bash
+export EQUILIMA_AGENT_URL=http://127.0.0.1:8888   # same host
+# or the URL exposed by an SSH reverse tunnel / LAN IP
+```
+
+Put that in `~/.equilima_env` on the server if you use `deploy.sh`, or your process manager env.
+
+This repo includes **`agent_api.py`** at the repo root: a small FastAPI service that listens on **8888** by default, implements `/chat`, `/quick`, and `/health`, and expects a sibling **`TradingAgents/`** directory (clone [TradingAgents](https://github.com/TauricResearch/TradingAgents) next to it). Install sidecar deps with `pip install -r requirements-agent.txt` inside a venv, then `python agent_api.py`. Optional env: `EQUILIMA_AGENT_PORT`, `EQUILIMA_OLLAMA_MODEL`, `TRADING_AGENTS_PATH`, `OLLAMA_OPENAI_BASE`.
 
 For HTTPS, install [Caddy](https://caddyserver.com):
 
