@@ -11,6 +11,7 @@ import math
 import json
 from dataclasses import asdict
 import time
+import os
 
 from .data_fetcher import fetch_stock_data, add_technical_indicators, fetch_multiple, DEFAULT_INDICES
 from .backtester import BacktestConfig, StrategyType, run_backtest
@@ -934,7 +935,8 @@ def _crypto_compute():
 # ─── AI Agent Proxy ───
 import httpx
 
-AGENT_URL = "http://localhost:8888"
+# Separate process/repo (e.g. TradingAgents on home-linux). Override for tunnels or remote host.
+AGENT_URL = os.getenv("EQUILIMA_AGENT_URL", "http://localhost:8888").rstrip("/")
 
 @app.post("/api/agent/chat")
 async def agent_chat(request: Request):

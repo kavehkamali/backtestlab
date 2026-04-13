@@ -325,6 +325,53 @@ function Message({ msg, onNavigate }) {
   );
 }
 
+// ─── Agent request body (conversation memory for the model) ───
+const MAX_AGENT_HISTORY_MESSAGES = 14;
+const MAX_AGENT_PACKED_CHARS = 12000;
+
+/**
+ * The UI keeps full threads locally, but the agent HTTP API historically received only the
+ * latest user string — so follow-ups like "why was it down?" looked disconnected. We send
+ * (1) structured `history` for services that support multi-turn JSON, and (2) a single `message`
+ * that embeds recent turns so stateless backends still see context.
+ */
+function packAgentRequestBody(priorMessages, newUserMsg, mode) {
+  const prior = (priorMessages || []).filter(
+    (m) => m && (m.role === 'user' || m.role === 'assistant') && String(m.content || '').trim(),
+  );
+  if (!prior.length) {
+    return { message: newUserMsg, history: [], _client_mode: mode };
+  }
+
+  const tail = prior.slice(-MAX_AGENT_HISTORY_MESSAGES);
+  const history = tail.map((m) => ({
+    role: m.role,
+    content: String(m.content).slice(0, 8000),
+  }));
+
+  let convo = history
+    .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+    .join('\n\n');
+  if (convo.length > MAX_AGENT_PACKED_CHARS) {
+    convo = convo.slice(-MAX_AGENT_PACKED_CHARS);
+    const firstBreak = convo.indexOf('\n\n');
+    if (firstBreak > 0) convo = convo.slice(firstBreak + 2);
+  }
+
+  const message = [
+    'Earlier messages in this same chat (use for continuity — tickers, numbers, and what was already said):',
+    '',
+    convo,
+    '',
+    '---',
+    '',
+    'Current user message:',
+    newUserMsg,
+  ].join('\n');
+
+  return { message, history, _client_mode: mode };
+}
+
 // ─── Streaming fetch ───
 async function streamAgent(url, body, onToken) {
   const started = performance.now();
@@ -610,7 +657,8 @@ export default function AgentPanel({ onNavigate, user, dek }) {
 
     try {
       const url = mode === 'full' ? '/api/agent/chat' : '/api/agent/quick';
-      const { data, elapsedMs } = await streamAgent(url, { message: msg, _client_mode: mode }, (text, ticker) => {
+      const body = packAgentRequestBody(messages, msg, mode);
+      const { data, elapsedMs } = await streamAgent(url, body, (text, ticker) => {
         streamTextRef.current = text;
         streamTickerRef.current = ticker;
         setStreamingText(text);
