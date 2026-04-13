@@ -50,8 +50,20 @@ function sliceSparkline(data, periodKey) {
 function HeroTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white rounded-lg px-3 py-1.5 text-[10px] shadow-md ring-1 ring-zinc-200/80">
-      <span className="text-zinc-900 font-medium">${payload[0]?.value?.toLocaleString()}</span>
+    <div className="bg-white rounded-lg px-3 py-1.5 text-[10px] shadow-md ring-1 ring-zinc-200/80 dark:bg-zinc-800 dark:ring-zinc-600">
+      <span className="text-zinc-900 font-medium dark:text-zinc-100">${payload[0]?.value?.toLocaleString()}</span>
+    </div>
+  );
+}
+
+function QuoteHeroTooltip({ active, payload, decimals }) {
+  if (!active || !payload?.length) return null;
+  const raw = payload[0]?.value;
+  const n = Number(raw);
+  const s = Number.isFinite(n) ? n.toFixed(decimals) : '—';
+  return (
+    <div className="bg-white rounded-lg px-3 py-1.5 text-[10px] shadow-md ring-1 ring-zinc-200/80 dark:bg-zinc-800 dark:ring-zinc-600">
+      <span className="text-zinc-900 font-medium dark:text-zinc-100">{s}</span>
     </div>
   );
 }
@@ -72,6 +84,56 @@ function Pct({ value }) {
 function fmtPrice(v) {
   if (v >= 10000) return v.toLocaleString('en-US', { maximumFractionDigits: 0 });
   return v.toFixed(2);
+}
+
+function isForexItem(item) {
+  const s = item?.symbol || '';
+  return s.includes('=X') || s === 'DX-Y.NYB';
+}
+
+function isCommodityFuture(item) {
+  const s = item?.symbol || '';
+  return s.includes('=F');
+}
+
+/** Card headline: extra decimals for FX; futures keep compact. */
+function fmtDisplayPrice(item) {
+  const v = item?.price;
+  if (v == null || !Number.isFinite(Number(v))) return '—';
+  const n = Number(v);
+  const sym = item.symbol || '';
+  if (sym === 'DX-Y.NYB') return n.toFixed(2);
+  if (sym.includes('=X')) {
+    if (sym === 'JPY=X' || /JPY=X$/.test(sym) || (sym.includes('JPY') && n >= 15)) return n.toFixed(2);
+    if (n >= 50 && n < 400) return n.toFixed(2);
+    if (n < 0.01) return n.toFixed(6);
+    if (n < 1) return n.toFixed(5);
+    if (n < 20) return n.toFixed(4);
+    return n.toFixed(2);
+  }
+  if (sym.includes('=F')) {
+    if (n >= 1000) return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    if (n >= 100) return n.toFixed(1);
+    if (n < 1) return n.toFixed(3);
+    return n.toFixed(2);
+  }
+  return fmtPrice(n);
+}
+
+function heroTooltipDecimals(item) {
+  if (!item) return 2;
+  const sym = item.symbol || '';
+  if (sym.includes('=X') && sym !== 'DX-Y.NYB') {
+    const n = Number(item.price);
+    if (Number.isFinite(n) && n < 20 && n >= 0.5) return 4;
+    return 2;
+  }
+  if (sym.includes('=F')) {
+    const n = Number(item.price);
+    if (Number.isFinite(n) && n < 50) return 3;
+    return 2;
+  }
+  return 2;
 }
 
 function formatHeroAxisY(v) {
@@ -118,7 +180,7 @@ function MarketCard({ item, period }) {
           {change != null ? `${up ? '+' : ''}${change}%` : '—'}
         </div>
       </div>
-      <div className={`text-sm font-bold ${change == null ? 'text-zinc-400' : up ? 'text-emerald-600' : 'text-red-600'}`}>{fmtPrice(item.price)}</div>
+      <div className={`text-sm font-bold ${change == null ? 'text-zinc-400' : up ? 'text-emerald-600' : 'text-red-600'}`}>{fmtDisplayPrice(item)}</div>
       <div className="mt-1.5"><Sparkline data={sparkData} height={28} /></div>
       <div className="flex gap-2 mt-1.5 flex-wrap">
         {PERIODS.filter(p => p.id !== '1D' && p.key !== period).slice(0, 3).map(p => {
@@ -176,6 +238,73 @@ const MARKET_ARENAS = [
   { id: 'commodities', label: 'Commodities' },
 ];
 
+const NEWS_SYMBOLS_BY_ARENA = {
+  stocks: '^GSPC,^IXIC,AAPL,MSFT,NVDA,TSLA,AMZN,META',
+  forex: 'EURUSD=X,GBPUSD=X,JPY=X,CAD=X,CHF=X,DX-Y.NYB',
+  commodities: 'CL=F,GC=F,BZ=F,SI=F,NG=F,HG=F,ZC=F,ZW=F',
+};
+
+const STOCK_HERO_SPECS = [
+  { symbol: '^GSPC', gradId: 'hg-st-1' },
+  { symbol: '^IXIC', gradId: 'hg-st-2' },
+];
+
+const FOREX_HERO_SPECS = [
+  { symbol: 'EURUSD=X', gradId: 'hg-fx-1' },
+  { symbol: 'JPY=X', gradId: 'hg-fx-2' },
+];
+
+const COMMODITY_HERO_SPECS = [
+  { symbol: 'CL=F', gradId: 'hg-cm-1' },
+  { symbol: 'GC=F', gradId: 'hg-cm-2' },
+];
+
+function sortForexSeries(items) {
+  if (!items?.length) return [];
+  return [...items].sort((a, b) => {
+    const dx = (s) => (s === 'DX-Y.NYB' ? 1 : 0);
+    const d = dx(a.symbol) - dx(b.symbol);
+    if (d !== 0) return d;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+}
+
+const COMM_PRIORITY = ['CL=F', 'BZ=F', 'GC=F', 'SI=F', 'NG=F', 'HG=F', 'PL=F', 'PA=F', 'RB=F', 'HO=F'];
+function sortCommoditySeries(items) {
+  if (!items?.length) return [];
+  return [...items].sort((a, b) => {
+    const ca = COMM_PRIORITY.indexOf(a.symbol);
+    const cb = COMM_PRIORITY.indexOf(b.symbol);
+    const ra = ca === -1 ? 999 : ca;
+    const rb = cb === -1 ? 999 : cb;
+    if (ra !== rb) return ra - rb;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+}
+
+function formatHeroTickForItem(item, v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '';
+  if (isForexItem(item)) {
+    const a = Math.abs(n);
+    if (a < 200 && a >= 0.0001) {
+      if (a < 2) return n.toFixed(4);
+      if (a < 20) return n.toFixed(3);
+      return n.toFixed(2);
+    }
+    return formatHeroAxisY(n);
+  }
+  if (isCommodityFuture(item)) {
+    const a = Math.abs(n);
+    if (a >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+    if (a >= 10000) return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    if (a >= 1000) return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    if (a < 10) return n.toFixed(3);
+    return n.toFixed(2);
+  }
+  return formatHeroAxisY(n);
+}
+
 function PeriodToolbar({ period, setPeriod }) {
   return (
     <div className="flex gap-0.5 bg-zinc-100 rounded-lg p-0.5 flex-wrap justify-end dark:bg-zinc-800/80">
@@ -195,9 +324,9 @@ function PeriodToolbar({ period, setPeriod }) {
   );
 }
 
-function NewsFeed({ articles }) {
+function NewsFeed({ articles, title = 'Market News' }) {
   return (
-    <Section title="Market News">
+    <Section title={title}>
       <div className="space-y-2">
         {articles.map((a, i) => (
           <a
@@ -224,187 +353,158 @@ function NewsFeed({ articles }) {
   );
 }
 
+function OverviewHeroRow({ specs, seriesList, activePeriodKey, useQuoteTooltip }) {
+  if (!seriesList?.length) return null;
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {specs.map((h) => {
+        const item = seriesList.find((i) => i.symbol === h.symbol);
+        if (!item) return null;
+        const spark = sliceSparkline(pickSparkline(item, activePeriodKey), activePeriodKey);
+        const chartData = spark.map((v, i) => ({ i, price: v }));
+        const change = getChange(item, activePeriodKey);
+        const up = change != null && change >= 0;
+        const dec = heroTooltipDecimals(item);
+        return (
+          <div key={h.symbol} className="bg-white rounded-xl p-4 sm:p-5 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900/80 dark:ring-zinc-800">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{item.name}</div>
+                <div className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-zinc-100">{fmtDisplayPrice(item)}</div>
+              </div>
+              <div className={`text-sm font-bold px-2.5 py-1 rounded-lg ${change == null ? 'text-zinc-500' : up ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                {change != null ? `${up ? '+' : ''}${change}%` : '—'}
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={chartData} margin={{ top: 4, right: 2, left: 4, bottom: 4 }}>
+                <defs>
+                  <linearGradient id={h.gradId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={up ? '#22c55e' : '#ef4444'} stopOpacity={0.12} />
+                    <stop offset="100%" stopColor={up ? '#22c55e' : '#ef4444'} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} className="dark:stroke-zinc-700" />
+                <XAxis
+                  dataKey="i"
+                  type="number"
+                  domain={['dataMin', 'dataMax']}
+                  tickCount={4}
+                  tick={{ fontSize: 9, fill: '#71717a' }}
+                  tickLine={false}
+                  axisLine={{ stroke: '#d4d4d8' }}
+                  tickFormatter={(x) => Math.round(Number(x))}
+                />
+                <YAxis
+                  domain={['auto', 'auto']}
+                  tickCount={4}
+                  width={48}
+                  tick={{ fontSize: 9, fill: '#71717a' }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(y) => formatHeroTickForItem(item, y)}
+                />
+                <Tooltip
+                  content={
+                    useQuoteTooltip ? (
+                      <QuoteHeroTooltip decimals={dec} />
+                    ) : (
+                      <HeroTooltip />
+                    )
+                  }
+                />
+                <Area type="monotone" dataKey="price" stroke={up ? '#16a34a' : '#dc2626'} fill={`url(#${h.gradId})`} strokeWidth={2} dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function StockMarketsOverviewBody({ market, articles, activePeriodKey, activePeriodLabel }) {
   return (
     <div className="space-y-6">
-      {market?.indices && (() => {
-        const heroItems = [
-          { name: 'S&P 500', symbol: '^GSPC', gradId: 'hg1' },
-          { name: 'NASDAQ', symbol: '^IXIC', gradId: 'hg2' },
-        ];
-        return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {heroItems.map(h => {
-              const item = market.indices.find(i => i.symbol === h.symbol);
-              if (!item) return null;
-              const spark = sliceSparkline(pickSparkline(item, activePeriodKey), activePeriodKey);
-              const chartData = spark.map((v, i) => ({ i, price: v }));
-              const change = getChange(item, activePeriodKey);
-              const up = change != null && change >= 0;
-              return (
-                <div key={h.symbol} className="bg-white rounded-xl p-4 sm:p-5 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900/80 dark:ring-zinc-800">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{h.name}</div>
-                      <div className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-zinc-100">{fmtPrice(item.price)}</div>
-                    </div>
-                    <div className={`text-sm font-bold px-2.5 py-1 rounded-lg ${change == null ? 'text-zinc-500' : up ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
-                      {change != null ? `${up ? '+' : ''}${change}%` : '—'}
-                    </div>
-                  </div>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <AreaChart data={chartData} margin={{ top: 4, right: 2, left: 4, bottom: 4 }}>
-                      <defs>
-                        <linearGradient id={h.gradId} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={up ? '#22c55e' : '#ef4444'} stopOpacity={0.12} />
-                          <stop offset="100%" stopColor={up ? '#22c55e' : '#ef4444'} stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
-                      <XAxis
-                        dataKey="i"
-                        type="number"
-                        domain={['dataMin', 'dataMax']}
-                        tickCount={4}
-                        tick={{ fontSize: 9, fill: '#71717a' }}
-                        tickLine={false}
-                        axisLine={{ stroke: '#d4d4d8' }}
-                        tickFormatter={(x) => Math.round(Number(x))}
-                      />
-                      <YAxis
-                        domain={['auto', 'auto']}
-                        tickCount={4}
-                        width={40}
-                        tick={{ fontSize: 9, fill: '#71717a' }}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={formatHeroAxisY}
-                      />
-                      <Tooltip content={<HeroTooltip />} />
-                      <Area type="monotone" dataKey="price" stroke={up ? '#16a34a' : '#dc2626'} fill={`url(#${h.gradId})`} strokeWidth={2} dot={false} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })()}
+      {market?.indices && (
+        <OverviewHeroRow
+          specs={STOCK_HERO_SPECS}
+          seriesList={market.indices}
+          activePeriodKey={activePeriodKey}
+          useQuoteTooltip={false}
+        />
+      )}
 
       {market?.indices && (
-        <Section title={`Indices — ${activePeriodLabel} Change`}>
+        <Section title={`Indices — ${activePeriodLabel} change`}>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-            {market.indices.map(item => <MarketCard key={item.symbol} item={item} period={activePeriodKey} />)}
+            {market.indices.map((item) => (
+              <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
+            ))}
           </div>
         </Section>
       )}
 
       {market?.sectors && (
-        <Section title={`Sector Performance — ${activePeriodLabel}`}>
+        <Section title={`Sector performance — ${activePeriodLabel}`}>
           <SectorHeatmap sectors={market.sectors} period={activePeriodKey} />
         </Section>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="space-y-5">
-          {market?.commodities && (
-            <Section title="Commodities">
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                {market.commodities.map((item) => (
-                  <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
-                ))}
-              </div>
-            </Section>
-          )}
-          {market?.bonds && (
-            <Section title="Bonds & Yields">
-              <div className="grid grid-cols-2 gap-2">
-                {market.bonds.map((item) => (
-                  <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
-                ))}
-              </div>
-            </Section>
-          )}
-          {market?.currencies && (
-            <Section title="Currencies">
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                {market.currencies.map((item) => (
-                  <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
-                ))}
-              </div>
-            </Section>
-          )}
-          {market?.housing && (
-            <Section title="Housing & Real Estate">
-              <div className="grid grid-cols-2 gap-2">
-                {market.housing.map((item) => (
-                  <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
-                ))}
-              </div>
-            </Section>
-          )}
-        </div>
-
-        <NewsFeed articles={articles} />
-      </div>
+      <NewsFeed articles={articles} title="Equities & macro news" />
     </div>
   );
 }
 
 function ForexMarketsBody({ market, articles, activePeriodKey, activePeriodLabel }) {
+  const sorted = sortForexSeries(market?.currencies);
+  if (!sorted.length) {
+    return <p className="text-sm text-zinc-500 dark:text-zinc-400">No FX data in this snapshot.</p>;
+  }
   return (
     <div className="space-y-6">
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        Major FX pairs and dollar crosses from the equities overview feed.
-      </p>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div>
-          {market?.currencies?.length ? (
-            <Section title={`Currencies — ${activePeriodLabel}`}>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                {market.currencies.map((item) => (
-                  <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
-                ))}
-              </div>
-            </Section>
-          ) : (
-            <p className="text-sm text-zinc-500">No currency data in this snapshot.</p>
-          )}
+      <OverviewHeroRow
+        specs={FOREX_HERO_SPECS}
+        seriesList={sorted}
+        activePeriodKey={activePeriodKey}
+        useQuoteTooltip
+      />
+      <Section title={`All FX pairs — ${activePeriodLabel}`}>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+          {sorted.map((item) => (
+            <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
+          ))}
         </div>
-        <NewsFeed articles={articles} />
+      </Section>
+      <div className="max-w-3xl">
+        <NewsFeed articles={articles} title="FX & macro news" />
       </div>
     </div>
   );
 }
 
 function CommoditiesMarketsBody({ market, articles, activePeriodKey, activePeriodLabel }) {
+  const sorted = sortCommoditySeries(market?.commodities);
+  if (!sorted.length) {
+    return <p className="text-sm text-zinc-500 dark:text-zinc-400">No commodity futures in this snapshot.</p>;
+  }
   return (
     <div className="space-y-6">
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        Energy, metals, ags, and related rates from the same overview.
-      </p>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="space-y-5">
-          {market?.commodities && (
-            <Section title={`Commodities — ${activePeriodLabel}`}>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                {market.commodities.map((item) => (
-                  <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
-                ))}
-              </div>
-            </Section>
-          )}
-          {market?.bonds && (
-            <Section title="Bonds & yields">
-              <div className="grid grid-cols-2 gap-2">
-                {market.bonds.map((item) => (
-                  <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
-                ))}
-              </div>
-            </Section>
-          )}
+      <OverviewHeroRow
+        specs={COMMODITY_HERO_SPECS}
+        seriesList={sorted}
+        activePeriodKey={activePeriodKey}
+        useQuoteTooltip
+      />
+      <Section title={`All futures — ${activePeriodLabel}`}>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+          {sorted.map((item) => (
+            <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
+          ))}
         </div>
-        <NewsFeed articles={articles} />
+      </Section>
+      <div className="max-w-3xl">
+        <NewsFeed articles={articles} title="Commodity markets news" />
       </div>
     </div>
   );
@@ -413,18 +513,36 @@ function CommoditiesMarketsBody({ market, articles, activePeriodKey, activePerio
 export default function DashboardPanel() {
   const [market, setMarket] = useState(null);
   const [news, setNews] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [marketLoading, setMarketLoading] = useState(true);
   const [period, setPeriod] = useState('1Y');
   const [arena, setArena] = useState('stocks');
 
   useEffect(() => {
-    Promise.all([fetchMarketOverview().catch(() => null), fetchNews('^GSPC,^IXIC,AAPL,MSFT,NVDA,TSLA,AMZN').catch(() => null)]).then(
-      ([m, n]) => {
-        setMarket(m);
-        setNews(n);
-      }
-    ).finally(() => setLoading(false));
+    setMarketLoading(true);
+    fetchMarketOverview()
+      .then((m) => setMarket(m))
+      .catch(() => setMarket(null))
+      .finally(() => setMarketLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (arena === 'crypto') {
+      setNews(null);
+      return undefined;
+    }
+    const sym = NEWS_SYMBOLS_BY_ARENA[arena] ?? NEWS_SYMBOLS_BY_ARENA.stocks;
+    let cancelled = false;
+    fetchNews(sym)
+      .then((n) => {
+        if (!cancelled) setNews(n);
+      })
+      .catch(() => {
+        if (!cancelled) setNews(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [arena]);
 
   useEffect(() => {
     const onArena = (e) => {
@@ -437,11 +555,11 @@ export default function DashboardPanel() {
     return () => window.removeEventListener('eq-market-arena', onArena);
   }, []);
 
-  const articles = (news?.articles || []).slice(0, 8);
+  const articles = (news?.articles || []).slice(0, 10);
   const activePeriodKey = PERIODS.find((p) => p.key === period)?.key ?? null;
   const activePeriodLabel = PERIODS.find((p) => p.key === period)?.label ?? '1Y';
 
-  if (arena !== 'crypto' && loading) {
+  if (arena !== 'crypto' && marketLoading) {
     return (
       <div className="flex items-center justify-center h-64 text-zinc-500">
         <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading market overview...
@@ -502,7 +620,7 @@ export default function DashboardPanel() {
         />
       )}
 
-      {arena !== 'crypto' && !market && !loading && (
+      {arena !== 'crypto' && !market && !marketLoading && (
         <p className="text-sm text-zinc-500 dark:text-zinc-400">Market data unavailable.</p>
       )}
     </div>
