@@ -171,7 +171,7 @@ export default function CryptoPanel({ embedded = false }) {
   const activePeriodKey = PERIODS.find(p => p.key === period)?.key ?? null;
   const activePeriodLabel = PERIODS.find(p => p.key === period)?.label ?? '1Y';
 
-  const heroSyms = ['BTC', 'ETH', 'SOL'];
+  const heroSyms = ['BTC', 'ETH'];
   const heroItems = heroSyms.map((sym) => {
     const coin = coins.find((c) => c.symbol === sym);
     return coin ? { coin, gradId: `cg-${sym}` } : null;
@@ -198,28 +198,28 @@ export default function CryptoPanel({ embedded = false }) {
       </div>
 
       {heroItems.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {heroItems.map(({ coin, gradId }) => {
             const spark = sliceSparkline(coin.sparkline, activePeriodKey);
             const chartData = spark.map((v, i) => ({ i, price: v }));
             const change = getCryptoChange(coin, activePeriodKey);
             const up = change != null && change >= 0;
             return (
-              <div key={coin.symbol} className="bg-white rounded-xl p-4 shadow-sm ring-1 ring-zinc-200/70">
-                <div className="flex items-start justify-between mb-2">
+              <div key={coin.symbol} className="bg-white rounded-xl p-4 sm:p-5 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900/80 dark:ring-zinc-800">
+                <div className="flex items-start justify-between mb-3">
                   <div>
-                    <div className="text-xs text-zinc-500">{coin.name}</div>
-                    <div className="text-xl font-bold text-zinc-900">{fmtPrice(coin.price)}</div>
+                    <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{coin.name}</div>
+                    <div className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-zinc-100">{fmtPrice(coin.price)}</div>
                   </div>
                   <div
-                    className={`text-sm font-bold px-2 py-1 rounded-lg ${
+                    className={`text-sm font-bold px-2.5 py-1 rounded-lg ${
                       change == null ? 'text-zinc-500' : up ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
                     }`}
                   >
                     {change != null ? `${up ? '+' : ''}${change}%` : '—'}
                   </div>
                 </div>
-                <ResponsiveContainer width="100%" height={132}>
+                <ResponsiveContainer width="100%" height={200}>
                   <AreaChart data={chartData} margin={{ top: 4, right: 2, left: 4, bottom: 4 }}>
                     <defs>
                       <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
