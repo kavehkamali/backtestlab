@@ -11,3 +11,6 @@ __pycache__/
 .equilima_env
 *.sqlite
 *.db
+
+# Local agent venv (create with: python3 -m venv agent_env && pip install -r requirements-agent.txt)
+agent_env/

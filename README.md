@@ -85,9 +85,12 @@ Live at [equilima.com](https://equilima.com)
 ### Local Development
 
 ```bash
-# Clone
+# Clone (web app only — skips TradingAgents submodule; smaller/faster)
 git clone https://github.com/kavehkamali/equilima.git
 cd equilima
+
+# Optional — only if you run agent_api.py locally (see “AI research agent” below)
+# git submodule update --init --recursive
 
 # Backend
 cd backend
@@ -133,38 +136,48 @@ ssh your-server 'bash -s' < deploy.sh
 
 The deploy script:
 1. Installs Node.js and Python dependencies
-2. Clones/pulls the repo
+2. Clones/pulls the repo (without fetching the **TradingAgents** submodule unless you opt in; see below)
 3. Builds the frontend
 4. Starts uvicorn on port 8080
 
-That updates **Equilima only** (this repo). It does **not** update the AI agent.
-
-### AI research agent (home-linux or other host)
-
-The chat UI calls FastAPI, which **proxies** to a separate HTTP service (`POST /chat` and `POST /quick`, `GET /health`). In code the default base URL is `http://localhost:8888`. That service is **not** part of this repository — it is typically a clone of something like [TradingAgents](https://github.com/TauricResearch/TradingAgents) plus your own runner (Ollama, env keys, etc.).
-
-**Finding it on `home-linux`:** SSH in and search for what listens on 8888 or for your agent repo, for example:
+**TradingAgents submodule:** the agent stack lives in this repo (`agent_api.py`, `requirements-agent.txt`, `TradingAgents/` as a [git submodule](https://github.com/TauricResearch/TradingAgents), `scripts/setup-agent-venv.sh`). Production web boxes do **not** need it. To have `deploy.sh` run `git submodule update --init --recursive` on a host, add to `~/.equilima_env`:
 
 ```bash
-ss -tlnp | grep 8888
-# or
-sudo lsof -i :8888
-pgrep -af python | grep -i agent
-ls ~ ~/projects ~/src 2>/dev/null
+export EQUILIMA_PULL_AGENT_SUBMODULE=1
 ```
 
-**Updating it:** whatever directory holds that agent — usually `git pull` (or your branch), reinstall deps if `requirements.txt` / lockfile changed, then **restart the process** (systemd unit, Docker compose, `tmux`, `screen`, or whatever you use). Pull alone does nothing until the server reloads.
+Use that on the machine where you actually run the sidecar (for example **home-linux**), not on a minimal EC2 web-only install.
 
-**Pointing Equilima at it:** on the machine that runs `uvicorn`, set the base URL (no trailing slash):
+### AI research agent (intended: **home-linux** only)
+
+The chat UI calls the main FastAPI app, which **proxies** to a separate HTTP service (`POST /chat`, `POST /quick`, `GET /health`). The default base URL is `http://localhost:8888`. You do **not** need Ollama, `agent_env/`, or the submodule on every dev machine—only on the host that runs the sidecar.
+
+**What lives in git:** `agent_api.py` (repo root), `requirements-agent.txt`, and **`TradingAgents/`** as a submodule. **`agent_env/`** is gitignored; create it only on the agent host.
+
+**One-time setup on home-linux** (same Equilima clone you use for the agent):
+
+```bash
+cd ~/equilima   # or your clone path
+git pull origin main
+git submodule update --init --recursive
+bash scripts/setup-agent-venv.sh   # creates agent_env, installs deps + editable TradingAgents
+# Install/run Ollama on this host only; pull models as needed.
+source agent_env/bin/activate
+python agent_api.py   # default 0.0.0.0:8888 — use screen/systemd if you want it always on
+```
+
+After `git pull`, run `git submodule update --init --recursive` when the submodule pointer changed, then reinstall if `requirements-agent.txt` or TradingAgents changed, and **restart** `agent_api.py`.
+
+**Pointing the main app at the sidecar:** on the machine that runs **uvicorn** for Equilima, set the base URL (no trailing slash):
 
 ```bash
 export EQUILIMA_AGENT_URL=http://127.0.0.1:8888   # same host
-# or the URL exposed by an SSH reverse tunnel / LAN IP
+# or LAN / tunnel URL if the agent runs on home-linux and the app elsewhere
 ```
 
-Put that in `~/.equilima_env` on the server if you use `deploy.sh`, or your process manager env.
+Put that in `~/.equilima_env` on the app server if you use `deploy.sh`, or in your process manager env.
 
-This repo includes **`agent_api.py`** at the repo root: a small FastAPI service that listens on **8888** by default, implements `/chat`, `/quick`, and `/health`, and expects a sibling **`TradingAgents/`** directory (clone [TradingAgents](https://github.com/TauricResearch/TradingAgents) next to it). Install sidecar deps with `pip install -r requirements-agent.txt` inside a venv, then `python agent_api.py`. Optional env: `EQUILIMA_AGENT_PORT`, `EQUILIMA_OLLAMA_MODEL`, `TRADING_AGENTS_PATH`, `OLLAMA_OPENAI_BASE`.
+**Sidecar env (examples):** `EQUILIMA_AGENT_PORT`, `EQUILIMA_OLLAMA_MODEL`, `TRADING_AGENTS_PATH`, `OLLAMA_OPENAI_BASE`.
 
 For HTTPS, install [Caddy](https://caddyserver.com):
 
@@ -234,6 +247,11 @@ equilima/
 │               ├── AiInsightPanel.jsx
 │               ├── WatchlistSidebar.jsx
 │               └── TerminalContext.jsx
+├── agent_api.py               # FastAPI sidecar for research chat (TradingAgents + Ollama)
+├── requirements-agent.txt     # Deps for agent_api.py (use with venv; not backend/requirements.txt)
+├── TradingAgents/             # Git submodule — init only on hosts that run the agent
+├── scripts/
+│   └── setup-agent-venv.sh    # Submodule + agent_env + pip install (run on agent host)
 ├── deploy.sh                  # One-command deployment
 ├── autodeploy.py              # GitHub webhook auto-deploy
 └── README.md

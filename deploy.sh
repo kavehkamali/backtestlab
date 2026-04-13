@@ -1,6 +1,10 @@
 #!/bin/bash
 # Deploy script — runs on the AWS box
 # Usage: ssh aws-jump 'bash -s' < deploy.sh
+#
+# TradingAgents is a git submodule. Web hosts usually do not need it.
+# On a machine that runs agent_api.py (e.g. home-linux), set in ~/.equilima_env:
+#   export EQUILIMA_PULL_AGENT_SUBMODULE=1
 
 set -e
 
@@ -8,6 +12,10 @@ APP_DIR="$HOME/equilima"
 REPO="https://github.com/kavehkamali/equilima.git"
 
 echo "=== Equilima Deploy ==="
+
+load_env() {
+  [ -f "$HOME/.equilima_env" ] && source "$HOME/.equilima_env"
+}
 
 # Install system deps if needed
 if ! command -v node &>/dev/null; then
@@ -24,11 +32,18 @@ fi
 if [ -d "$APP_DIR" ]; then
     echo "[2/5] Pulling latest code..."
     cd "$APP_DIR"
+    load_env
     git pull origin main
 else
     echo "[2/5] Cloning repo..."
     git clone "$REPO" "$APP_DIR"
     cd "$APP_DIR"
+    load_env
+fi
+
+if [ "${EQUILIMA_PULL_AGENT_SUBMODULE:-0}" = "1" ]; then
+    echo "[2b/5] Git submodules (EQUILIMA_PULL_AGENT_SUBMODULE=1)..."
+    git submodule update --init --recursive
 fi
 
 # Install Python deps
@@ -47,8 +62,7 @@ echo "[5/5] Starting server..."
 pkill -f "uvicorn app.main" 2>/dev/null || true
 sleep 1
 
-# Load environment variables if they exist
-[ -f ~/.equilima_env ] && source ~/.equilima_env
+load_env
 
 # Start server
 cd backend
