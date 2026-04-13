@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { fetchCrypto, fetchNews } from '../api';
+import { buildOverviewHeroChartRows, formatHeroXTick } from '../utils/marketHeroChart';
 
 const PERIODS = [
   { id: '1D', label: '1D', key: null },
@@ -18,7 +19,7 @@ const PERIODS = [
 
 const PERIOD_DAYS = {
   null: 2,
-  '1W': 7,
+  '1W': 5,
   '1M': 30,
   '3M': 90,
   '6M': 180,
@@ -36,11 +37,17 @@ function sliceSparkline(data, periodKey) {
   return data.slice(-n);
 }
 
-function HeroTooltip({ active, payload }) {
+function CryptoHeroTooltip({ active, payload, periodKey }) {
   if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  const v = row?.price ?? payload[0]?.value;
+  const when = row?.ts != null ? formatHeroXTick(periodKey, row.ts) : '';
+  const n = Number(v);
+  const priceStr = Number.isFinite(n) ? `$${n.toLocaleString(undefined, { maximumFractionDigits: n < 1 ? 6 : 2 })}` : '—';
   return (
-    <div className="bg-white rounded-lg px-3 py-1.5 text-[10px] shadow-md ring-1 ring-zinc-200/80">
-      <span className="text-zinc-900 font-medium">${payload[0]?.value?.toLocaleString()}</span>
+    <div className="bg-white rounded-lg px-3 py-1.5 text-[10px] shadow-md ring-1 ring-zinc-200/80 dark:bg-zinc-800 dark:ring-zinc-600">
+      {when && <div className="text-zinc-500 dark:text-zinc-400 mb-0.5">{when}</div>}
+      <span className="text-zinc-900 font-medium dark:text-zinc-100">{priceStr}</span>
     </div>
   );
 }
@@ -200,8 +207,8 @@ export default function CryptoPanel({ embedded = false }) {
       {heroItems.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {heroItems.map(({ coin, gradId }) => {
-            const spark = sliceSparkline(coin.sparkline, activePeriodKey);
-            const chartData = spark.map((v, i) => ({ i, price: v }));
+            const { chartData, xTicks } = buildOverviewHeroChartRows(coin, activePeriodKey);
+            if (!chartData.length) return null;
             const change = getCryptoChange(coin, activePeriodKey);
             const up = change != null && change >= 0;
             return (
@@ -220,7 +227,7 @@ export default function CryptoPanel({ embedded = false }) {
                   </div>
                 </div>
                 <ResponsiveContainer width="100%" height={200}>
-                  <AreaChart data={chartData} margin={{ top: 4, right: 2, left: 4, bottom: 4 }}>
+                  <AreaChart data={chartData} margin={{ top: 4, right: 2, left: 4, bottom: 8 }}>
                     <defs>
                       <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={up ? '#22c55e' : '#ef4444'} stopOpacity={0.12} />
@@ -229,14 +236,15 @@ export default function CryptoPanel({ embedded = false }) {
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
                     <XAxis
-                      dataKey="i"
+                      dataKey="ts"
                       type="number"
                       domain={['dataMin', 'dataMax']}
-                      tickCount={4}
+                      ticks={xTicks}
+                      tickFormatter={(t) => formatHeroXTick(activePeriodKey, t)}
                       tick={{ fontSize: 9, fill: '#71717a' }}
                       tickLine={false}
                       axisLine={{ stroke: '#d4d4d8' }}
-                      tickFormatter={(x) => Math.round(Number(x))}
+                      minTickGap={12}
                     />
                     <YAxis
                       domain={['auto', 'auto']}
@@ -247,7 +255,7 @@ export default function CryptoPanel({ embedded = false }) {
                       axisLine={false}
                       tickFormatter={formatHeroAxisY}
                     />
-                    <Tooltip content={<HeroTooltip />} />
+                    <Tooltip content={<CryptoHeroTooltip periodKey={activePeriodKey} />} />
                     <Area type="monotone" dataKey="price" stroke={up ? '#16a34a' : '#dc2626'} fill={`url(#${gradId})`} strokeWidth={2} dot={false} />
                   </AreaChart>
                 </ResponsiveContainer>

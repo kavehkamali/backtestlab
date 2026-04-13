@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { fetchMarketOverview, fetchNews } from '../api';
 import CryptoPanel from './CryptoPanel';
+import { buildOverviewHeroChartRows, formatHeroXTick } from '../utils/marketHeroChart';
 
 const PERIODS = [
   { id: '1D', label: '1D', key: null },
@@ -47,22 +48,31 @@ function sliceSparkline(data, periodKey) {
   return data.slice(-n);
 }
 
-function HeroTooltip({ active, payload }) {
+function HeroTooltip({ active, payload, periodKey }) {
   if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  const v = row?.price ?? payload[0]?.value;
+  const when = row?.ts != null ? formatHeroXTick(periodKey, row.ts) : '';
+  const n = Number(v);
+  const priceStr = Number.isFinite(n) ? `$${n.toLocaleString()}` : '—';
   return (
     <div className="bg-white rounded-lg px-3 py-1.5 text-[10px] shadow-md ring-1 ring-zinc-200/80 dark:bg-zinc-800 dark:ring-zinc-600">
-      <span className="text-zinc-900 font-medium dark:text-zinc-100">${payload[0]?.value?.toLocaleString()}</span>
+      {when && <div className="text-zinc-500 dark:text-zinc-400 mb-0.5">{when}</div>}
+      <span className="text-zinc-900 font-medium dark:text-zinc-100">{priceStr}</span>
     </div>
   );
 }
 
-function QuoteHeroTooltip({ active, payload, decimals }) {
+function QuoteHeroTooltip({ active, payload, decimals, periodKey }) {
   if (!active || !payload?.length) return null;
-  const raw = payload[0]?.value;
+  const row = payload[0]?.payload;
+  const raw = row?.price ?? payload[0]?.value;
   const n = Number(raw);
   const s = Number.isFinite(n) ? n.toFixed(decimals) : '—';
+  const when = row?.ts != null ? formatHeroXTick(periodKey, row.ts) : '';
   return (
     <div className="bg-white rounded-lg px-3 py-1.5 text-[10px] shadow-md ring-1 ring-zinc-200/80 dark:bg-zinc-800 dark:ring-zinc-600">
+      {when && <div className="text-zinc-500 dark:text-zinc-400 mb-0.5">{when}</div>}
       <span className="text-zinc-900 font-medium dark:text-zinc-100">{s}</span>
     </div>
   );
@@ -360,8 +370,8 @@ function OverviewHeroRow({ specs, seriesList, activePeriodKey, useQuoteTooltip }
       {specs.map((h) => {
         const item = seriesList.find((i) => i.symbol === h.symbol);
         if (!item) return null;
-        const spark = sliceSparkline(pickSparkline(item, activePeriodKey), activePeriodKey);
-        const chartData = spark.map((v, i) => ({ i, price: v }));
+        const { chartData, xTicks } = buildOverviewHeroChartRows(item, activePeriodKey);
+        if (!chartData.length) return null;
         const change = getChange(item, activePeriodKey);
         const up = change != null && change >= 0;
         const dec = heroTooltipDecimals(item);
@@ -377,7 +387,7 @@ function OverviewHeroRow({ specs, seriesList, activePeriodKey, useQuoteTooltip }
               </div>
             </div>
             <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={chartData} margin={{ top: 4, right: 2, left: 4, bottom: 4 }}>
+              <AreaChart data={chartData} margin={{ top: 4, right: 2, left: 4, bottom: 8 }}>
                 <defs>
                   <linearGradient id={h.gradId} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={up ? '#22c55e' : '#ef4444'} stopOpacity={0.12} />
@@ -386,14 +396,15 @@ function OverviewHeroRow({ specs, seriesList, activePeriodKey, useQuoteTooltip }
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} className="dark:stroke-zinc-700" />
                 <XAxis
-                  dataKey="i"
+                  dataKey="ts"
                   type="number"
                   domain={['dataMin', 'dataMax']}
-                  tickCount={4}
+                  ticks={xTicks}
+                  tickFormatter={(t) => formatHeroXTick(activePeriodKey, t)}
                   tick={{ fontSize: 9, fill: '#71717a' }}
                   tickLine={false}
                   axisLine={{ stroke: '#d4d4d8' }}
-                  tickFormatter={(x) => Math.round(Number(x))}
+                  minTickGap={12}
                 />
                 <YAxis
                   domain={['auto', 'auto']}
@@ -407,9 +418,9 @@ function OverviewHeroRow({ specs, seriesList, activePeriodKey, useQuoteTooltip }
                 <Tooltip
                   content={
                     useQuoteTooltip ? (
-                      <QuoteHeroTooltip decimals={dec} />
+                      <QuoteHeroTooltip decimals={dec} periodKey={activePeriodKey} />
                     ) : (
-                      <HeroTooltip />
+                      <HeroTooltip periodKey={activePeriodKey} />
                     )
                   }
                 />

@@ -3,6 +3,7 @@ import { Loader2, Search, ExternalLink, Clock, TrendingUp, TrendingDown } from '
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, ComposedChart, Line, PieChart, Pie } from 'recharts';
 import { fetchResearch } from '../api';
 import SnowflakeChart from './SnowflakeChart';
+import { buildResearchPriceChartRows, formatResearchPriceXTick } from '../utils/marketHeroChart';
 import TerminalPanel from './terminal/TerminalPanel';
 import ComparePanel from './ComparePanel';
 
@@ -63,6 +64,21 @@ function ChartTooltip({ active, payload, label }) {
     <div className="bg-white ring-1 ring-zinc-200/80 rounded-lg px-3 py-2 text-[10px]">
       <p className="text-zinc-500 mb-1">{label}</p>
       {payload.map((p, i) => <p key={i} style={{ color: p.color }}>{p.name}: {typeof p.value === 'number' ? fmtLarge(p.value) : p.value}</p>)}
+    </div>
+  );
+}
+
+function PriceHistoryTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  const d = row?.date || row?.label;
+  const c = row?.close;
+  return (
+    <div className="bg-white ring-1 ring-zinc-200/80 rounded-lg px-3 py-2 text-[10px] dark:bg-zinc-800 dark:ring-zinc-600">
+      <p className="text-zinc-500 mb-1 dark:text-zinc-400">{d}</p>
+      <p className="text-zinc-900 font-medium dark:text-zinc-100">
+        Close: {typeof c === 'number' ? `$${c.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : c}
+      </p>
     </div>
   );
 }
@@ -173,8 +189,7 @@ function SummaryTab({ data }) {
   const rc = data.revenue_chart || [];
   const rm = data.risk_metrics || {};
   const chart = data.chart || [];
-  const step = Math.max(1, Math.floor(chart.length / 300));
-  const chartData = chart.filter((_, i) => i % step === 0 || i === chart.length - 1);
+  const { chartData: priceChartRows, xTicks: priceXTicks } = buildResearchPriceChartRows(chart, 300);
 
   return (
     <div className="space-y-5">
@@ -230,15 +245,25 @@ function SummaryTab({ data }) {
       </Card>
 
       {/* Price Chart */}
-      {chartData.length > 0 && (
+      {priceChartRows.length > 0 && (
         <Card title="Price History (2Y)">
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={chartData}>
+            <AreaChart data={priceChartRows} margin={{ top: 4, right: 8, left: 4, bottom: 8 }}>
               <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6366f1" stopOpacity={0.2} /><stop offset="100%" stopColor="#6366f1" stopOpacity={0} /></linearGradient></defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" />
-              <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#444' }} interval="preserveStartEnd" />
+              <XAxis
+                dataKey="ts"
+                type="number"
+                domain={['dataMin', 'dataMax']}
+                ticks={priceXTicks}
+                tickFormatter={(t) => formatResearchPriceXTick(t)}
+                tick={{ fontSize: 9, fill: '#444' }}
+                tickLine={false}
+                axisLine={{ stroke: '#d4d4d8' }}
+                minTickGap={14}
+              />
               <YAxis tick={{ fontSize: 9, fill: '#444' }} domain={['auto', 'auto']} tickFormatter={v => `$${v}`} width={50} />
-              <Tooltip content={<ChartTooltip />} />
+              <Tooltip content={<PriceHistoryTooltip />} />
               <Area type="monotone" dataKey="close" stroke="#6366f1" fill="url(#rg)" strokeWidth={1.5} name="Close" />
             </AreaChart>
           </ResponsiveContainer>

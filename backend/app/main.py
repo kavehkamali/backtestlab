@@ -784,32 +784,49 @@ def _market_overview_compute():
                     elif len(close) > days:
                         changes[label] = round((price / float(close.iloc[-days - 1]) - 1) * 100, 2)
 
-                # Daily sparkline (frontend slices by period)
+                # Daily sparkline (frontend slices by period) + aligned calendar dates
                 spark = [round(float(v), 2) for v in close.tolist()]
+                spark_dates = [
+                    (idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)[:10])
+                    for idx in df.index
+                ]
 
-                # 1D intraday sparkline (15m closes)
+                # 1D intraday sparkline (15m closes) + timestamps for axis
                 spark_1d = None
+                spark_1d_dates = None
                 try:
                     intraday = fetch_price_cached(symbol, period="1d", interval="15m")
                     if len(intraday) > 1:
                         spark_1d = [round(float(v), 2) for v in intraday["close"].tolist()]
+                        spark_1d_dates = [
+                            (ix.strftime("%Y-%m-%dT%H:%M") if hasattr(ix, "strftime") else str(ix)[:16])
+                            for ix in intraday.index
+                        ]
                 except Exception:
                     spark_1d = None
+                    spark_1d_dates = None
 
-                # 1W open+close per day (alternating points: open, close, ...)
+                # 1W open+close per day (alternating points: open, close, ...) + labels
                 spark_1w = None
+                spark_1w_dates = None
                 try:
                     tail = df.tail(5)
                     if len(tail) > 0:
                         oc = []
-                        for _, row in tail.iterrows():
+                        ocd = []
+                        for ts, row in tail.iterrows():
+                            ds = ts.strftime("%Y-%m-%d") if hasattr(ts, "strftime") else str(ts)[:10]
                             oc.append(round(float(row["open"]), 2))
                             oc.append(round(float(row["close"]), 2))
+                            ocd.append(f"{ds} open")
+                            ocd.append(f"{ds} close")
                         spark_1w = oc
+                        spark_1w_dates = ocd
                 except Exception:
                     spark_1w = None
+                    spark_1w_dates = None
 
-                cat_data.append({
+                row_out = {
                     "name": name,
                     "symbol": symbol,
                     "price": round(price, 2),
@@ -818,7 +835,13 @@ def _market_overview_compute():
                     "sparkline": spark,
                     "sparkline_1d": spark_1d,
                     "sparkline_1w": spark_1w,
-                })
+                    "sparkline_dates": spark_dates,
+                }
+                if spark_1d_dates is not None:
+                    row_out["sparkline_1d_dates"] = spark_1d_dates
+                if spark_1w_dates is not None:
+                    row_out["sparkline_1w_dates"] = spark_1w_dates
+                cat_data.append(row_out)
             except Exception:
                 continue
 
@@ -886,6 +909,10 @@ def _crypto_compute():
 
             # Full history sparkline (frontend slices by period, same as market overview)
             spark = [round(float(v), 2) for v in close.tolist()]
+            spark_dates = [
+                (ix.strftime("%Y-%m-%d") if hasattr(ix, "strftime") else str(ix)[:10])
+                for ix in df.index
+            ]
 
             results.append({
                 "name": name,
@@ -896,6 +923,7 @@ def _crypto_compute():
                 "market_cap": mcap,
                 "volume_24h": round(vol_24h, 0) if vol_24h else None,
                 "sparkline": spark,
+                "sparkline_dates": spark_dates,
             })
         except Exception:
             continue
