@@ -516,6 +516,29 @@ def _fmt_reason(label, value, suffix=""):
     return f"{label}: {value}{suffix}"
 
 
+def _price_sparkline(close, points=36):
+    try:
+        vals = [round(float(v), 2) for v in close.dropna().tail(points).tolist()]
+        return vals if len(vals) >= 6 else []
+    except Exception:
+        return []
+
+
+def _consensus_from_fund(fund):
+    key = fund.get("recommendation_key")
+    mean = fund.get("recommendation_mean")
+    analysts = fund.get("number_of_analyst_opinions")
+    target = fund.get("target_mean_price")
+    if not any(v is not None for v in [key, mean, analysts, target]):
+        return None
+    return {
+        "rating": key.replace("_", " ").title() if isinstance(key, str) and key else None,
+        "mean": round(float(mean), 2) if mean is not None else None,
+        "analysts": int(analysts) if analysts is not None else None,
+        "target": round(float(target), 2) if target is not None else None,
+    }
+
+
 def _pick_category(symbol, fund, scores, low_cap_symbols=None):
     low_cap_symbols = low_cap_symbols or set()
     market_cap = fund.get("market_cap") or 0
@@ -703,6 +726,8 @@ def _score_pick(symbol, df, fund, market_context=None, low_cap_symbols=None):
         "earnings_growth": fund.get("earnings_growth"),
         "return_on_equity": fund.get("return_on_equity"),
         "reasons": reasons,
+        "sparkline": _price_sparkline(close),
+        "consensus": _consensus_from_fund(fund),
     }
 
 
@@ -1238,6 +1263,7 @@ def _reddit_picks_compute():
             "examples": row["examples"],
         })
     ranked.sort(key=lambda x: x["buzz_score"], reverse=True)
+    ranked = _enrich_reddit_market_data(ranked[:30])
     ranked, agent_reviewed = _agent_select_reddit_picks(ranked[:30])
     return _sanitize({
         "as_of": pd.Timestamp.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
@@ -1248,6 +1274,36 @@ def _reddit_picks_compute():
         "method": "Builds a Reddit buzz candidate pool from mentions, recommendation language, engagement, and subreddit breadth; the same home LLM agent selects the final displayed Reddit ideas from that pool.",
         "disclaimer": "Reddit buzz is social discussion, not investment advice. Verify fundamentals, catalysts, liquidity, and risk before trading.",
     })
+
+
+def _enrich_reddit_market_data(items):
+    try:
+        from concurrent.futures import ThreadPoolExecutor
+        from .cache import batch_fetch_prices, fetch_fundamentals_cached
+        symbols = [item["symbol"] for item in items if item.get("symbol")]
+        prices = batch_fetch_prices(symbols, period="6mo")
+        funds = {}
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futures = {pool.submit(fetch_fundamentals_cached, s): s for s in symbols}
+            for fut, sym in [(f, futures[f]) for f in futures]:
+                try:
+                    funds[sym] = fut.result(timeout=10)
+                except Exception:
+                    funds[sym] = {}
+        for item in items:
+            sym = item.get("symbol")
+            df = prices.get(sym)
+            if df is not None and len(df):
+                item["sparkline"] = _price_sparkline(df["close"])
+            fund = funds.get(sym, {})
+            item["consensus"] = _consensus_from_fund(fund)
+            if fund.get("market_cap"):
+                item["market_cap"] = fund.get("market_cap")
+            if fund.get("sector"):
+                item["sector"] = fund.get("sector")
+    except Exception as e:
+        print(f"[reddit-picks] Market enrichment failed: {e}")
+    return items
 
 
 def _agent_select_reddit_picks(items):

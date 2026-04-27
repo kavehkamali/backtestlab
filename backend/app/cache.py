@@ -124,6 +124,10 @@ def fetch_fundamentals_cached(symbol: str) -> dict:
             "fifty_two_week_high": info.get("fiftyTwoWeekHigh"),
             "fifty_two_week_low": info.get("fiftyTwoWeekLow"),
             "avg_volume": info.get("averageVolume"),
+            "recommendation_key": info.get("recommendationKey"),
+            "recommendation_mean": info.get("recommendationMean"),
+            "number_of_analyst_opinions": info.get("numberOfAnalystOpinions"),
+            "target_mean_price": info.get("targetMeanPrice"),
         }
         set_cached_fundamentals(symbol, data)
         return data

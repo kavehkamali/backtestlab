@@ -25,9 +25,26 @@ function fmtCap(v) {
   return `$${v}`;
 }
 
-function metric(v, suffix = '') {
-  if (v === null || v === undefined || Number.isNaN(Number(v))) return '—';
-  return `${Number(v).toFixed(1)}${suffix}`;
+function Sparkline({ values, color = '#2563eb' }) {
+  if (!Array.isArray(values) || values.length < 2) {
+    return <div className="h-10 rounded bg-zinc-50 dark:bg-zinc-950/30" />;
+  }
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const points = values.map((v, i) => `${(i / (values.length - 1)) * 100},${34 - ((v - min) / span) * 28 - 3}`).join(' ');
+  const up = values[values.length - 1] >= values[0];
+  return (
+    <svg viewBox="0 0 100 38" className="h-10 w-full overflow-visible" preserveAspectRatio="none" aria-hidden="true">
+      <polyline points={points} fill="none" stroke={up ? color : '#dc2626'} strokeWidth="2" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+function Consensus({ consensus }) {
+  if (!consensus) return <span>Consensus —</span>;
+  const parts = [consensus.rating, consensus.target ? `$${consensus.target}` : null, consensus.analysts ? `${consensus.analysts} analysts` : null].filter(Boolean);
+  return <span>{parts.join(' · ') || 'Consensus —'}</span>;
 }
 
 function PickCard({ pick, rank, onOpenTicker }) {
@@ -53,21 +70,15 @@ function PickCard({ pick, rank, onOpenTicker }) {
           </div>
         </div>
       </div>
-      <div className="mt-2 grid grid-cols-3 gap-1 text-[10px] text-zinc-600 dark:text-zinc-400">
-        <span>Q {metric(pick.scores?.quality)}</span>
-        <span>{pick.category === 'Low-Cap Short-Term' ? 'ST' : 'M'} {metric(pick.category === 'Low-Cap Short-Term' ? pick.scores?.short_term : pick.scores?.momentum)}</span>
-        <span>V {metric(pick.scores?.value)}</span>
+      <div className="mt-2">
+        <Sparkline values={pick.sparkline} />
       </div>
-      <div className="mt-2 flex flex-wrap gap-1">
-        {(pick.reasons || []).slice(0, 4).map((r) => (
-          <span key={r} className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-            {r}
-          </span>
-        ))}
-      </div>
-      <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-500">
+      <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-zinc-500">
         <span>{pick.sector || '—'}</span>
         <span>{fmtCap(pick.market_cap)}</span>
+      </div>
+      <div className="mt-1 text-[10px] text-zinc-500">
+        <Consensus consensus={pick.consensus} />
       </div>
       {pick.candidate_sources?.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
@@ -117,8 +128,18 @@ function RedditBuzzCard({ item, rank, onOpenTicker }) {
       </button>
       <div className="mt-3 grid grid-cols-3 gap-1 text-[10px] text-zinc-600 dark:text-zinc-400">
         <span>{item.mentions} mentions</span>
-        <span>{item.recommendations} recs</span>
-        <span>{item.engagement} eng</span>
+        <span>{item.recommendations} bullish</span>
+        <span>{item.agent_sentiment || 'mixed'}</span>
+      </div>
+      <div className="mt-2">
+        <Sparkline values={item.sparkline} color="#f97316" />
+      </div>
+      <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-zinc-500">
+        <span>{item.sector || 'Reddit buzz'}</span>
+        <span>{fmtCap(item.market_cap)}</span>
+      </div>
+      <div className="mt-1 text-[10px] text-zinc-500">
+        <Consensus consensus={item.consensus} />
       </div>
       {item.agent_note && (
         <div className="mt-2 rounded bg-orange-50 px-2 py-1.5 text-[10px] leading-4 text-orange-800 ring-1 ring-orange-100 dark:bg-orange-950/30 dark:text-orange-200 dark:ring-orange-900">
