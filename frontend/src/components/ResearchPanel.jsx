@@ -256,16 +256,6 @@ function SummaryTab({ data }) {
         </Card>
       </div>
 
-      {/* Quant Grades */}
-      <Card title="Quant Rating">
-        <div className="flex justify-around">
-          <GradeBadge grade={g.valuation?.grade} label="Valuation" />
-          <GradeBadge grade={g.growth?.grade} label="Growth" />
-          <GradeBadge grade={g.profitability?.grade} label="Profitability" />
-          <GradeBadge grade={g.momentum?.grade} label="Momentum" />
-        </div>
-      </Card>
-
       {/* Price Chart */}
       {priceChartRows.length > 0 && (
         <Card>
@@ -311,22 +301,32 @@ function SummaryTab({ data }) {
         </Card>
       )}
 
-      {/* Revenue / Earnings Chart */}
-      {rc.length > 0 && (
-        <Card title="Revenue & Earnings (Annual)">
-          <ResponsiveContainer width="100%" height={200}>
-            <ComposedChart data={rc}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" />
-              <XAxis dataKey="period" tick={{ fontSize: 9, fill: '#444' }} />
-              <YAxis tick={{ fontSize: 9, fill: '#444' }} tickFormatter={v => fmtLarge(v)} width={60} />
-              <Tooltip content={<ChartTooltip />} />
-              <Bar dataKey="revenue" fill="#6366f140" name="Revenue" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="gross_profit" fill="#22c55e30" name="Gross Profit" radius={[3, 3, 0, 0]} />
-              <Line type="monotone" dataKey="net_income" stroke="#f59e0b" strokeWidth={2} dot={{ fill: '#f59e0b', r: 3 }} name="Net Income" />
-            </ComposedChart>
-          </ResponsiveContainer>
+      {/* Revenue / Earnings + Quant Grades */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {rc.length > 0 && (
+          <Card title="Revenue & Earnings (Annual)">
+            <ResponsiveContainer width="100%" height={200}>
+              <ComposedChart data={rc}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" />
+                <XAxis dataKey="period" tick={{ fontSize: 9, fill: '#444' }} />
+                <YAxis tick={{ fontSize: 9, fill: '#444' }} tickFormatter={v => fmtLarge(v)} width={60} />
+                <Tooltip content={<ChartTooltip />} />
+                <Bar dataKey="revenue" fill="#6366f140" name="Revenue" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="gross_profit" fill="#22c55e30" name="Gross Profit" radius={[3, 3, 0, 0]} />
+                <Line type="monotone" dataKey="net_income" stroke="#f59e0b" strokeWidth={2} dot={{ fill: '#f59e0b', r: 3 }} name="Net Income" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </Card>
+        )}
+        <Card title="Quant Rating">
+          <div className="grid h-full min-h-[200px] grid-cols-2 place-items-center gap-3 sm:grid-cols-4 lg:grid-cols-2">
+            <GradeBadge grade={g.valuation?.grade} label="Valuation" />
+            <GradeBadge grade={g.growth?.grade} label="Growth" />
+            <GradeBadge grade={g.profitability?.grade} label="Profitability" />
+            <GradeBadge grade={g.momentum?.grade} label="Momentum" />
+          </div>
         </Card>
-      )}
+      </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
