@@ -772,6 +772,7 @@ def _agent_review_picks(columns, market_context, per_column=4):
                 "category": col["title"],
                 "name": pick.get("name"),
                 "sector": pick.get("sector"),
+                "candidate_sources": pick.get("candidate_sources", []),
                 "market_cap": pick.get("market_cap"),
                 "scores": pick.get("scores"),
                 "price": pick.get("price"),
@@ -789,7 +790,7 @@ def _agent_review_picks(columns, market_context, per_column=4):
 
     try:
         import httpx
-        all_adjustments = []
+        selections_by_col = {}
         with httpx.Client(timeout=600.0) as client:
             for col in columns:
                 candidates = _candidate_payload(col)
@@ -800,11 +801,10 @@ def _agent_review_picks(columns, market_context, per_column=4):
                     "Review these pre-selection candidates with careful reasoning. Use the supplied fundamentals, technicals, recent headlines, "
                     "and macro context, and use your configured research/news/macro/fundamental capabilities if available. "
                     "Return strict JSON only with this schema: "
-                    "{\"adjustments\":[{\"symbol\":\"AAPL\",\"delta\":0,\"note\":\"short reason\"}]}. "
-                    "Include exactly one adjustment object for every candidate symbol. delta must be an integer from -6 to 6. "
-                    "Use delta 0 when the candidate should stay where it is. Positive deltas require stronger evidence; negative deltas should flag "
-                    "overbought charts, weak fundamentals, bad headlines, macro mismatch, liquidity risk, or volatility risk. "
-                    "These deltas decide which 4 candidates make the final column. Keep each note under 16 words.\n\n"
+                    "{\"selections\":[{\"symbol\":\"AAPL\",\"rank\":1,\"note\":\"why selected\",\"risk\":\"main risk\"}]}. "
+                    "Select exactly 4 symbols from the supplied candidate list, ranked 1 to 4. These are the final displayed picks. "
+                    "Do not include symbols outside the candidate list. Prefer evidence over excitement; penalize overbought charts, weak fundamentals, "
+                    "bad headlines, macro mismatch, liquidity risk, or volatility risk. Keep note and risk under 18 words each.\n\n"
                     f"Macro context: {json.dumps(market_context)}\n"
                     f"Candidates: {json.dumps(candidates)}"
                 )
@@ -817,39 +817,79 @@ def _agent_review_picks(columns, market_context, per_column=4):
                 body = resp.json()
                 raw = body.get("response") or body.get("message") or body.get("content") or ""
                 parsed = _extract_json_object(raw)
-                adjustments = parsed.get("adjustments", []) if isinstance(parsed, dict) else []
-                if not adjustments:
-                    print(f"[picks] Agent review {col['title']} returned no adjustments. Raw: {str(raw)[:500]}")
-                all_adjustments.extend(adjustments)
+                selections = parsed.get("selections", []) if isinstance(parsed, dict) else []
+                if not selections:
+                    print(f"[picks] Agent selection {col['title']} returned no selections. Raw: {str(raw)[:500]}")
+                selections_by_col[col["id"]] = selections
     except Exception as e:
         print(f"[picks] Agent review failed: {e}")
         return columns, False
 
-    by_symbol = {}
-    for adj in all_adjustments:
-        try:
-            symbol = str(adj.get("symbol", "")).strip().upper()
-            delta = int(adj.get("delta", 0))
-            note = str(adj.get("note", "")).strip()
-            if symbol:
-                by_symbol[symbol] = {"delta": max(-6, min(6, delta)), "note": note[:180]}
-        except Exception:
-            continue
-
-    if not by_symbol:
-        print(f"[picks] Agent review returned no usable adjustments")
-        return columns, False
-
+    selected_any = False
     for col in columns:
-        for pick in col.get("picks", []):
-            adj = by_symbol.get(pick["symbol"].upper())
-            if not adj:
+        picks_by_symbol = {p["symbol"].upper(): p for p in col.get("picks", [])}
+        selected = []
+        seen = set()
+        for sel in selections_by_col.get(col["id"], []):
+            try:
+                symbol = str(sel.get("symbol", "")).strip().upper()
+                if symbol in seen or symbol not in picks_by_symbol:
+                    continue
+                pick = picks_by_symbol[symbol]
+                pick["agent_selected"] = True
+                pick["agent_note"] = str(sel.get("note", "")).strip()[:180]
+                pick["agent_risk"] = str(sel.get("risk", "")).strip()[:180]
+                pick["agent_rank"] = int(sel.get("rank", len(selected) + 1))
+                selected.append(pick)
+                seen.add(symbol)
+            except Exception:
                 continue
-            pick["agent_delta"] = adj["delta"]
-            pick["agent_note"] = adj["note"]
-            pick["scores"]["overall"] = round(max(0, min(100, pick["scores"]["overall"] + adj["delta"])), 1)
-        col["picks"].sort(key=lambda x: x["scores"]["overall"], reverse=True)
-    return columns, True
+        if selected:
+            selected_any = True
+            fallback = [p for p in col.get("picks", []) if p["symbol"].upper() not in seen]
+            col["picks"] = selected + fallback
+    if not selected_any:
+        print("[picks] Agent returned no usable selections")
+    return columns, selected_any
+
+
+def _collect_news_candidate_symbols(limit=40):
+    import re
+    try:
+        import yfinance as yf
+        from .stock_lists import SP500, MID_CAPS, SMALL_CAPS, TSX60
+        valid_symbols = {s.upper() for s in SP500 + MID_CAPS + SMALL_CAPS + TSX60}
+        common = REDDIT_COMMON_WORDS if "REDDIT_COMMON_WORDS" in globals() else set()
+        seeds = ["SPY", "QQQ", "DIA", "IWM", "NVDA", "TSLA", "AAPL", "MSFT", "AMZN", "META", "AMD", "PLTR", "SMCI"]
+        counts = {}
+        for seed in seeds:
+            try:
+                for item in (yf.Ticker(seed).news or [])[:12]:
+                    content = item.get("content", {}) if isinstance(item, dict) else {}
+                    title = content.get("title") or item.get("title") or ""
+                    summary = content.get("summary") or item.get("summary") or ""
+                    text = f"{title} {summary}"
+                    for raw in re.findall(r"(?<![A-Za-z0-9])\$?([A-Z][A-Z0-9.-]{1,7})(?![A-Za-z0-9])", text):
+                        sym = raw.replace("-", ".").upper().strip(".")
+                        if sym in valid_symbols and sym not in common:
+                            counts[sym] = counts.get(sym, 0) + 1
+            except Exception:
+                continue
+        return [s for s, _ in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:limit]]
+    except Exception:
+        return []
+
+
+def _collect_reddit_candidate_symbols(limit=40):
+    try:
+        reddit = get_cached_any(REDDIT_PICKS_KEY)
+        if reddit is None or is_stale(REDDIT_PICKS_KEY, REDDIT_PICKS_TTL):
+            reddit = _reddit_picks_compute()
+            set_cached(REDDIT_PICKS_KEY, reddit)
+        return [item["symbol"] for item in (reddit.get("items") or [])[:limit] if item.get("symbol")]
+    except Exception as e:
+        print(f"[picks] Reddit candidate collection failed: {e}")
+        return []
 
 
 PICKS_TTL = 24 * 60 * 60
@@ -857,7 +897,7 @@ PICKS_DEFAULT_CANDIDATES = 340
 
 
 def _picks_cache_key(max_candidates=PICKS_DEFAULT_CANDIDATES):
-    return f"ai_picks_v7_{int(max_candidates or PICKS_DEFAULT_CANDIDATES)}"
+    return f"ai_picks_v8_{int(max_candidates or PICKS_DEFAULT_CANDIDATES)}"
 
 
 def _refresh_picks_cache_background(max_candidates=PICKS_DEFAULT_CANDIDATES, force=False):
@@ -899,8 +939,10 @@ def _ai_picks_compute(max_candidates=260):
     from .cache import batch_fetch_prices, fetch_fundamentals_cached
 
     limit = max(80, min(int(max_candidates or 260), 340))
+    reddit_symbols = _collect_reddit_candidate_symbols(45)
+    news_symbols = _collect_news_candidate_symbols(45)
     # Keep each market-cap/country sleeve represented before applying the total cap.
-    symbols = list(dict.fromkeys(SP500[:120] + MID_CAPS[:55] + SMALL_CAPS[:70] + TSX60[:40]))
+    symbols = list(dict.fromkeys(reddit_symbols + news_symbols + SP500[:120] + MID_CAPS[:55] + SMALL_CAPS[:70] + TSX60[:40]))
     if limit > len(symbols):
         symbols = list(dict.fromkeys(symbols + SP500[120:170] + MID_CAPS[55:80] + SMALL_CAPS[70:] + TSX60[40:55]))
     symbols = symbols[:limit]
@@ -922,6 +964,13 @@ def _ai_picks_compute(max_candidates=260):
         try:
             item = _score_pick(sym, prices.get(sym), funds.get(sym, {}), market_context, low_cap_symbols)
             if item and item["scores"]["overall"] >= 45:
+                item["candidate_sources"] = []
+                if sym in reddit_symbols:
+                    item["candidate_sources"].append("Reddit buzz")
+                if sym in news_symbols:
+                    item["candidate_sources"].append("News buzz")
+                if not item["candidate_sources"]:
+                    item["candidate_sources"].append("Fundamental/technical screen")
                 scored.append(item)
         except Exception:
             continue
@@ -959,7 +1008,8 @@ def _ai_picks_compute(max_candidates=260):
         "model": os.getenv("EQUILIMA_AGENT_URL", "http://localhost:8888"),
         "market_context": market_context,
         "agent_reviewed": agent_reviewed,
-        "method": "Deterministic first-pass ranking over cached fundamentals, technicals, recent headlines, and macro context; the same home LLM agent service used by tab 1 reviews the broader pre-selection pool before final picks are selected.",
+        "method": "Candidate pools combine Reddit/social buzz, market-news buzz, fundamentals, technicals, headlines, and macro context; the same home LLM agent service used by tab 1 selects the final displayed picks from each pool.",
+        "candidate_sources": {"reddit": len(reddit_symbols), "news": len(news_symbols), "fundamental_technical": len(symbols)},
         "columns": buckets,
         "ai_summary": "",
         "disclaimer": "Research shortlist only. Not investment advice. Verify news, filings, liquidity, and your risk constraints before trading.",
@@ -967,7 +1017,7 @@ def _ai_picks_compute(max_candidates=260):
 
 
 REDDIT_PICKS_TTL = 6 * 60 * 60
-REDDIT_PICKS_KEY = "reddit_picks_v1"
+REDDIT_PICKS_KEY = "reddit_picks_v2"
 REDDIT_SUBREDDITS = ["wallstreetbets", "stocks", "investing", "StockMarket", "pennystocks", "ValueInvesting", "options", "smallstreetbets"]
 REDDIT_COMMON_WORDS = {
     "A", "AI", "ALL", "ARE", "ATH", "BE", "BIG", "BUY", "CALL", "CAN", "CEO", "CFO", "DD", "DO", "EPS", "ETF",
@@ -1123,19 +1173,19 @@ def _reddit_picks_compute():
             "examples": row["examples"],
         })
     ranked.sort(key=lambda x: x["buzz_score"], reverse=True)
-    ranked, agent_reviewed = _agent_review_reddit_picks(ranked[:24])
+    ranked, agent_reviewed = _agent_select_reddit_picks(ranked[:30])
     return _sanitize({
         "as_of": pd.Timestamp.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
         "source": "reddit",
         "subreddits": REDDIT_SUBREDDITS,
         "items": ranked[:30],
         "agent_reviewed": agent_reviewed,
-        "method": "Ranks ticker mentions from public Reddit finance communities, then asks the same home LLM agent to review the leading Reddit candidates for sentiment quality, crowd-risk, and useful context.",
+        "method": "Builds a Reddit buzz candidate pool from mentions, recommendation language, engagement, and subreddit breadth; the same home LLM agent selects the final displayed Reddit ideas from that pool.",
         "disclaimer": "Reddit buzz is social discussion, not investment advice. Verify fundamentals, catalysts, liquidity, and risk before trading.",
     })
 
 
-def _agent_review_reddit_picks(items):
+def _agent_select_reddit_picks(items):
     if not items:
         return items, False
     try:
@@ -1151,13 +1201,13 @@ def _agent_review_reddit_picks(items):
                 "examples": item["examples"][:2],
             })
         prompt = (
-            "You are the Equilima Reddit stock-buzz aggregation agent. Review these Reddit-driven ticker candidates. "
+            "You are the Equilima Reddit stock-buzz selection agent. Select the final displayed Reddit ideas from these candidates. "
             "Use the supplied mention counts, recommendation language counts, engagement, subreddit breadth, and linked examples. "
             "Distinguish broad useful discussion from meme/pump risk. Do not invent facts outside the supplied data. "
             "Return strict JSON only with this schema: "
-            "{\"reviews\":[{\"symbol\":\"AAPL\",\"delta\":0,\"sentiment\":\"bullish|mixed|bearish|hype\",\"note\":\"short reason\",\"risk\":\"short risk\"}]}. "
-            "Include exactly one review object for every symbol. delta must be an integer from -5 to 5 and will adjust the Reddit buzz rank. "
-            "Use positive deltas for broad, recommendation-heavy, high-engagement discussion; negative deltas for low-quality hype, pump-risk, or unclear context. "
+            "{\"selections\":[{\"symbol\":\"AAPL\",\"rank\":1,\"sentiment\":\"bullish|mixed|bearish|hype\",\"note\":\"why selected\",\"risk\":\"short risk\"}]}. "
+            "Select exactly 12 symbols from the supplied candidate list, ranked 1 to 12. These are the final displayed Reddit ideas. "
+            "Do not include symbols outside the candidate list. Prefer broad, recommendation-heavy, high-engagement discussion; penalize low-quality hype, pump-risk, or unclear context. "
             "Keep note and risk under 18 words each.\n\n"
             f"Candidates: {json.dumps(payload)}"
         )
@@ -1171,19 +1221,19 @@ def _agent_review_reddit_picks(items):
             body = resp.json()
             raw = body.get("response") or body.get("message") or body.get("content") or ""
             parsed = _extract_json_object(raw)
-            reviews = parsed.get("reviews", []) if isinstance(parsed, dict) else []
+            selections = parsed.get("selections", []) if isinstance(parsed, dict) else []
     except Exception as e:
         print(f"[reddit-picks] Agent review failed: {e}")
         return items, False
 
     by_symbol = {}
-    for review in reviews:
+    for review in selections:
         try:
             sym = str(review.get("symbol", "")).upper().strip()
             if not sym:
                 continue
             by_symbol[sym] = {
-                "delta": max(-5, min(5, int(review.get("delta", 0)))),
+                "rank": int(review.get("rank", len(by_symbol) + 1)),
                 "sentiment": str(review.get("sentiment", "mixed"))[:20],
                 "note": str(review.get("note", ""))[:180],
                 "risk": str(review.get("risk", ""))[:180],
@@ -1191,20 +1241,26 @@ def _agent_review_reddit_picks(items):
         except Exception:
             continue
     if not by_symbol:
-        print("[reddit-picks] Agent returned no usable reviews")
+        print("[reddit-picks] Agent returned no usable selections")
         return items, False
 
+    selected = []
+    remaining = []
     for item in items:
         review = by_symbol.get(item["symbol"])
-        if not review:
-            continue
-        item["agent_delta"] = review["delta"]
-        item["agent_sentiment"] = review["sentiment"]
-        item["agent_note"] = review["note"]
-        item["agent_risk"] = review["risk"]
-        item["buzz_score"] = round(max(0, item["buzz_score"] + review["delta"] * 3), 1)
-    items.sort(key=lambda x: x["buzz_score"], reverse=True)
-    return items, True
+        if review:
+            item["agent_selected"] = True
+            item["agent_rank"] = review["rank"]
+            item["agent_sentiment"] = review["sentiment"]
+            item["agent_note"] = review["note"]
+            item["agent_risk"] = review["risk"]
+            selected.append(item)
+        else:
+            remaining.append(item)
+    selected.sort(key=lambda x: x.get("agent_rank", 999))
+    if not selected:
+        return items, False
+    return selected + remaining, True
 
 
 @app.post("/api/picks/reddit")

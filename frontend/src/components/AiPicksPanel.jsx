@@ -69,6 +69,15 @@ function PickCard({ pick, rank, onOpenTicker }) {
         <span>{pick.sector || '—'}</span>
         <span>{fmtCap(pick.market_cap)}</span>
       </div>
+      {pick.candidate_sources?.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {pick.candidate_sources.slice(0, 3).map((source) => (
+            <span key={source} className="rounded bg-sky-50 px-1.5 py-0.5 text-[10px] text-sky-700 dark:bg-sky-950/30 dark:text-sky-300">
+              {source}
+            </span>
+          ))}
+        </div>
+      )}
       {pick.news?.length > 0 && (
         <div className="mt-2 border-t border-zinc-100 pt-2 text-[10px] leading-4 text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
           {pick.news[0]}
@@ -76,9 +85,10 @@ function PickCard({ pick, rank, onOpenTicker }) {
       )}
       {pick.agent_note && (
         <div className="mt-2 rounded bg-sky-50 px-2 py-1.5 text-[10px] leading-4 text-sky-800 ring-1 ring-sky-100 dark:bg-sky-950/30 dark:text-sky-200 dark:ring-sky-900">
-          Agent: {pick.agent_note}
+          Agent selected: {pick.agent_note}
         </div>
       )}
+      {pick.agent_risk && <div className="mt-1 text-[10px] leading-4 text-zinc-500">Risk: {pick.agent_risk}</div>}
     </button>
   );
 }
@@ -112,7 +122,7 @@ function RedditBuzzCard({ item, rank, onOpenTicker }) {
       </div>
       {item.agent_note && (
         <div className="mt-2 rounded bg-orange-50 px-2 py-1.5 text-[10px] leading-4 text-orange-800 ring-1 ring-orange-100 dark:bg-orange-950/30 dark:text-orange-200 dark:ring-orange-900">
-          Agent: {item.agent_note}
+          Agent selected: {item.agent_note}
         </div>
       )}
       {item.agent_risk && <div className="mt-1 text-[10px] leading-4 text-zinc-500">Risk: {item.agent_risk}</div>}
@@ -227,7 +237,7 @@ export default function AiPicksPanel({ onOpenTicker }) {
           <Sparkles className="h-4 w-4 text-sky-500" /> Fundamentals, technicals, recent headlines and macro context
         </div>
         <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
-          <ShieldAlert className="h-4 w-4 text-amber-500" /> {data?.agent_reviewed ? 'Pre-selection reviewed by tab-1 agent' : 'Click a ticker for full agent research'}
+          <ShieldAlert className="h-4 w-4 text-amber-500" /> {data?.agent_reviewed ? 'Final picks selected by tab-1 agent' : 'Click a ticker for full agent research'}
         </div>
       </div>}
 
@@ -237,7 +247,7 @@ export default function AiPicksPanel({ onOpenTicker }) {
             <MessageCircle className="h-4 w-4 text-orange-500" /> {redditData?.items?.length || 0} Reddit tickers ranked
           </div>
           <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
-            <Sparkles className="h-4 w-4 text-sky-500" /> {redditData?.agent_reviewed ? 'Aggregated with tab-1 agent review' : 'Mention and engagement based'}
+            <Sparkles className="h-4 w-4 text-sky-500" /> {redditData?.agent_reviewed ? 'Final Reddit ideas selected by tab-1 agent' : 'Mention and engagement based'}
           </div>
           <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
             <ShieldAlert className="h-4 w-4 text-amber-500" /> Social buzz, not recommendations
