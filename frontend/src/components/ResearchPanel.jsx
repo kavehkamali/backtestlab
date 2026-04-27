@@ -50,6 +50,26 @@ function GradeBadge({ grade, label, score }) {
     </div>
   );
 }
+function QuantMetricRow({ grade, label, primary, secondary }) {
+  const colors = {
+    'A': 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
+    'B': 'bg-green-500/15 text-green-600 border-green-500/30',
+    'C': 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30',
+    'D': 'bg-orange-500/15 text-orange-600 border-orange-500/30',
+    'F': 'bg-red-500/15 text-red-600 border-red-500/30',
+  };
+  const cls = colors[grade] || 'bg-zinc-100 text-zinc-500 border-zinc-200';
+  return (
+    <div className="flex min-w-0 items-center gap-2 rounded-lg bg-white/70 px-2.5 py-2 ring-1 ring-zinc-200/70">
+      <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border text-base font-bold ${cls}`}>{grade || '—'}</div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{label}</div>
+        <div className="truncate text-xs font-semibold text-zinc-800">{primary}</div>
+        {secondary && <div className="truncate text-[10px] text-zinc-500">{secondary}</div>}
+      </div>
+    </div>
+  );
+}
 function Card({ title, children }) {
   return (
     <div className="bg-zinc-50/90 shadow-sm ring-1 ring-zinc-200/70 rounded-xl p-4">
@@ -319,11 +339,31 @@ function SummaryTab({ data }) {
           </Card>
         )}
         <Card title="Quant Rating">
-          <div className="grid h-full min-h-[200px] grid-cols-2 place-items-center gap-3 sm:grid-cols-4 lg:grid-cols-2">
-            <GradeBadge grade={g.valuation?.grade} label="Valuation" />
-            <GradeBadge grade={g.growth?.grade} label="Growth" />
-            <GradeBadge grade={g.profitability?.grade} label="Profitability" />
-            <GradeBadge grade={g.momentum?.grade} label="Momentum" />
+          <div className="grid min-h-[200px] content-center gap-2 sm:grid-cols-2">
+            <QuantMetricRow
+              grade={g.valuation?.grade}
+              label="Valuation"
+              primary={`P/E ${fmtNum(s.pe_trailing, 1)} · Fwd ${fmtNum(s.pe_forward, 1)}`}
+              secondary={`P/S ${fmtNum(s.price_to_sales)} · EV/EBITDA ${fmtNum(s.ev_to_ebitda)}`}
+            />
+            <QuantMetricRow
+              grade={g.growth?.grade}
+              label="Growth"
+              primary={`Revenue ${fmtPct(gr.revenue_growth_pct)}`}
+              secondary={`Earnings ${fmtPct(gr.earnings_growth_pct)}`}
+            />
+            <QuantMetricRow
+              grade={g.profitability?.grade}
+              label="Profitability"
+              primary={`Margin ${fmtPct(p.profit_margin_pct)}`}
+              secondary={`ROE ${fmtPct(p.return_on_equity_pct)}`}
+            />
+            <QuantMetricRow
+              grade={g.momentum?.grade}
+              label="Momentum"
+              primary={`1M ${fmtPct(rm.performance?.['1M'])}`}
+              secondary={`3M ${fmtPct(rm.performance?.['3M'])} · 1Y ${fmtPct(rm.performance?.['1Y'])}`}
+            />
           </div>
         </Card>
       </div>
