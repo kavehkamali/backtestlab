@@ -1253,6 +1253,7 @@ def _reddit_picks_compute():
     ranked = []
     for row in mentions.values():
         buzz_score = row["mentions"] * 4 + row["recommendations"] * 5 + _math.log1p(row["engagement"]) * 3 + len(row["subreddits"]) * 2
+        sentiment = "bullish" if row["recommendations"] >= max(2, row["mentions"] // 2) else "mixed"
         ranked.append({
             "symbol": row["symbol"],
             "mentions": row["mentions"],
@@ -1260,6 +1261,7 @@ def _reddit_picks_compute():
             "engagement": int(row["engagement"]),
             "subreddits": sorted(row["subreddits"]),
             "buzz_score": round(buzz_score, 1),
+            "agent_sentiment": sentiment,
             "examples": row["examples"],
         })
     ranked.sort(key=lambda x: x["buzz_score"], reverse=True)
@@ -1393,6 +1395,10 @@ def _agent_select_reddit_picks(items):
             continue
     if not by_symbol:
         print("[reddit-picks] Agent returned no usable selections")
+        for item in items[:12]:
+            item["agent_selected"] = True
+            item["agent_note"] = "Selected from Reddit buzz ranking."
+            item["agent_risk"] = "Verify discussion quality and catalysts."
         return items, False
 
     selected = []
