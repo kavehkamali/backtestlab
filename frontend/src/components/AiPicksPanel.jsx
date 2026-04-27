@@ -25,6 +25,14 @@ function fmtCap(v) {
   return `$${v}`;
 }
 
+function trendStats(values) {
+  if (!Array.isArray(values) || values.length < 2) return null;
+  const first = Number(values[0]);
+  const last = Number(values[values.length - 1]);
+  if (!Number.isFinite(first) || !Number.isFinite(last) || first === 0) return null;
+  return { up: last >= first, pct: ((last / first) - 1) * 100, last };
+}
+
 function Sparkline({ values, color = '#2563eb' }) {
   if (!Array.isArray(values) || values.length < 2) {
     return <div className="h-10 rounded bg-zinc-50 dark:bg-zinc-950/30" />;
@@ -41,10 +49,60 @@ function Sparkline({ values, color = '#2563eb' }) {
   );
 }
 
-function Consensus({ consensus }) {
-  if (!consensus) return <span>Consensus —</span>;
-  const parts = [consensus.rating, consensus.target ? `$${consensus.target}` : null, consensus.analysts ? `${consensus.analysts} analysts` : null].filter(Boolean);
-  return <span>{parts.join(' · ') || 'Consensus —'}</span>;
+function TrendBlock({ values, color = '#2563eb' }) {
+  const trend = trendStats(values);
+  return (
+    <div className="mt-2 rounded-md bg-zinc-50 px-2 py-1.5 ring-1 ring-zinc-100 dark:bg-zinc-950/30 dark:ring-zinc-800">
+      <div className="mb-1 flex items-center justify-between text-[10px]">
+        <span className="font-medium text-zinc-500">Price trend</span>
+        {trend && (
+          <span className={trend.up ? 'font-semibold text-emerald-600 dark:text-emerald-400' : 'font-semibold text-red-600 dark:text-red-400'}>
+            {trend.up ? '+' : ''}{trend.pct.toFixed(1)}%
+          </span>
+        )}
+      </div>
+      <Sparkline values={values} color={color} />
+    </div>
+  );
+}
+
+function ConsensusBadge({ consensus }) {
+  if (!consensus) {
+    return <div className="rounded-md bg-zinc-50 px-2 py-1.5 text-[10px] text-zinc-500 ring-1 ring-zinc-100 dark:bg-zinc-950/30 dark:ring-zinc-800">Consensus unavailable</div>;
+  }
+  const rating = consensus.rating || 'Consensus';
+  const r = rating.toLowerCase();
+  const tone = r.includes('buy')
+    ? 'bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-900'
+    : r.includes('hold')
+      ? 'bg-amber-50 text-amber-700 ring-amber-100 dark:bg-amber-950/30 dark:text-amber-300 dark:ring-amber-900'
+      : 'bg-zinc-50 text-zinc-600 ring-zinc-100 dark:bg-zinc-950/30 dark:text-zinc-300 dark:ring-zinc-800';
+  return (
+    <div className={`rounded-md px-2 py-1.5 ring-1 ${tone}`}>
+      <div className="text-[10px] font-semibold">{rating}</div>
+      <div className="mt-0.5 text-[10px] opacity-80">
+        {consensus.target ? `Target $${consensus.target}` : 'No target'}{consensus.analysts ? ` · ${consensus.analysts} analysts` : ''}
+      </div>
+    </div>
+  );
+}
+
+function SentimentBadge({ sentiment }) {
+  const value = sentiment || 'mixed';
+  const s = value.toLowerCase();
+  const tone = s.includes('bull')
+    ? 'bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-900'
+    : s.includes('bear')
+      ? 'bg-red-50 text-red-700 ring-red-100 dark:bg-red-950/30 dark:text-red-300 dark:ring-red-900'
+      : s.includes('hype')
+        ? 'bg-orange-50 text-orange-700 ring-orange-100 dark:bg-orange-950/30 dark:text-orange-300 dark:ring-orange-900'
+        : 'bg-zinc-50 text-zinc-600 ring-zinc-100 dark:bg-zinc-950/30 dark:text-zinc-300 dark:ring-zinc-800';
+  return (
+    <div className={`rounded-md px-2 py-1.5 ring-1 ${tone}`}>
+      <div className="text-[10px] font-semibold">Reddit sentiment</div>
+      <div className="mt-0.5 text-[10px] capitalize opacity-80">{value}</div>
+    </div>
+  );
 }
 
 function PickCard({ pick, rank, onOpenTicker }) {
@@ -70,15 +128,13 @@ function PickCard({ pick, rank, onOpenTicker }) {
           </div>
         </div>
       </div>
-      <div className="mt-2">
-        <Sparkline values={pick.sparkline} />
-      </div>
+      <TrendBlock values={pick.sparkline} />
       <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-zinc-500">
         <span>{pick.sector || '—'}</span>
         <span>{fmtCap(pick.market_cap)}</span>
       </div>
-      <div className="mt-1 text-[10px] text-zinc-500">
-        <Consensus consensus={pick.consensus} />
+      <div className="mt-2">
+        <ConsensusBadge consensus={pick.consensus} />
       </div>
       {pick.candidate_sources?.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
@@ -89,14 +145,9 @@ function PickCard({ pick, rank, onOpenTicker }) {
           ))}
         </div>
       )}
-      {pick.news?.length > 0 && (
-        <div className="mt-2 border-t border-zinc-100 pt-2 text-[10px] leading-4 text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-          {pick.news[0]}
-        </div>
-      )}
       {pick.agent_note && (
         <div className="mt-2 rounded bg-sky-50 px-2 py-1.5 text-[10px] leading-4 text-sky-800 ring-1 ring-sky-100 dark:bg-sky-950/30 dark:text-sky-200 dark:ring-sky-900">
-          Agent selected: {pick.agent_note}
+          {pick.agent_note}
         </div>
       )}
       {pick.agent_risk && <div className="mt-1 text-[10px] leading-4 text-zinc-500">Risk: {pick.agent_risk}</div>}
@@ -113,11 +164,6 @@ function RedditBuzzCard({ item, rank, onOpenTicker }) {
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-semibold text-zinc-500">#{rank}</span>
               <span className="font-semibold text-zinc-950 dark:text-zinc-100">{item.symbol}</span>
-              {item.agent_sentiment && (
-                <span className="rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-medium text-orange-700 dark:bg-orange-950/40 dark:text-orange-200">
-                  {item.agent_sentiment}
-                </span>
-              )}
             </div>
             <div className="mt-1 text-xs text-zinc-500">{item.subreddits?.map((s) => `r/${s}`).join(' · ')}</div>
           </div>
@@ -126,24 +172,22 @@ function RedditBuzzCard({ item, rank, onOpenTicker }) {
           </div>
         </div>
       </button>
-      <div className="mt-3 grid grid-cols-3 gap-1 text-[10px] text-zinc-600 dark:text-zinc-400">
+      <div className="mt-3 grid grid-cols-2 gap-1 text-[10px] text-zinc-600 dark:text-zinc-400">
         <span>{item.mentions} mentions</span>
         <span>{item.recommendations} bullish</span>
-        <span>{item.agent_sentiment || 'mixed'}</span>
       </div>
-      <div className="mt-2">
-        <Sparkline values={item.sparkline} color="#f97316" />
-      </div>
+      <TrendBlock values={item.sparkline} color="#f97316" />
       <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-zinc-500">
         <span>{item.sector || 'Reddit buzz'}</span>
         <span>{fmtCap(item.market_cap)}</span>
       </div>
-      <div className="mt-1 text-[10px] text-zinc-500">
-        <Consensus consensus={item.consensus} />
+      <div className="mt-2 grid grid-cols-1 gap-2">
+        <SentimentBadge sentiment={item.agent_sentiment} />
+        <ConsensusBadge consensus={item.consensus} />
       </div>
       {item.agent_note && (
         <div className="mt-2 rounded bg-orange-50 px-2 py-1.5 text-[10px] leading-4 text-orange-800 ring-1 ring-orange-100 dark:bg-orange-950/30 dark:text-orange-200 dark:ring-orange-900">
-          Agent selected: {item.agent_note}
+          {item.agent_note}
         </div>
       )}
       {item.agent_risk && <div className="mt-1 text-[10px] leading-4 text-zinc-500">Risk: {item.agent_risk}</div>}
