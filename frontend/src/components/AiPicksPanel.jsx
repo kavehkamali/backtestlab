@@ -135,7 +135,7 @@ export default function AiPicksPanel({ onOpenTicker }) {
           <Sparkles className="h-4 w-4 text-sky-500" /> Fundamentals, technicals, recent headlines and macro context
         </div>
         <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
-          <ShieldAlert className="h-4 w-4 text-amber-500" /> {data?.agent_reviewed ? 'Finalists reviewed by tab-1 agent' : 'Click a ticker for full agent research'}
+          <ShieldAlert className="h-4 w-4 text-amber-500" /> {data?.agent_reviewed ? 'Pre-selection reviewed by tab-1 agent' : 'Click a ticker for full agent research'}
         </div>
       </div>
 

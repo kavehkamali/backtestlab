@@ -12,6 +12,7 @@ import json
 from dataclasses import asdict
 import time
 import os
+import threading
 
 from .data_fetcher import fetch_stock_data, add_technical_indicators, fetch_multiple, DEFAULT_INDICES
 from .backtester import BacktestConfig, StrategyType, run_backtest
@@ -21,7 +22,7 @@ from .auth import router as auth_router
 from .analytics import router as analytics_router
 from .agent_history import router as agent_history_router
 from .articles import public_router as articles_public_router, admin_router as articles_admin_router
-from .shared_cache import get_or_compute, get_cached_or_refresh_bg, SCREENER_TTL, DASHBOARD_TTL, CRYPTO_TTL, RESEARCH_TTL, cache_stats
+from .shared_cache import get_or_compute, get_cached_or_refresh_bg, set_cached, is_stale, SCREENER_TTL, DASHBOARD_TTL, CRYPTO_TTL, RESEARCH_TTL, cache_stats
 
 app = FastAPI(title="Stock Backtesting Dashboard API")
 app.include_router(terminal_router)
@@ -705,13 +706,13 @@ def _score_pick(symbol, df, fund, market_context=None, low_cap_symbols=None):
     }
 
 
-def _attach_pick_news(columns):
+def _attach_pick_news(columns, per_column=4):
     try:
         import yfinance as yf
         all_picks = []
         for col in columns:
-            all_picks.extend(col.get("picks", [])[:4])
-        for pick in all_picks[:16]:
+            all_picks.extend(col.get("picks", [])[:per_column])
+        for pick in all_picks[:50]:
             headlines = []
             try:
                 raw = yf.Ticker(pick["symbol"]).news or []
@@ -762,12 +763,12 @@ def _extract_json_object(text):
         return None
 
 
-def _agent_review_picks(columns, market_context):
+def _agent_review_picks(columns, market_context, per_column=4):
     try:
         import httpx
         finalists = []
         for col in columns:
-            for pick in col.get("picks", [])[:4]:
+            for pick in col.get("picks", [])[:per_column]:
                 finalists.append({
                     "symbol": pick["symbol"],
                     "category": col["title"],
@@ -789,13 +790,13 @@ def _agent_review_picks(columns, market_context):
         if not finalists:
             return columns, False
         prompt = (
-            "You are the Equilima stock-picks review agent. Review these already-ranked finalists using only "
+            "You are the Equilima stock-picks selection agent. Review this broader pre-selection pool using only "
             "the supplied fundamentals, technicals, recent headlines, and macro context. Do not add facts not in the data. "
             "Return strict JSON only with this schema: "
             "{\"adjustments\":[{\"symbol\":\"AAPL\",\"delta\":0,\"note\":\"short reason\"}]}. "
             "delta must be an integer from -6 to 6. Use positive delta only when the supplied data supports a stronger setup; "
             "use negative delta for overbought, weak fundamentals, bad headlines, macro risk, or liquidity/volatility risk. "
-            "Keep each note under 16 words.\n\n"
+            "Your deltas will affect which candidates are selected into the final columns. Keep each note under 16 words.\n\n"
             f"Macro context: {json.dumps(market_context)}\n"
             f"Finalists: {json.dumps(finalists)}"
         )
@@ -837,12 +838,45 @@ def _agent_review_picks(columns, market_context):
     return columns, True
 
 
+PICKS_TTL = 24 * 60 * 60
+PICKS_DEFAULT_CANDIDATES = 260
+
+
+def _picks_cache_key(max_candidates=PICKS_DEFAULT_CANDIDATES):
+    return f"ai_picks_v4_{int(max_candidates or PICKS_DEFAULT_CANDIDATES)}"
+
+
+def _refresh_picks_cache_background(max_candidates=PICKS_DEFAULT_CANDIDATES, force=False):
+    cache_key = _picks_cache_key(max_candidates)
+    if not force and not is_stale(cache_key, PICKS_TTL):
+        return
+
+    def _run():
+        try:
+            start = time.time()
+            data = _ai_picks_compute(max_candidates)
+            set_cached(cache_key, data)
+            print(f"[picks] Daily cache refresh {cache_key} in {time.time() - start:.1f}s")
+        except Exception as e:
+            print(f"[picks] Daily cache refresh {cache_key} FAILED: {e}")
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
+@app.on_event("startup")
+def warm_picks_cache_on_startup():
+    _refresh_picks_cache_background(PICKS_DEFAULT_CANDIDATES)
+
+
 @app.post("/api/picks")
 def ai_picks(req: PicksRequest):
-    cache_key = f"ai_picks_v3_{int(req.max_candidates)}"
+    max_candidates = int(req.max_candidates or PICKS_DEFAULT_CANDIDATES)
+    cache_key = _picks_cache_key(max_candidates)
     if req.refresh:
-        return _ai_picks_compute(req.max_candidates)
-    return get_cached_or_refresh_bg(cache_key, 30 * 60, lambda: _ai_picks_compute(req.max_candidates))
+        data = _ai_picks_compute(max_candidates)
+        set_cached(cache_key, data)
+        return data
+    return get_cached_or_refresh_bg(cache_key, PICKS_TTL, lambda: _ai_picks_compute(max_candidates))
 
 
 def _ai_picks_compute(max_candidates=260):
@@ -885,20 +919,24 @@ def _ai_picks_compute(max_candidates=260):
         {"id": "value", "title": "Value / Income", "tone": "amber", "subtitle": "Valuation, yield, and balance-sheet support"},
         {"id": "canada", "title": "Canada / Diversified", "tone": "rose", "subtitle": "TSX and non-US diversification candidates"},
     ]
+    agent_pool_per_bucket = 8
+    final_picks_per_bucket = 4
     used = set()
     for b in buckets:
         cat = b["title"]
         picks = [x for x in scored if x["category"] == cat and x["symbol"] not in used]
         picks.sort(key=lambda x: x["scores"]["overall"], reverse=True)
-        b["picks"] = picks[:4]
+        b["picks"] = picks[:agent_pool_per_bucket]
         used.update(x["symbol"] for x in b["picks"])
 
     if len(buckets[0]["picks"]) < 3:
         fallback = [x for x in sorted(scored, key=lambda x: x["scores"]["overall"], reverse=True) if x["symbol"] not in used]
         buckets[0]["picks"].extend(fallback[: 3 - len(buckets[0]["picks"])])
 
-    buckets = _apply_news_scores(_attach_pick_news(buckets))
-    buckets, agent_reviewed = _agent_review_picks(buckets, market_context)
+    buckets = _apply_news_scores(_attach_pick_news(buckets, per_column=agent_pool_per_bucket))
+    buckets, agent_reviewed = _agent_review_picks(buckets, market_context, per_column=agent_pool_per_bucket)
+    for b in buckets:
+        b["picks"] = b.get("picks", [])[:final_picks_per_bucket]
 
     return _sanitize({
         "as_of": pd.Timestamp.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
@@ -907,7 +945,7 @@ def _ai_picks_compute(max_candidates=260):
         "model": os.getenv("EQUILIMA_AGENT_URL", "http://localhost:8888"),
         "market_context": market_context,
         "agent_reviewed": agent_reviewed,
-        "method": "Deterministic first-pass ranking over cached fundamentals, technicals, recent headlines, and macro context; finalists are then reviewed by the same home LLM agent service used by tab 1.",
+        "method": "Deterministic first-pass ranking over cached fundamentals, technicals, recent headlines, and macro context; the same home LLM agent service used by tab 1 reviews the broader pre-selection pool before final picks are selected.",
         "columns": buckets,
         "ai_summary": "",
         "disclaimer": "Research shortlist only. Not investment advice. Verify news, filings, liquidity, and your risk constraints before trading.",
