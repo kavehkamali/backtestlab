@@ -35,6 +35,27 @@ function fmtPct(v) {
   return Number.isFinite(n) ? `${n.toFixed(1)}%` : '—';
 }
 
+function metricTone(label, rawValue) {
+  const n = Number(rawValue);
+  if (!Number.isFinite(n)) return 'bg-zinc-50 text-zinc-500 dark:bg-zinc-950/30 dark:text-zinc-400';
+  if (label === 'P/E') {
+    if (n > 0 && n <= 25) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300';
+    if (n <= 45) return 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-200';
+    return 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300';
+  }
+  if (label === 'Rev') {
+    if (n >= 15) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300';
+    if (n >= 3) return 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-200';
+    if (n < 0) return 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300';
+  }
+  if (label === 'ROE') {
+    if (n >= 20) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300';
+    if (n >= 8) return 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-200';
+    if (n < 0) return 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300';
+  }
+  return 'bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-300';
+}
+
 function ConsensusBadge({ consensus }) {
   if (!consensus) {
     return (
@@ -46,20 +67,20 @@ function ConsensusBadge({ consensus }) {
   const rating = consensus.rating || 'Consensus';
   const r = rating.toLowerCase();
   const tone = r.includes('strong') && r.includes('buy')
-    ? 'bg-emerald-600 text-white ring-emerald-700 dark:bg-emerald-500 dark:text-emerald-950 dark:ring-emerald-400'
+    ? 'bg-emerald-600 text-white shadow-sm dark:bg-emerald-500 dark:text-emerald-950'
     : r.includes('buy')
-      ? 'bg-emerald-100 text-emerald-800 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-800'
+      ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-900'
       : r.includes('hold')
-        ? 'bg-zinc-100 text-zinc-700 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:ring-zinc-700'
+        ? 'bg-zinc-100 text-zinc-700 ring-1 ring-zinc-100 dark:bg-zinc-800 dark:text-zinc-200 dark:ring-zinc-700'
         : r.includes('sell')
-          ? 'bg-red-100 text-red-700 ring-red-200 dark:bg-red-950/40 dark:text-red-200 dark:ring-red-800'
-          : 'bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-950/30 dark:text-yellow-200 dark:ring-yellow-800';
+          ? 'bg-red-100 text-red-700 ring-1 ring-red-100 dark:bg-red-950/40 dark:text-red-200 dark:ring-red-900'
+          : 'bg-yellow-50 text-yellow-700 ring-1 ring-yellow-100 dark:bg-yellow-950/30 dark:text-yellow-200 dark:ring-yellow-900';
   const details = [
     consensus.target ? `$${consensus.target}` : null,
     consensus.analysts ? `${consensus.analysts} analysts` : null,
   ].filter(Boolean).join(' · ');
   return (
-    <div className={`inline-flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-[10px] ring-1 ${tone}`}>
+    <div className={`inline-flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-[10px] ${tone}`}>
       <span className="shrink-0 font-bold">{rating}</span>
       {details && <span className="truncate opacity-80">{details}</span>}
     </div>
@@ -86,24 +107,38 @@ function SentimentBadge({ sentiment }) {
 
 function FundamentalsGrid({ item }) {
   const metrics = [
-    ['P/E', fmtRatio(item.forward_pe || item.pe_ratio)],
-    ['Rev', fmtPct(item.revenue_growth)],
-    ['ROE', fmtPct(item.return_on_equity)],
-    ['Cap', fmtCap(item.market_cap)],
+    ['P/E', fmtRatio(item.forward_pe || item.pe_ratio), item.forward_pe || item.pe_ratio],
+    ['Rev', fmtPct(item.revenue_growth), item.revenue_growth],
+    ['ROE', fmtPct(item.return_on_equity), item.return_on_equity],
+    ['Cap', fmtCap(item.market_cap), item.market_cap],
   ];
   return (
-    <div className="mt-2 grid grid-cols-2 gap-1">
-      {metrics.map(([label, value]) => (
-        <div key={label} className="rounded-md bg-zinc-50 px-2 py-1 ring-1 ring-zinc-100 dark:bg-zinc-950/30 dark:ring-zinc-800">
-          <div className="text-[9px] font-medium uppercase text-zinc-400">{label}</div>
-          <div className="mt-0.5 text-[11px] font-semibold text-zinc-800 dark:text-zinc-100">{value}</div>
+    <div className="mt-2 grid grid-cols-4 gap-1">
+      {metrics.map(([label, value, rawValue]) => (
+        <div key={label} className={`min-w-0 rounded px-1.5 py-1 ${metricTone(label, rawValue)}`}>
+          <div className="text-[8px] font-semibold uppercase opacity-70">{label}</div>
+          <div className="truncate text-[10px] font-bold">{value}</div>
         </div>
       ))}
     </div>
   );
 }
 
-function PickCard({ pick, rank, onOpenTicker }) {
+function AgentRecommendation({ note, risk, tone = 'sky' }) {
+  const text = note || risk;
+  if (!text) return null;
+  const colors = tone === 'orange'
+    ? 'bg-yellow-50 text-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-200'
+    : 'bg-sky-50 text-sky-800 dark:bg-sky-950/30 dark:text-sky-200';
+  return (
+    <div className={`mt-2 flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[10px] leading-4 ${colors}`}>
+      <Sparkles className="mt-0.5 h-3 w-3 shrink-0" />
+      <span className="line-clamp-2">{text}</span>
+    </div>
+  );
+}
+
+function PickCard({ pick, onOpenTicker }) {
   const score = pick?.scores?.overall || 0;
   return (
     <button
@@ -114,7 +149,6 @@ function PickCard({ pick, rank, onOpenTicker }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-semibold text-zinc-500">#{rank}</span>
             <span className="font-semibold text-zinc-950 dark:text-zinc-100">{pick.symbol}</span>
             <span className="text-[10px] text-zinc-500">{pick.country}</span>
           </div>
@@ -126,6 +160,7 @@ function PickCard({ pick, rank, onOpenTicker }) {
           </div>
         </div>
       </div>
+      <AgentRecommendation note={pick.agent_note} risk={pick.agent_risk} />
       <FundamentalsGrid item={pick} />
       <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-zinc-500">
         <span>{pick.sector || '—'}</span>
@@ -147,14 +182,13 @@ function PickCard({ pick, rank, onOpenTicker }) {
   );
 }
 
-function RedditBuzzCard({ item, rank, onOpenTicker }) {
+function RedditBuzzCard({ item, onOpenTicker }) {
   return (
     <div className="rounded-lg bg-white p-3 ring-1 ring-zinc-200/70 shadow-sm dark:bg-zinc-900/80 dark:ring-zinc-800">
       <button type="button" onClick={() => onOpenTicker?.(item.symbol)} className="w-full text-left">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-semibold text-zinc-500">#{rank}</span>
               <span className="font-semibold text-zinc-950 dark:text-zinc-100">{item.symbol}</span>
             </div>
             <div className="mt-1 text-xs text-zinc-500">{item.subreddits?.map((s) => `r/${s}`).join(' · ')}</div>
@@ -168,6 +202,7 @@ function RedditBuzzCard({ item, rank, onOpenTicker }) {
         <span>{item.mentions} mentions</span>
         <span>{item.recommendations} bullish</span>
       </div>
+      <AgentRecommendation note={item.agent_note} risk={item.agent_risk} tone="orange" />
       <FundamentalsGrid item={item} />
       <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-zinc-500">
         <span>{item.sector || 'Reddit buzz'}</span>
@@ -318,7 +353,7 @@ export default function AiPicksPanel({ onOpenTicker }) {
               <p className="mt-0.5 min-h-8 text-xs text-zinc-600 dark:text-zinc-400">{col.subtitle}</p>
               <div className="mt-3 space-y-2">
                 {(col.picks || []).map((pick, idx) => (
-                  <PickCard key={pick.symbol} pick={pick} rank={idx + 1} onOpenTicker={onOpenTicker} />
+                  <PickCard key={pick.symbol} pick={pick} onOpenTicker={onOpenTicker} />
                 ))}
               </div>
             </section>
@@ -333,7 +368,7 @@ export default function AiPicksPanel({ onOpenTicker }) {
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {(redditData?.items || []).slice(0, 24).map((item, idx) => (
-            <RedditBuzzCard key={item.symbol} item={item} rank={idx + 1} onOpenTicker={onOpenTicker} />
+            <RedditBuzzCard key={item.symbol} item={item} onOpenTicker={onOpenTicker} />
           ))}
         </div>
       ))}
