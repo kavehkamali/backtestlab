@@ -1295,7 +1295,7 @@ def _agent_select_reddit_picks(items):
                 valid = {item["symbol"].upper() for item in items}
                 seen = set()
                 selections = []
-                for sym in re.findall(r"\$?([A-Z][A-Z0-9.-]{1,7})(?=\\s|\\)|:|\\*|,)", str(raw)):
+                for sym in re.findall(r"\$?([A-Z][A-Z0-9.-]{1,7})(?=\s|\)|:|\*|,)", str(raw)):
                     symbol = sym.replace("-", ".").upper().strip(".")
                     if symbol in valid and symbol not in seen:
                         selections.append({
