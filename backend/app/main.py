@@ -22,7 +22,7 @@ from .auth import router as auth_router
 from .analytics import router as analytics_router
 from .agent_history import router as agent_history_router
 from .articles import public_router as articles_public_router, admin_router as articles_admin_router
-from .shared_cache import get_or_compute, get_cached_or_refresh_bg, set_cached, is_stale, SCREENER_TTL, DASHBOARD_TTL, CRYPTO_TTL, RESEARCH_TTL, cache_stats
+from .shared_cache import get_or_compute, get_cached_or_refresh_bg, get_cached_any, set_cached, is_stale, SCREENER_TTL, DASHBOARD_TTL, CRYPTO_TTL, RESEARCH_TTL, cache_stats
 
 app = FastAPI(title="Stock Backtesting Dashboard API")
 app.include_router(terminal_router)
@@ -1028,6 +1028,7 @@ REDDIT_BULLISH_WORDS = {
     "buy", "bought", "buying", "long", "calls", "call", "bullish", "undervalued", "breakout", "moon", "squeeze",
     "accumulate", "adding", "added", "hold", "holding", "recommend", "recommended", "upside", "beat", "beats",
 }
+REDDIT_FALLBACK_SYMBOLS = ["NVDA", "TSLA", "AMD", "PLTR", "SMCI", "AAPL", "MSFT", "AMZN", "META", "GOOGL", "SOFI", "RKLB", "IONQ", "RGTI", "SOUN"]
 
 
 def _reddit_symbol_universe():
@@ -1090,6 +1091,31 @@ def _reddit_scan_posts(client, subreddit, valid_symbols):
     return posts
 
 
+def _reddit_search_symbol_posts(client, symbols):
+    posts = []
+    for sym in symbols:
+        url = f"https://www.reddit.com/search.json?q=%24{sym}%20stock&sort=hot&t=day&limit=8&raw_json=1"
+        data = _reddit_fetch_json(client, url)
+        rows = data.get("data", {}).get("children", []) if isinstance(data, dict) else []
+        for child in rows:
+            p = child.get("data", {}) if isinstance(child, dict) else {}
+            subreddit = p.get("subreddit") or "reddit"
+            title = p.get("title") or ""
+            text = " ".join([title, p.get("selftext") or "", f"${sym}"])
+            posts.append({
+                "id": p.get("id"),
+                "subreddit": subreddit,
+                "title": title or f"${sym} Reddit discussion",
+                "text": text,
+                "url": f"https://www.reddit.com{p.get('permalink', '')}" if p.get("permalink") else f"https://www.reddit.com/search/?q=%24{sym}%20stock",
+                "score": int(p.get("score") or 0),
+                "comments": int(p.get("num_comments") or 0),
+                "symbols": [sym],
+                "recommendations": _reddit_recommendation_count(text),
+            })
+    return posts
+
+
 def _reddit_attach_comments(client, posts, valid_symbols):
     for post in sorted(posts, key=lambda x: x["score"] + x["comments"], reverse=True)[:24]:
         if not post.get("id"):
@@ -1132,6 +1158,8 @@ def _reddit_picks_compute():
         posts = []
         for subreddit in REDDIT_SUBREDDITS:
             posts.extend(_reddit_scan_posts(client, subreddit, valid_symbols))
+        if len(posts) < 12:
+            posts.extend(_reddit_search_symbol_posts(client, REDDIT_FALLBACK_SYMBOLS))
         posts = _reddit_attach_comments(client, posts, valid_symbols)
 
     for post in posts:
