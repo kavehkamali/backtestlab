@@ -764,61 +764,69 @@ def _extract_json_object(text):
 
 
 def _agent_review_picks(columns, market_context, per_column=4):
+    def _candidate_payload(col):
+        payload = []
+        for pick in col.get("picks", [])[:per_column]:
+            payload.append({
+                "symbol": pick["symbol"],
+                "category": col["title"],
+                "name": pick.get("name"),
+                "sector": pick.get("sector"),
+                "market_cap": pick.get("market_cap"),
+                "scores": pick.get("scores"),
+                "price": pick.get("price"),
+                "change_20d": pick.get("change_20d"),
+                "change_60d": pick.get("change_60d"),
+                "rsi": pick.get("rsi"),
+                "volatility": pick.get("volatility"),
+                "forward_pe": pick.get("forward_pe"),
+                "revenue_growth": pick.get("revenue_growth"),
+                "earnings_growth": pick.get("earnings_growth"),
+                "return_on_equity": pick.get("return_on_equity"),
+                "headlines": pick.get("news", [])[:2],
+            })
+        return payload
+
     try:
         import httpx
-        finalists = []
-        for col in columns:
-            for pick in col.get("picks", [])[:per_column]:
-                finalists.append({
-                    "symbol": pick["symbol"],
-                    "category": col["title"],
-                    "name": pick.get("name"),
-                    "sector": pick.get("sector"),
-                    "market_cap": pick.get("market_cap"),
-                    "scores": pick.get("scores"),
-                    "price": pick.get("price"),
-                    "change_20d": pick.get("change_20d"),
-                    "change_60d": pick.get("change_60d"),
-                    "rsi": pick.get("rsi"),
-                    "volatility": pick.get("volatility"),
-                    "forward_pe": pick.get("forward_pe"),
-                    "revenue_growth": pick.get("revenue_growth"),
-                    "earnings_growth": pick.get("earnings_growth"),
-                    "return_on_equity": pick.get("return_on_equity"),
-                    "headlines": pick.get("news", [])[:2],
-                })
-        if not finalists:
-            return columns, False
-        prompt = (
-            "You are the Equilima deep stock-picks selection agent. Review this broader pre-selection pool with careful reasoning. "
-            "Use the supplied fundamentals, technicals, recent headlines, and macro context, and use your configured research/news/macro/fundamental "
-            "capabilities if they are available. Prefer evidence over excitement, penalize fragile balance sheets, weak catalysts, overbought charts, "
-            "thin/liquidity risk, and macro mismatch. "
-            "Return strict JSON only with this schema: "
-            "{\"adjustments\":[{\"symbol\":\"AAPL\",\"delta\":0,\"note\":\"short reason\"}]}. "
-            "Include exactly one adjustment object for every finalist symbol. delta must be an integer from -6 to 6. "
-            "Use delta 0 when the candidate should stay where it is. Use positive delta only when the supplied data supports a stronger setup; "
-            "use negative delta for overbought, weak fundamentals, bad headlines, macro risk, or liquidity/volatility risk. "
-            "Your deltas will affect which candidates are selected into the final columns. Keep each note under 16 words.\n\n"
-            f"Macro context: {json.dumps(market_context)}\n"
-            f"Finalists: {json.dumps(finalists)}"
-        )
+        all_adjustments = []
         with httpx.Client(timeout=600.0) as client:
-            resp = client.post(f"{AGENT_URL}/chat", json={"message": prompt, "history": []})
-            if not resp.is_success:
-                resp = client.post(f"{AGENT_URL}/quick", json={"message": prompt, "ticker": "", "history": []})
-            if not resp.is_success:
-                print(f"[picks] Agent review HTTP {resp.status_code}: {resp.text[:500]}")
-                return columns, False
-            body = resp.json()
-            parsed = _extract_json_object(body.get("response") or body.get("message") or body.get("content") or "")
-            adjustments = parsed.get("adjustments", []) if isinstance(parsed, dict) else []
+            for col in columns:
+                candidates = _candidate_payload(col)
+                if not candidates:
+                    continue
+                prompt = (
+                    f"You are the Equilima deep stock-picks selection agent for the {col['title']} sleeve. "
+                    "Review these pre-selection candidates with careful reasoning. Use the supplied fundamentals, technicals, recent headlines, "
+                    "and macro context, and use your configured research/news/macro/fundamental capabilities if available. "
+                    "Return strict JSON only with this schema: "
+                    "{\"adjustments\":[{\"symbol\":\"AAPL\",\"delta\":0,\"note\":\"short reason\"}]}. "
+                    "Include exactly one adjustment object for every candidate symbol. delta must be an integer from -6 to 6. "
+                    "Use delta 0 when the candidate should stay where it is. Positive deltas require stronger evidence; negative deltas should flag "
+                    "overbought charts, weak fundamentals, bad headlines, macro mismatch, liquidity risk, or volatility risk. "
+                    "These deltas decide which 4 candidates make the final column. Keep each note under 16 words.\n\n"
+                    f"Macro context: {json.dumps(market_context)}\n"
+                    f"Candidates: {json.dumps(candidates)}"
+                )
+                resp = client.post(f"{AGENT_URL}/chat", json={"message": prompt, "history": []})
+                if not resp.is_success:
+                    resp = client.post(f"{AGENT_URL}/quick", json={"message": prompt, "ticker": "", "history": []})
+                if not resp.is_success:
+                    print(f"[picks] Agent review {col['title']} HTTP {resp.status_code}: {resp.text[:500]}")
+                    continue
+                body = resp.json()
+                raw = body.get("response") or body.get("message") or body.get("content") or ""
+                parsed = _extract_json_object(raw)
+                adjustments = parsed.get("adjustments", []) if isinstance(parsed, dict) else []
+                if not adjustments:
+                    print(f"[picks] Agent review {col['title']} returned no adjustments. Raw: {str(raw)[:500]}")
+                all_adjustments.extend(adjustments)
     except Exception as e:
         print(f"[picks] Agent review failed: {e}")
         return columns, False
 
     by_symbol = {}
-    for adj in adjustments:
+    for adj in all_adjustments:
         try:
             symbol = str(adj.get("symbol", "")).strip().upper()
             delta = int(adj.get("delta", 0))
@@ -829,7 +837,7 @@ def _agent_review_picks(columns, market_context, per_column=4):
             continue
 
     if not by_symbol:
-        print(f"[picks] Agent review returned no usable adjustments: {str(adjustments)[:500]}")
+        print(f"[picks] Agent review returned no usable adjustments")
         return columns, False
 
     for col in columns:
@@ -849,7 +857,7 @@ PICKS_DEFAULT_CANDIDATES = 340
 
 
 def _picks_cache_key(max_candidates=PICKS_DEFAULT_CANDIDATES):
-    return f"ai_picks_v6_{int(max_candidates or PICKS_DEFAULT_CANDIDATES)}"
+    return f"ai_picks_v7_{int(max_candidates or PICKS_DEFAULT_CANDIDATES)}"
 
 
 def _refresh_picks_cache_background(max_candidates=PICKS_DEFAULT_CANDIDATES, force=False):
