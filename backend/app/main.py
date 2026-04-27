@@ -111,6 +111,11 @@ class ScreenerRequest(BaseModel):
     strategies: List[str] = ["sma_crossover", "ema_crossover", "rsi", "macd", "bollinger_bands", "momentum"]
 
 
+class PicksRequest(BaseModel):
+    refresh: bool = False
+    max_candidates: int = 260
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
@@ -490,6 +495,279 @@ def _screener_compute(list_id, strategies):
 
     results.sort(key=lambda x: (-x["buy_count"], -x.get("change_5d", 0)))
     return {"results": _sanitize(results), "list_name": stock_list["name"]}
+
+
+def _clip_score(v, lo, hi):
+    if v is None:
+        return 0.0
+    try:
+        x = float(v)
+    except Exception:
+        return 0.0
+    if hi == lo:
+        return 0.0
+    return max(0.0, min(1.0, (x - lo) / (hi - lo)))
+
+
+def _fmt_reason(label, value, suffix=""):
+    if value is None:
+        return None
+    return f"{label}: {value}{suffix}"
+
+
+def _pick_category(symbol, fund, scores):
+    if symbol.endswith(".TO"):
+        return "Canada / Diversified"
+    if scores["momentum"] >= scores["quality"] and scores["momentum"] >= 65:
+        return "Swing Momentum"
+    if scores["value"] >= scores["quality"] and scores["value"] >= 58:
+        return "Value / Income"
+    return "Long-Term Quality"
+
+
+def _score_pick(symbol, df, fund):
+    import numpy as np
+    from ta.momentum import RSIIndicator
+    from ta.trend import MACD as MACD_Indicator
+
+    if df is None or len(df) < 90:
+        return None
+    close = df["close"]
+    volume = df["volume"]
+    price = float(close.iloc[-1])
+    if price <= 2:
+        return None
+
+    def ret(days):
+        if len(close) <= days:
+            return 0.0
+        base = float(close.iloc[-days - 1])
+        return (price / base - 1) * 100 if base else 0.0
+
+    rsi = RSIIndicator(close, window=14).rsi()
+    rsi_val = float(rsi.iloc[-1]) if not np.isnan(rsi.iloc[-1]) else 50.0
+    macd = MACD_Indicator(close)
+    macd_hist = macd.macd_diff()
+    mh = float(macd_hist.iloc[-1]) if not np.isnan(macd_hist.iloc[-1]) else 0.0
+    mh_prev = float(macd_hist.iloc[-5]) if len(macd_hist) > 5 and not np.isnan(macd_hist.iloc[-5]) else 0.0
+    sma50 = float(close.rolling(50).mean().iloc[-1])
+    sma200 = float(close.rolling(200).mean().iloc[-1]) if len(close) >= 200 else sma50
+    vol_ratio = float(volume.iloc[-1]) / float(volume.rolling(20).mean().iloc[-1]) if float(volume.rolling(20).mean().iloc[-1]) > 0 else 1.0
+    returns = close.pct_change().dropna()
+    volatility = float(returns.iloc[-20:].std() * np.sqrt(252) * 100) if len(returns) >= 20 else 0.0
+
+    market_cap = fund.get("market_cap") or 0
+    pe = fund.get("forward_pe") or fund.get("pe_ratio")
+    revenue_growth = fund.get("revenue_growth")
+    earnings_growth = fund.get("earnings_growth")
+    profit_margin = fund.get("profit_margin")
+    roe = fund.get("return_on_equity")
+    debt_to_equity = fund.get("debt_to_equity")
+    current_ratio = fund.get("current_ratio")
+    dividend_yield = fund.get("dividend_yield")
+
+    quality = (
+        25 * _clip_score(profit_margin, 5, 35)
+        + 25 * _clip_score(roe, 5, 35)
+        + 20 * _clip_score(revenue_growth, -5, 25)
+        + 15 * _clip_score(earnings_growth, -10, 35)
+        + 10 * (1 - _clip_score(debt_to_equity, 40, 250))
+        + 5 * _clip_score(current_ratio, 0.8, 2.5)
+    )
+    value = (
+        35 * (1 - _clip_score(pe, 12, 45))
+        + 20 * (1 - _clip_score(fund.get("price_to_book"), 1, 8))
+        + 15 * _clip_score(dividend_yield, 0, 5)
+        + 15 * _clip_score(roe, 5, 30)
+        + 15 * (1 - _clip_score(debt_to_equity, 50, 250))
+    )
+    momentum = (
+        28 * _clip_score(ret(20), -8, 14)
+        + 22 * _clip_score(ret(60), -15, 28)
+        + 18 * (1 if price > sma50 else 0)
+        + 14 * (1 if price > sma200 else 0)
+        + 10 * _clip_score(mh - mh_prev, -0.5, 0.8)
+        + 8 * _clip_score(vol_ratio, 0.7, 2.0)
+    )
+    risk_adj = max(0, 100 - volatility)
+    base = 0.42 * quality + 0.32 * momentum + 0.18 * value + 0.08 * risk_adj
+    if market_cap and market_cap < 750_000_000:
+        base -= 8
+    if rsi_val > 78:
+        base -= 5
+
+    scores = {
+        "overall": round(max(0, min(100, base)), 1),
+        "quality": round(max(0, min(100, quality)), 1),
+        "momentum": round(max(0, min(100, momentum)), 1),
+        "value": round(max(0, min(100, value)), 1),
+        "risk": round(max(0, min(100, risk_adj)), 1),
+    }
+    category = _pick_category(symbol, fund, scores)
+    if category == "Swing Momentum":
+        overall = 0.55 * scores["momentum"] + 0.25 * scores["quality"] + 0.12 * scores["value"] + 0.08 * scores["risk"]
+    elif category == "Value / Income":
+        overall = 0.50 * scores["value"] + 0.25 * scores["quality"] + 0.15 * scores["momentum"] + 0.10 * scores["risk"]
+    elif category == "Canada / Diversified":
+        overall = 0.40 * scores["quality"] + 0.25 * scores["value"] + 0.25 * scores["momentum"] + 0.10 * scores["risk"]
+    else:
+        overall = scores["overall"]
+    scores["overall"] = round(max(0, min(100, overall)), 1)
+
+    reasons = [
+        _fmt_reason("1M", round(ret(20), 1), "%"),
+        _fmt_reason("3M", round(ret(60), 1), "%"),
+        _fmt_reason("RSI", round(rsi_val, 1)),
+        _fmt_reason("Fwd P/E", round(pe, 1) if pe else None),
+        _fmt_reason("Rev growth", revenue_growth, "%"),
+        _fmt_reason("ROE", roe, "%"),
+    ]
+    reasons = [r for r in reasons if r][:5]
+    return {
+        "symbol": symbol,
+        "name": fund.get("name", symbol),
+        "sector": fund.get("sector", ""),
+        "industry": fund.get("industry", ""),
+        "country": "Canada" if symbol.endswith(".TO") else "US",
+        "category": category,
+        "price": round(price, 2),
+        "market_cap": market_cap,
+        "scores": scores,
+        "change_20d": round(ret(20), 2),
+        "change_60d": round(ret(60), 2),
+        "rsi": round(rsi_val, 1),
+        "above_sma50": price > sma50,
+        "above_sma200": price > sma200,
+        "volatility": round(volatility, 1),
+        "pe_ratio": fund.get("pe_ratio"),
+        "forward_pe": fund.get("forward_pe"),
+        "dividend_yield": fund.get("dividend_yield"),
+        "profit_margin": fund.get("profit_margin"),
+        "revenue_growth": fund.get("revenue_growth"),
+        "earnings_growth": fund.get("earnings_growth"),
+        "return_on_equity": fund.get("return_on_equity"),
+        "reasons": reasons,
+    }
+
+
+def _ai_pick_summary(columns):
+    try:
+        import httpx
+        payload = []
+        for col in columns:
+            payload.append({
+                "category": col["title"],
+                "symbols": [
+                    {
+                        "symbol": p["symbol"],
+                        "name": p["name"],
+                        "score": p["scores"]["overall"],
+                        "sector": p.get("sector"),
+                        "signals": p.get("reasons", []),
+                    }
+                    for p in col["picks"][:4]
+                ],
+            })
+        prompt = (
+            "You are a cautious equity research assistant. Based only on these ranked candidates, "
+            "write a concise markdown summary with 3 bullets: best long-term, best swing, and key risk. "
+            "Do not claim investment advice. Data:\n"
+            + json.dumps(payload)
+        )
+        with httpx.Client(timeout=35.0) as client:
+            r = client.post(f"{AGENT_URL}/quick", json={"message": prompt, "ticker": "", "history": []})
+            if r.ok:
+                return (r.json().get("response") or "").strip()[:1800]
+    except Exception:
+        return ""
+    return ""
+
+
+def _attach_pick_news(columns):
+    try:
+        import yfinance as yf
+        all_picks = []
+        for col in columns:
+            all_picks.extend(col.get("picks", [])[:4])
+        for pick in all_picks[:16]:
+            headlines = []
+            try:
+                raw = yf.Ticker(pick["symbol"]).news or []
+                for item in raw[:4]:
+                    content = item.get("content", {})
+                    title = content.get("title") or item.get("title")
+                    if title:
+                        headlines.append(title)
+                pick["news"] = headlines[:2]
+            except Exception:
+                pick["news"] = []
+    except Exception:
+        return columns
+    return columns
+
+
+@app.post("/api/picks")
+def ai_picks(req: PicksRequest):
+    cache_key = f"ai_picks_v2_{int(req.max_candidates)}"
+    if req.refresh:
+        return _ai_picks_compute(req.max_candidates)
+    return get_cached_or_refresh_bg(cache_key, 30 * 60, lambda: _ai_picks_compute(req.max_candidates))
+
+
+def _ai_picks_compute(max_candidates=260):
+    from concurrent.futures import ThreadPoolExecutor
+    from .stock_lists import SP500, MID_CAPS, SMALL_CAPS, TSX60
+    from .cache import batch_fetch_prices, fetch_fundamentals_cached
+
+    symbols = list(dict.fromkeys(SP500[:150] + MID_CAPS[:70] + SMALL_CAPS[:55] + TSX60[:45]))[:max(80, min(int(max_candidates or 260), 340))]
+    prices = batch_fetch_prices(symbols, period="1y")
+    funds = {}
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        futures = {pool.submit(fetch_fundamentals_cached, s): s for s in symbols}
+        for fut, sym in [(f, futures[f]) for f in futures]:
+            try:
+                funds[sym] = fut.result(timeout=12)
+            except Exception:
+                funds[sym] = {"name": sym}
+
+    scored = []
+    for sym in symbols:
+        try:
+            item = _score_pick(sym, prices.get(sym), funds.get(sym, {}))
+            if item and item["scores"]["overall"] >= 45:
+                scored.append(item)
+        except Exception:
+            continue
+
+    buckets = [
+        {"id": "long_term", "title": "Long-Term Quality", "tone": "emerald", "subtitle": "Durable fundamentals and balanced technicals"},
+        {"id": "swing", "title": "Swing Momentum", "tone": "sky", "subtitle": "Near-term trend strength with confirmation"},
+        {"id": "value", "title": "Value / Income", "tone": "amber", "subtitle": "Valuation, yield, and balance-sheet support"},
+        {"id": "canada", "title": "Canada / Diversified", "tone": "rose", "subtitle": "TSX and non-US diversification candidates"},
+    ]
+    used = set()
+    for b in buckets:
+        cat = b["title"]
+        picks = [x for x in scored if x["category"] == cat and x["symbol"] not in used]
+        picks.sort(key=lambda x: x["scores"]["overall"], reverse=True)
+        b["picks"] = picks[:4]
+        used.update(x["symbol"] for x in b["picks"])
+
+    if len(buckets[0]["picks"]) < 3:
+        fallback = [x for x in sorted(scored, key=lambda x: x["scores"]["overall"], reverse=True) if x["symbol"] not in used]
+        buckets[0]["picks"].extend(fallback[: 3 - len(buckets[0]["picks"])])
+
+    buckets = _attach_pick_news(buckets)
+
+    return _sanitize({
+        "as_of": pd.Timestamp.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+        "universe_count": len(symbols),
+        "scored_count": len(scored),
+        "model": os.getenv("EQUILIMA_AGENT_URL", "http://localhost:8888"),
+        "columns": buckets,
+        "ai_summary": _ai_pick_summary(buckets),
+        "disclaimer": "Research shortlist only. Not investment advice. Verify news, filings, liquidity, and your risk constraints before trading.",
+    })
 
 
 @app.get("/api/stock/{symbol}/detail")

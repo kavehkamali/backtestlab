@@ -7,6 +7,7 @@ import Header from './components/Header';
 import AuthModal from './components/AuthModal';
 import AdminPanel from './components/AdminPanel';
 import AgentPanel from './components/AgentPanel';
+import AiPicksPanel from './components/AiPicksPanel';
 import ConsentBanner from './components/ConsentBanner';
 import AccountPanel from './components/AccountPanel';
 import LearnLayout from './components/LearnLayout';
@@ -290,6 +291,18 @@ function App() {
           </div>
           <div className={activeTab === 'markets' ? '' : 'hidden'}>
             <DashboardPanel />
+          </div>
+          <div className={activeTab === 'picks' ? '' : 'hidden'}>
+            <AiPicksPanel
+              onOpenTicker={(ticker) => {
+                const t = ticker ? String(ticker).trim().toUpperCase() : '';
+                setActiveTab('research');
+                window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: 'fundamentals' } }));
+                if (t) {
+                  window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab: 'research', ticker: t } }));
+                }
+              }}
+            />
           </div>
           <div className={activeTab === 'screener' ? '' : 'hidden'}>
             <ScreenerPanel />

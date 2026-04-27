@@ -13,6 +13,7 @@ import {
 
 const TABS = [
   { id: 'agent', label: 'AI Agent', short: 'AI' },
+  { id: 'picks', label: 'Picks', short: 'Picks' },
   { id: 'research', label: 'Research', short: 'Research' },
   { id: 'markets', label: 'Markets', short: 'Markets' },
   { id: 'screener', label: 'Screener', short: 'Screen' },
