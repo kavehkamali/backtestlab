@@ -121,20 +121,26 @@ export default function InteractiveSnowflake({ dims, values, onChange, enabled, 
   const dataPts = dims.map((d, i) => getPoint(i, values[d.key] || 0));
   const dataPath = splinePath(dataPts);
   const ringPaths = [2, 4, 6].map(level => splinePath(dims.map((_, i) => getPoint(i, level))));
-  const opacity = enabled ? 1 : 0.3;
+  const chartOpacity = enabled ? 1 : 0.35;
 
   // Unique ID for SVG defs
   const uid = useRef(`is${Math.random().toString(36).slice(2, 7)}`).current;
 
   return (
-    <div className="flex flex-col items-center" style={{ opacity }}>
+    <div className="flex flex-col items-center">
       {/* Header with toggle */}
       <div className="flex items-center gap-2 mb-1">
         <button
           onClick={onToggle}
-          className={`w-7 h-4 rounded-full transition-colors relative ${enabled ? 'bg-indigo-500' : 'bg-white/10'}`}
+          className={`relative h-4 w-7 rounded-full transition-colors ring-1 ${
+            enabled
+              ? 'bg-indigo-500 ring-indigo-500'
+              : 'bg-zinc-300 ring-zinc-400/60 hover:bg-zinc-400 dark:bg-zinc-700 dark:ring-zinc-600 dark:hover:bg-zinc-600'
+          }`}
+          aria-pressed={enabled}
+          aria-label={`${enabled ? 'Disable' : 'Enable'} ${title} snowflake filter`}
         >
-          <div className={`w-3 h-3 rounded-full bg-white absolute top-0.5 transition-all ${enabled ? 'left-3.5' : 'left-0.5'}`} />
+          <div className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-all ${enabled ? 'left-3.5' : 'left-0.5'}`} />
         </button>
         <span className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">{title}</span>
       </div>
@@ -152,6 +158,7 @@ export default function InteractiveSnowflake({ dims, values, onChange, enabled, 
           cursor: !enabled ? 'not-allowed' : dragging !== null ? 'grabbing' : hovering !== null ? 'grab' : 'crosshair',
           touchAction: 'none',
           userSelect: 'none',
+          opacity: chartOpacity,
         }}
       >
         <defs>

@@ -167,7 +167,12 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
   return (
     <header className="border-b border-zinc-200/50 bg-white/90 backdrop-blur-md overflow-visible relative z-40 shadow-sm shadow-zinc-900/[0.02] dark:border-zinc-800/80 dark:bg-zinc-950/90 dark:shadow-none">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={() => handleTab('agent')}
+          className="flex shrink-0 items-center gap-2 rounded-md px-1 py-0.5 text-left transition hover:bg-zinc-100/80 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 dark:hover:bg-zinc-800/70"
+          aria-label="Go to AI Agent"
+        >
           <img
             src="/logo-mark.svg"
             alt=""
@@ -177,7 +182,7 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
             aria-hidden
           />
           <h1 className="text-base sm:text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Equilima</h1>
-        </div>
+        </button>
 
         <nav className="hidden md:flex items-center gap-1">
           <div className="flex gap-0.5 bg-zinc-100/80 rounded-lg p-1 dark:bg-zinc-900/80">
