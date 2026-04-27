@@ -1297,8 +1297,14 @@ def _enrich_reddit_market_data(items):
             df = prices.get(sym)
             if df is not None and len(df):
                 item["sparkline"] = _price_sparkline(df["close"])
+                item["price"] = round(float(df["close"].iloc[-1]), 2)
             fund = funds.get(sym, {})
             item["consensus"] = _consensus_from_fund(fund)
+            item["pe_ratio"] = fund.get("pe_ratio")
+            item["forward_pe"] = fund.get("forward_pe")
+            item["revenue_growth"] = fund.get("revenue_growth")
+            item["earnings_growth"] = fund.get("earnings_growth")
+            item["return_on_equity"] = fund.get("return_on_equity")
             if fund.get("market_cap"):
                 item["market_cap"] = fund.get("market_cap")
             if fund.get("sector"):
