@@ -106,31 +106,49 @@ function PriceHistoryTooltip({ active, payload }) {
 // SnowflakeChart imported from ./SnowflakeChart.jsx
 
 // ─── DCF Fair Value Bar ───
-function FairValueBar({ dcf }) {
+function FairValueBar({ dcf, targetMean }) {
   if (!dcf?.fair_value) return null;
   const { fair_value, current_price, discount_pct, undervalued } = dcf;
-  const max = Math.max(fair_value, current_price) * 1.2;
+  const bars = [
+    { label: 'Current', value: current_price, tone: undervalued ? 'bg-emerald-500/35' : 'bg-red-500/35' },
+    { label: 'DCF', value: fair_value, tone: 'bg-indigo-500/35' },
+    targetMean ? { label: 'Target', value: targetMean, tone: 'bg-sky-500/35' } : null,
+  ].filter(Boolean);
+  const values = bars.map((bar) => Number(bar.value)).filter(Number.isFinite);
+  const low = Math.min(...values);
+  const high = Math.max(...values);
+  const span = high - low || Math.max(high * 0.04, 1);
+  const floor = Math.max(0, low - span * 0.15);
+  const ceiling = high + span * 0.15;
+  const heightPct = (value) => 24 + ((Number(value) - floor) / (ceiling - floor)) * 76;
+  const deltaPct = (value) => current_price ? ((Number(value) / Number(current_price)) - 1) * 100 : null;
   return (
     <div>
-      <div className="flex items-end gap-4 h-24 mb-2">
-        <div className="flex-1 text-center">
-          <div className={`rounded-t-lg ${undervalued ? 'bg-emerald-500/30' : 'bg-red-500/30'}`}
-            style={{ height: `${(current_price / max) * 100}%`, minHeight: 20 }}>
-            <div className="text-[10px] text-zinc-900 font-bold pt-1">${current_price}</div>
-          </div>
-          <div className="text-[9px] text-zinc-500 mt-1">Current</div>
-        </div>
-        <div className="flex-1 text-center">
-          <div className="bg-indigo-500/30 rounded-t-lg"
-            style={{ height: `${(fair_value / max) * 100}%`, minHeight: 20 }}>
-            <div className="text-[10px] text-zinc-900 font-bold pt-1">${fair_value}</div>
-          </div>
-          <div className="text-[9px] text-zinc-500 mt-1">Fair Value</div>
-        </div>
+      <div className="mb-2 flex h-32 items-end gap-3">
+        {bars.map((bar) => {
+          const delta = deltaPct(bar.value);
+          return (
+            <div key={bar.label} className="flex-1 text-center">
+              <div
+                className={`flex min-h-12 flex-col justify-start rounded-t-lg px-1 ${bar.tone}`}
+                style={{ height: `${heightPct(bar.value)}%` }}
+              >
+                <div className="pt-1 text-[10px] font-bold text-zinc-900">${fmtNum(bar.value, 2)}</div>
+                {bar.label !== 'Current' && delta != null && (
+                  <div className={`text-[9px] font-semibold ${delta >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                    {delta >= 0 ? '+' : ''}{delta.toFixed(1)}%
+                  </div>
+                )}
+              </div>
+              <div className="mt-1 text-[9px] font-medium text-zinc-500">{bar.label}</div>
+            </div>
+          );
+        })}
       </div>
       <div className={`text-center text-sm font-bold ${undervalued ? 'text-emerald-600' : 'text-red-600'}`}>
         {undervalued ? `${Math.abs(discount_pct)}% undervalued` : `${discount_pct}% overvalued`}
       </div>
+      <div className="mt-1 text-center text-[9px] text-zinc-500">Relative scale</div>
     </div>
   );
 }
@@ -266,7 +284,7 @@ function SummaryTab({ data }) {
           <SnowflakeChart data={data.snowflake} />
         </Card>
         <Card title="Fair Value (DCF)">
-          <FairValueBar dcf={data.dcf} />
+          <FairValueBar dcf={data.dcf} targetMean={s.target_mean} />
         </Card>
         <Card title="Ownership Breakdown">
           <OwnershipPie data={data.ownership_pie} />
