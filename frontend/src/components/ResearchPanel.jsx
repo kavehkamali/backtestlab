@@ -118,7 +118,7 @@ function FairValueBar({ dcf, targetMean }) {
   const low = Math.min(...values);
   const high = Math.max(...values);
   const span = high - low || 1;
-  const heightPct = (value) => values.length > 1 ? 52 + ((Number(value) - low) / span) * 48 : 76;
+  const heightPct = (value) => values.length > 1 ? 35 + ((Number(value) - low) / span) * 65 : 100;
   const deltaPct = (value) => current_price ? ((Number(value) / Number(current_price)) - 1) * 100 : null;
   return (
     <div>
