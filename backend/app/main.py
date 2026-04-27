@@ -1062,6 +1062,41 @@ def _reddit_fetch_json(client, url):
     return None
 
 
+def _reddit_scan_rss_posts(client, subreddit, valid_symbols):
+    import xml.etree.ElementTree as ET
+    posts = []
+    url = f"https://www.reddit.com/r/{subreddit}/hot/.rss"
+    try:
+        r = client.get(url)
+        if not r.is_success:
+            return posts
+        root = ET.fromstring(r.text)
+    except Exception:
+        return posts
+    ns = {"a": "http://www.w3.org/2005/Atom"}
+    for entry in root.findall("a:entry", ns)[:30]:
+        title = (entry.findtext("a:title", default="", namespaces=ns) or "").strip()
+        content = (entry.findtext("a:content", default="", namespaces=ns) or "").strip()
+        link_el = entry.find("a:link", ns)
+        href = link_el.attrib.get("href", "") if link_el is not None else ""
+        text = f"{title} {content}"
+        symbols = _reddit_extract_symbols(text, valid_symbols)
+        if not symbols:
+            continue
+        posts.append({
+            "id": (entry.findtext("a:id", default="", namespaces=ns) or "").split("/")[-1],
+            "subreddit": subreddit,
+            "title": title,
+            "text": text,
+            "url": href or f"https://www.reddit.com/r/{subreddit}",
+            "score": 1,
+            "comments": 0,
+            "symbols": symbols,
+            "recommendations": _reddit_recommendation_count(text),
+        })
+    return posts
+
+
 def _reddit_scan_posts(client, subreddit, valid_symbols):
     posts = []
     base = f"https://www.reddit.com/r/{subreddit}"
@@ -1094,11 +1129,12 @@ def _reddit_scan_posts(client, subreddit, valid_symbols):
 def _reddit_search_symbol_posts(client, symbols):
     posts = []
     for sym in symbols:
-        url = f"https://www.reddit.com/search.json?q=%24{sym}%20stock&sort=hot&t=day&limit=8&raw_json=1"
+        url = f"https://api.pullpush.io/reddit/search/submission/?q={sym}&subreddit=wallstreetbets,stocks,investing,StockMarket,pennystocks&size=8&sort=desc&sort_type=score"
         data = _reddit_fetch_json(client, url)
-        rows = data.get("data", {}).get("children", []) if isinstance(data, dict) else []
-        for child in rows:
-            p = child.get("data", {}) if isinstance(child, dict) else {}
+        rows = data.get("data", []) if isinstance(data, dict) else []
+        for p in rows:
+            if not isinstance(p, dict):
+                continue
             subreddit = p.get("subreddit") or "reddit"
             title = p.get("title") or ""
             text = " ".join([title, p.get("selftext") or "", f"${sym}"])
@@ -1158,6 +1194,7 @@ def _reddit_picks_compute():
         posts = []
         for subreddit in REDDIT_SUBREDDITS:
             posts.extend(_reddit_scan_posts(client, subreddit, valid_symbols))
+            posts.extend(_reddit_scan_rss_posts(client, subreddit, valid_symbols))
         if len(posts) < 12:
             posts.extend(_reddit_search_symbol_posts(client, REDDIT_FALLBACK_SYMBOLS))
         posts = _reddit_attach_comments(client, posts, valid_symbols)
