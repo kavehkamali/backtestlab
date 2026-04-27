@@ -81,10 +81,13 @@ journalctl -u equilima-agent -f
 
 Recommended: expose the home sidecar to AWS with an SSH reverse tunnel so port `8888` is not open to the internet.
 
-Run this on the home Linux machine. For the current AWS instance, the SSH target is `ec2-user@54.174.207.23`:
+Run this on the home Linux machine. For the current AWS instance, the SSH target is `ec2-user@54.174.207.23`. This forwards the agent on `8888` and SSH on AWS-local port `2223`:
 
 ```bash
-ssh -N -R 127.0.0.1:8888:127.0.0.1:8888 ec2-user@54.174.207.23
+ssh -N \
+  -R 127.0.0.1:8888:127.0.0.1:8888 \
+  -R 127.0.0.1:2223:127.0.0.1:22 \
+  ec2-user@54.174.207.23
 ```
 
 On AWS, set the Equilima backend env:
@@ -133,6 +136,7 @@ Set these on the home Linux host when needed:
 
 ```bash
 export EQUILIMA_AGENT_PORT=8888
+export EQUILIMA_SSH_TUNNEL_PORT=2223
 export EQUILIMA_OLLAMA_MODEL=gemma3:4b
 export OLLAMA_OPENAI_BASE=http://localhost:11434/v1
 export TRADING_AGENTS_PATH=/home/neo/equilima/TradingAgents

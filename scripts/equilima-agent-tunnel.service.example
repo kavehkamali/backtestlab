@@ -10,8 +10,10 @@ ExecStart=/usr/bin/ssh -NT \
   -o ExitOnForwardFailure=yes \
   -o ServerAliveInterval=30 \
   -o ServerAliveCountMax=3 \
+  -o StrictHostKeyChecking=accept-new \
   -i /home/neo/.ssh/kaveh-aws-projects-ec2.pem \
   -R 127.0.0.1:8888:127.0.0.1:8888 \
+  -R 127.0.0.1:2223:127.0.0.1:22 \
   ec2-user@54.174.207.23
 Restart=always
 RestartSec=10

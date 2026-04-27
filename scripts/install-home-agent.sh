@@ -11,6 +11,7 @@ SSH_KEY="${EQUILIMA_AWS_SSH_KEY:-$HOME_DIR/.ssh/kaveh-aws-projects-ec2.pem}"
 AWS_HOST="${EQUILIMA_AWS_HOST:-54.174.207.23}"
 AWS_USER="${EQUILIMA_AWS_USER:-ec2-user}"
 AGENT_PORT="${EQUILIMA_AGENT_PORT:-8888}"
+SSH_TUNNEL_PORT="${EQUILIMA_SSH_TUNNEL_PORT:-2223}"
 OLLAMA_MODEL="${EQUILIMA_OLLAMA_MODEL:-gemma3:4b}"
 
 if [[ "$(uname -s)" != "Linux" ]]; then
@@ -29,6 +30,7 @@ echo "User:       $USER_NAME"
 echo "AWS:        $AWS_USER@$AWS_HOST"
 echo "SSH key:    $SSH_KEY"
 echo "Port/model: $AGENT_PORT / $OLLAMA_MODEL"
+echo "SSH tunnel: $SSH_TUNNEL_PORT -> local port 22"
 echo ""
 
 install_packages() {
@@ -121,6 +123,7 @@ ExecStart=/usr/bin/ssh -NT \\
   -o StrictHostKeyChecking=accept-new \\
   -i $SSH_KEY \\
   -R 127.0.0.1:$AGENT_PORT:127.0.0.1:$AGENT_PORT \\
+  -R 127.0.0.1:$SSH_TUNNEL_PORT:127.0.0.1:22 \\
   $AWS_USER@$AWS_HOST
 Restart=always
 RestartSec=10
@@ -157,6 +160,9 @@ verify() {
   echo ""
   echo "On AWS, make sure ~/.equilima_env contains:"
   echo "  export EQUILIMA_AGENT_URL=http://127.0.0.1:$AGENT_PORT"
+  echo ""
+  echo "From your Mac, SSH to this Linux machine through AWS with:"
+  echo "  ssh -J $AWS_USER@$AWS_HOST -p $SSH_TUNNEL_PORT $USER_NAME@127.0.0.1"
 }
 
 install_packages
@@ -166,4 +172,3 @@ write_agent_service
 write_tunnel_service
 enable_services
 verify
-
