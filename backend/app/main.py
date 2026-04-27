@@ -804,9 +804,9 @@ def _agent_review_picks(columns, market_context, per_column=4):
         )
         with httpx.Client(timeout=600.0) as client:
             resp = client.post(f"{AGENT_URL}/chat", json={"message": prompt, "history": []})
-            if not resp.ok:
+            if not resp.is_success:
                 resp = client.post(f"{AGENT_URL}/quick", json={"message": prompt, "ticker": "", "history": []})
-            if not resp.ok:
+            if not resp.is_success:
                 print(f"[picks] Agent review HTTP {resp.status_code}: {resp.text[:500]}")
                 return columns, False
             body = resp.json()
