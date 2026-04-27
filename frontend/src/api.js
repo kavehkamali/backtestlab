@@ -422,6 +422,18 @@ export async function fetchAiPicks({ refresh = false } = {}) {
   return data;
 }
 
+export async function fetchRedditPicks({ refresh = false } = {}) {
+  const res = await fetch(`${BASE}/picks/reddit`, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || 'Failed to load Reddit picks');
+  return data;
+}
+
 // ─── Agent E2EE History (server-synced) ───
 export async function fetchAgentE2EEMeta() {
   const token = getToken();

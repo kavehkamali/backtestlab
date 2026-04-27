@@ -966,6 +966,256 @@ def _ai_picks_compute(max_candidates=260):
     })
 
 
+REDDIT_PICKS_TTL = 6 * 60 * 60
+REDDIT_PICKS_KEY = "reddit_picks_v1"
+REDDIT_SUBREDDITS = ["wallstreetbets", "stocks", "investing", "StockMarket", "pennystocks", "ValueInvesting", "options", "smallstreetbets"]
+REDDIT_COMMON_WORDS = {
+    "A", "AI", "ALL", "ARE", "ATH", "BE", "BIG", "BUY", "CALL", "CAN", "CEO", "CFO", "DD", "DO", "EPS", "ETF",
+    "FOR", "GDP", "GO", "HOLD", "IMO", "IPO", "IT", "JAN", "JUL", "JUN", "LEAP", "LOW", "MACD", "MOON", "NEW",
+    "NOW", "ON", "ONE", "OR", "PE", "PEG", "PM", "PUT", "ROI", "RSI", "SEC", "TA", "THE", "TO", "USA", "USD",
+}
+REDDIT_BULLISH_WORDS = {
+    "buy", "bought", "buying", "long", "calls", "call", "bullish", "undervalued", "breakout", "moon", "squeeze",
+    "accumulate", "adding", "added", "hold", "holding", "recommend", "recommended", "upside", "beat", "beats",
+}
+
+
+def _reddit_symbol_universe():
+    from .stock_lists import SP500, MID_CAPS, SMALL_CAPS, TSX60
+    symbols = set(SP500 + MID_CAPS + SMALL_CAPS + TSX60)
+    return {s.upper() for s in symbols if 2 <= len(s.replace(".TO", "")) <= 5 and s.upper() not in REDDIT_COMMON_WORDS}
+
+
+def _reddit_extract_symbols(text, valid_symbols):
+    import re
+    symbols = []
+    for raw in re.findall(r"(?<![A-Za-z0-9])\$?([A-Z][A-Z0-9.-]{1,7})(?![A-Za-z0-9])", text or ""):
+        sym = raw.replace("-", ".").upper().strip(".")
+        if sym in valid_symbols:
+            symbols.append(sym)
+    return symbols
+
+
+def _reddit_recommendation_count(text):
+    lowered = (text or "").lower()
+    return sum(1 for word in REDDIT_BULLISH_WORDS if word in lowered)
+
+
+def _reddit_fetch_json(client, url):
+    try:
+        r = client.get(url)
+        if r.is_success:
+            return r.json()
+    except Exception:
+        return None
+    return None
+
+
+def _reddit_scan_posts(client, subreddit, valid_symbols):
+    posts = []
+    base = f"https://www.reddit.com/r/{subreddit}"
+    for listing in ["hot", "top"]:
+        url = f"{base}/{listing}.json?limit=25&t=day&raw_json=1"
+        data = _reddit_fetch_json(client, url)
+        rows = data.get("data", {}).get("children", []) if isinstance(data, dict) else []
+        for child in rows:
+            p = child.get("data", {}) if isinstance(child, dict) else {}
+            if p.get("stickied"):
+                continue
+            text = " ".join([p.get("title") or "", p.get("selftext") or ""])
+            symbols = _reddit_extract_symbols(text, valid_symbols)
+            if not symbols:
+                continue
+            posts.append({
+                "id": p.get("id"),
+                "subreddit": subreddit,
+                "title": p.get("title") or "",
+                "text": text,
+                "url": f"https://www.reddit.com{p.get('permalink', '')}",
+                "score": int(p.get("score") or 0),
+                "comments": int(p.get("num_comments") or 0),
+                "symbols": symbols,
+                "recommendations": _reddit_recommendation_count(text),
+            })
+    return posts
+
+
+def _reddit_attach_comments(client, posts, valid_symbols):
+    for post in sorted(posts, key=lambda x: x["score"] + x["comments"], reverse=True)[:24]:
+        if not post.get("id"):
+            continue
+        url = f"https://www.reddit.com/r/{post['subreddit']}/comments/{post['id']}.json?limit=40&depth=1&sort=top&raw_json=1"
+        data = _reddit_fetch_json(client, url)
+        if not isinstance(data, list) or len(data) < 2:
+            continue
+        rows = data[1].get("data", {}).get("children", [])
+        for child in rows[:30]:
+            c = child.get("data", {}) if isinstance(child, dict) else {}
+            body = c.get("body") or ""
+            symbols = _reddit_extract_symbols(body, valid_symbols)
+            if not symbols:
+                continue
+            post.setdefault("comment_hits", []).append({
+                "body": body[:240],
+                "symbols": symbols,
+                "score": int(c.get("score") or 0),
+                "recommendations": _reddit_recommendation_count(body),
+            })
+    return posts
+
+
+def _reddit_picks_compute():
+    import math as _math
+    from collections import defaultdict
+    valid_symbols = _reddit_symbol_universe()
+    mentions = defaultdict(lambda: {
+        "symbol": "",
+        "mentions": 0,
+        "recommendations": 0,
+        "engagement": 0,
+        "subreddits": set(),
+        "examples": [],
+    })
+
+    headers = {"User-Agent": "EquilimaRedditPicks/1.0 by u/equilima"}
+    with __import__("httpx").Client(timeout=20.0, headers=headers, follow_redirects=True) as client:
+        posts = []
+        for subreddit in REDDIT_SUBREDDITS:
+            posts.extend(_reddit_scan_posts(client, subreddit, valid_symbols))
+        posts = _reddit_attach_comments(client, posts, valid_symbols)
+
+    for post in posts:
+        engagement = max(1, post["score"]) + 2 * max(0, post["comments"])
+        for sym in post.get("symbols", []):
+            row = mentions[sym]
+            row["symbol"] = sym
+            row["mentions"] += 1
+            row["recommendations"] += post.get("recommendations", 0)
+            row["engagement"] += engagement
+            row["subreddits"].add(post["subreddit"])
+            if len(row["examples"]) < 3:
+                row["examples"].append({
+                    "source": f"r/{post['subreddit']}",
+                    "title": post["title"][:180],
+                    "url": post["url"],
+                    "score": post["score"],
+                    "comments": post["comments"],
+                })
+        for hit in post.get("comment_hits", []):
+            for sym in hit.get("symbols", []):
+                row = mentions[sym]
+                row["symbol"] = sym
+                row["mentions"] += 1
+                row["recommendations"] += hit.get("recommendations", 0)
+                row["engagement"] += max(1, hit.get("score", 0))
+                row["subreddits"].add(post["subreddit"])
+
+    ranked = []
+    for row in mentions.values():
+        buzz_score = row["mentions"] * 4 + row["recommendations"] * 5 + _math.log1p(row["engagement"]) * 3 + len(row["subreddits"]) * 2
+        ranked.append({
+            "symbol": row["symbol"],
+            "mentions": row["mentions"],
+            "recommendations": row["recommendations"],
+            "engagement": int(row["engagement"]),
+            "subreddits": sorted(row["subreddits"]),
+            "buzz_score": round(buzz_score, 1),
+            "examples": row["examples"],
+        })
+    ranked.sort(key=lambda x: x["buzz_score"], reverse=True)
+    ranked, agent_reviewed = _agent_review_reddit_picks(ranked[:24])
+    return _sanitize({
+        "as_of": pd.Timestamp.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+        "source": "reddit",
+        "subreddits": REDDIT_SUBREDDITS,
+        "items": ranked[:30],
+        "agent_reviewed": agent_reviewed,
+        "method": "Ranks ticker mentions from public Reddit finance communities, then asks the same home LLM agent to review the leading Reddit candidates for sentiment quality, crowd-risk, and useful context.",
+        "disclaimer": "Reddit buzz is social discussion, not investment advice. Verify fundamentals, catalysts, liquidity, and risk before trading.",
+    })
+
+
+def _agent_review_reddit_picks(items):
+    if not items:
+        return items, False
+    try:
+        import httpx
+        payload = []
+        for item in items[:24]:
+            payload.append({
+                "symbol": item["symbol"],
+                "mentions": item["mentions"],
+                "recommendations": item["recommendations"],
+                "engagement": item["engagement"],
+                "subreddits": item["subreddits"],
+                "examples": item["examples"][:2],
+            })
+        prompt = (
+            "You are the Equilima Reddit stock-buzz aggregation agent. Review these Reddit-driven ticker candidates. "
+            "Use the supplied mention counts, recommendation language counts, engagement, subreddit breadth, and linked examples. "
+            "Distinguish broad useful discussion from meme/pump risk. Do not invent facts outside the supplied data. "
+            "Return strict JSON only with this schema: "
+            "{\"reviews\":[{\"symbol\":\"AAPL\",\"delta\":0,\"sentiment\":\"bullish|mixed|bearish|hype\",\"note\":\"short reason\",\"risk\":\"short risk\"}]}. "
+            "Include exactly one review object for every symbol. delta must be an integer from -5 to 5 and will adjust the Reddit buzz rank. "
+            "Use positive deltas for broad, recommendation-heavy, high-engagement discussion; negative deltas for low-quality hype, pump-risk, or unclear context. "
+            "Keep note and risk under 18 words each.\n\n"
+            f"Candidates: {json.dumps(payload)}"
+        )
+        with httpx.Client(timeout=600.0) as client:
+            resp = client.post(f"{AGENT_URL}/chat", json={"message": prompt, "history": []})
+            if not resp.is_success:
+                resp = client.post(f"{AGENT_URL}/quick", json={"message": prompt, "ticker": "", "history": []})
+            if not resp.is_success:
+                print(f"[reddit-picks] Agent HTTP {resp.status_code}: {resp.text[:500]}")
+                return items, False
+            body = resp.json()
+            raw = body.get("response") or body.get("message") or body.get("content") or ""
+            parsed = _extract_json_object(raw)
+            reviews = parsed.get("reviews", []) if isinstance(parsed, dict) else []
+    except Exception as e:
+        print(f"[reddit-picks] Agent review failed: {e}")
+        return items, False
+
+    by_symbol = {}
+    for review in reviews:
+        try:
+            sym = str(review.get("symbol", "")).upper().strip()
+            if not sym:
+                continue
+            by_symbol[sym] = {
+                "delta": max(-5, min(5, int(review.get("delta", 0)))),
+                "sentiment": str(review.get("sentiment", "mixed"))[:20],
+                "note": str(review.get("note", ""))[:180],
+                "risk": str(review.get("risk", ""))[:180],
+            }
+        except Exception:
+            continue
+    if not by_symbol:
+        print("[reddit-picks] Agent returned no usable reviews")
+        return items, False
+
+    for item in items:
+        review = by_symbol.get(item["symbol"])
+        if not review:
+            continue
+        item["agent_delta"] = review["delta"]
+        item["agent_sentiment"] = review["sentiment"]
+        item["agent_note"] = review["note"]
+        item["agent_risk"] = review["risk"]
+        item["buzz_score"] = round(max(0, item["buzz_score"] + review["delta"] * 3), 1)
+    items.sort(key=lambda x: x["buzz_score"], reverse=True)
+    return items, True
+
+
+@app.post("/api/picks/reddit")
+def reddit_picks(req: PicksRequest):
+    if req.refresh:
+        data = _reddit_picks_compute()
+        set_cached(REDDIT_PICKS_KEY, data)
+        return data
+    return get_cached_or_refresh_bg(REDDIT_PICKS_KEY, REDDIT_PICKS_TTL, _reddit_picks_compute)
+
+
 @app.get("/api/stock/{symbol}/detail")
 def stock_detail(symbol: str):
     """Detailed stock info with chart data."""

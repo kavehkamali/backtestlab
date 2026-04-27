@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Brain, RefreshCw, ShieldAlert, Sparkles, TrendingUp } from 'lucide-react';
-import { fetchAiPicks } from '../api';
+import { Brain, ExternalLink, MessageCircle, RefreshCw, ShieldAlert, Sparkles, TrendingUp } from 'lucide-react';
+import { fetchAiPicks, fetchRedditPicks } from '../api';
 
 const toneClasses = {
   emerald: 'bg-emerald-50 ring-emerald-200/70 dark:bg-emerald-950/25 dark:ring-emerald-800/60',
@@ -83,9 +83,63 @@ function PickCard({ pick, rank, onOpenTicker }) {
   );
 }
 
+function RedditBuzzCard({ item, rank, onOpenTicker }) {
+  return (
+    <div className="rounded-lg bg-white p-3 ring-1 ring-zinc-200/70 shadow-sm dark:bg-zinc-900/80 dark:ring-zinc-800">
+      <button type="button" onClick={() => onOpenTicker?.(item.symbol)} className="w-full text-left">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold text-zinc-500">#{rank}</span>
+              <span className="font-semibold text-zinc-950 dark:text-zinc-100">{item.symbol}</span>
+              {item.agent_sentiment && (
+                <span className="rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-medium text-orange-700 dark:bg-orange-950/40 dark:text-orange-200">
+                  {item.agent_sentiment}
+                </span>
+              )}
+            </div>
+            <div className="mt-1 text-xs text-zinc-500">{item.subreddits?.map((s) => `r/${s}`).join(' · ')}</div>
+          </div>
+          <div className="grid h-9 w-9 place-items-center rounded-md bg-orange-500 text-xs font-bold text-white">
+            {Math.round(item.buzz_score)}
+          </div>
+        </div>
+      </button>
+      <div className="mt-3 grid grid-cols-3 gap-1 text-[10px] text-zinc-600 dark:text-zinc-400">
+        <span>{item.mentions} mentions</span>
+        <span>{item.recommendations} recs</span>
+        <span>{item.engagement} eng</span>
+      </div>
+      {item.agent_note && (
+        <div className="mt-2 rounded bg-orange-50 px-2 py-1.5 text-[10px] leading-4 text-orange-800 ring-1 ring-orange-100 dark:bg-orange-950/30 dark:text-orange-200 dark:ring-orange-900">
+          Agent: {item.agent_note}
+        </div>
+      )}
+      {item.agent_risk && <div className="mt-1 text-[10px] leading-4 text-zinc-500">Risk: {item.agent_risk}</div>}
+      <div className="mt-2 space-y-1 border-t border-zinc-100 pt-2 dark:border-zinc-800">
+        {(item.examples || []).slice(0, 2).map((ex) => (
+          <a
+            key={ex.url}
+            href={ex.url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-start gap-1.5 text-[10px] leading-4 text-zinc-500 hover:text-orange-600 dark:text-zinc-400 dark:hover:text-orange-300"
+          >
+            <ExternalLink className="mt-0.5 h-3 w-3 shrink-0" />
+            <span className="line-clamp-2">{ex.title}</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AiPicksPanel({ onOpenTicker }) {
+  const [view, setView] = useState('agent');
   const [data, setData] = useState(null);
+  const [redditData, setRedditData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [redditLoading, setRedditLoading] = useState(false);
   const [error, setError] = useState('');
 
   const load = async (refresh = false) => {
@@ -100,9 +154,25 @@ export default function AiPicksPanel({ onOpenTicker }) {
     }
   };
 
+  const loadReddit = async (refresh = false) => {
+    setRedditLoading(true);
+    setError('');
+    try {
+      setRedditData(await fetchRedditPicks({ refresh }));
+    } catch (e) {
+      setError(e.message || 'Failed to load Reddit buzz');
+    } finally {
+      setRedditLoading(false);
+    }
+  };
+
   useEffect(() => {
     load(false);
   }, []);
+
+  useEffect(() => {
+    if (view === 'reddit' && !redditData && !redditLoading) loadReddit(false);
+  }, [view, redditData, redditLoading]);
 
   const columns = useMemo(() => data?.columns || [], [data]);
 
@@ -117,17 +187,39 @@ export default function AiPicksPanel({ onOpenTicker }) {
         </div>
         <button
           type="button"
-          onClick={() => load(true)}
-          disabled={loading}
+          onClick={() => (view === 'reddit' ? loadReddit(true) : load(true))}
+          disabled={view === 'reddit' ? redditLoading : loading}
           className="inline-flex items-center gap-2 rounded-md bg-zinc-950 px-3 py-2 text-xs font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-950"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
+          <RefreshCw className={`h-3.5 w-3.5 ${(view === 'reddit' ? redditLoading : loading) ? 'animate-spin' : ''}`} /> Refresh
         </button>
       </div>
 
       {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-200 dark:bg-red-950/30 dark:text-red-200 dark:ring-red-900">{error}</div>}
 
-      <div className="grid gap-3 rounded-lg bg-white p-3 ring-1 ring-zinc-200 dark:bg-zinc-900/60 dark:ring-zinc-800 sm:grid-cols-3">
+      <div className="flex flex-wrap gap-1 rounded-lg bg-zinc-100 p-1 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+        <button
+          type="button"
+          onClick={() => setView('agent')}
+          className={`inline-flex min-w-32 flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition ${
+            view === 'agent' ? 'bg-white text-zinc-950 shadow-sm dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
+          }`}
+        >
+          <Brain className="h-3.5 w-3.5" /> AI Picks
+        </button>
+        <button
+          type="button"
+          onClick={() => setView('reddit')}
+          className={`inline-flex min-w-32 flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition ${
+            view === 'reddit' ? 'bg-white text-zinc-950 shadow-sm dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
+          }`}
+        >
+          <span className="grid h-5 w-5 place-items-center rounded-full bg-orange-500 text-[10px] font-bold text-white">r/</span>
+          Reddit Buzz
+        </button>
+      </div>
+
+      {view === 'agent' && <div className="grid gap-3 rounded-lg bg-white p-3 ring-1 ring-zinc-200 dark:bg-zinc-900/60 dark:ring-zinc-800 sm:grid-cols-3">
         <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
           <TrendingUp className="h-4 w-4 text-emerald-500" /> {data?.scored_count || 0} scored from {data?.universe_count || 0} candidates
         </div>
@@ -137,9 +229,23 @@ export default function AiPicksPanel({ onOpenTicker }) {
         <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
           <ShieldAlert className="h-4 w-4 text-amber-500" /> {data?.agent_reviewed ? 'Pre-selection reviewed by tab-1 agent' : 'Click a ticker for full agent research'}
         </div>
-      </div>
+      </div>}
 
-      {loading && !data ? (
+      {view === 'reddit' && (
+        <div className="grid gap-3 rounded-lg bg-white p-3 ring-1 ring-zinc-200 dark:bg-zinc-900/60 dark:ring-zinc-800 sm:grid-cols-3">
+          <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+            <MessageCircle className="h-4 w-4 text-orange-500" /> {redditData?.items?.length || 0} Reddit tickers ranked
+          </div>
+          <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+            <Sparkles className="h-4 w-4 text-sky-500" /> {redditData?.agent_reviewed ? 'Aggregated with tab-1 agent review' : 'Mention and engagement based'}
+          </div>
+          <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+            <ShieldAlert className="h-4 w-4 text-amber-500" /> Social buzz, not recommendations
+          </div>
+        </div>
+      )}
+
+      {view === 'agent' && (loading && !data ? (
         <div className="grid gap-3 md:grid-cols-4">
           {[0, 1, 2, 3].map((i) => <div key={i} className="h-80 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-900" />)}
         </div>
@@ -157,9 +263,21 @@ export default function AiPicksPanel({ onOpenTicker }) {
             </section>
           ))}
         </div>
-      )}
+      ))}
 
-      <p className="text-xs text-zinc-500">{data?.disclaimer || 'Research shortlist only. Verify independently before trading.'}</p>
+      {view === 'reddit' && (redditLoading && !redditData ? (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => <div key={i} className="h-56 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-900" />)}
+        </div>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {(redditData?.items || []).slice(0, 24).map((item, idx) => (
+            <RedditBuzzCard key={item.symbol} item={item} rank={idx + 1} onOpenTicker={onOpenTicker} />
+          ))}
+        </div>
+      ))}
+
+      <p className="text-xs text-zinc-500">{view === 'reddit' ? redditData?.disclaimer : data?.disclaimer || 'Research shortlist only. Verify independently before trading.'}</p>
     </div>
   );
 }
