@@ -369,7 +369,7 @@ function SummaryTab({ data }) {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card title="Valuation">
           <Stat label="Market Cap" value={s.market_cap_fmt} />
           <Stat label="Enterprise Value" value={s.enterprise_value_fmt} />
