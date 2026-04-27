@@ -1292,6 +1292,15 @@ def _agent_select_reddit_picks(items):
                 selections = parsed.get("reviews") or parsed.get("picks") or parsed.get("items") or []
             if not selections:
                 print(f"[reddit-picks] Agent returned no selections. Raw: {str(raw)[:500]}")
+                simple_prompt = (
+                    "Select the 12 best Reddit stock ideas from this candidate list. "
+                    "Return only comma-separated ticker symbols, in final rank order. "
+                    "Use only symbols from the list.\n"
+                    f"Candidates: {', '.join(item['symbol'] for item in items[:24])}"
+                )
+                quick = client.post(f"{AGENT_URL}/quick", json={"message": simple_prompt, "ticker": "", "history": []})
+                if quick.is_success:
+                    raw = (quick.json().get("response") or "")[:1000]
                 valid = {item["symbol"].upper() for item in items}
                 seen = set()
                 selections = []
