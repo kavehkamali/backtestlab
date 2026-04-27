@@ -1,0 +1,19 @@
+[Unit]
+Description=Equilima AI Agent sidecar
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=neo
+WorkingDirectory=/home/neo/equilima
+Environment=EQUILIMA_AGENT_PORT=8888
+Environment=EQUILIMA_OLLAMA_MODEL=gemma3:4b
+Environment=OLLAMA_OPENAI_BASE=http://localhost:11434/v1
+Environment=TRADING_AGENTS_PATH=/home/neo/equilima/TradingAgents
+ExecStart=/home/neo/equilima/agent_env/bin/python /home/neo/equilima/agent_api.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

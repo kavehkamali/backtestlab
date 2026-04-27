@@ -152,6 +152,16 @@ Use that on the machine where you actually run the sidecar (for example **home-l
 
 The chat UI calls the main FastAPI app, which **proxies** to a separate HTTP service (`POST /chat`, `POST /quick`, `GET /health`). The default base URL is `http://localhost:8888`. You do **not** need Ollama, `agent_env/`, or the submodule on every dev machine—only on the host that runs the sidecar.
 
+For a complete home Linux setup, including a systemd unit and AWS reverse-tunnel wiring, see [`docs/HOME_LINUX_AGENT.md`](docs/HOME_LINUX_AGENT.md).
+
+Fast path on the home Linux host:
+
+```bash
+cd ~/equilima
+git pull origin main
+bash scripts/install-home-agent.sh
+```
+
 **What lives in git:** `agent_api.py` (repo root), `requirements-agent.txt`, and **`TradingAgents/`** as a submodule. **`agent_env/`** is gitignored; create it only on the agent host.
 
 **One-time setup on home-linux** (same Equilima clone you use for the agent):

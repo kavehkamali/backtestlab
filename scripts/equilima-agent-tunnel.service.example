@@ -1,0 +1,20 @@
+[Unit]
+Description=Equilima AI Agent reverse tunnel to AWS
+After=network-online.target equilima-agent.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=neo
+ExecStart=/usr/bin/ssh -NT \
+  -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 \
+  -o ServerAliveCountMax=3 \
+  -i /home/neo/.ssh/kaveh-aws-projects-ec2.pem \
+  -R 127.0.0.1:8888:127.0.0.1:8888 \
+  ec2-user@54.174.207.23
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
