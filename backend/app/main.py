@@ -650,50 +650,6 @@ def _score_pick(symbol, df, fund):
     }
 
 
-def _ai_pick_summary(columns):
-    try:
-        import httpx
-        payload = []
-        for col in columns:
-            payload.append({
-                "category": col["title"],
-                "symbols": [
-                    {
-                        "symbol": p["symbol"],
-                        "name": p["name"],
-                        "score": p["scores"]["overall"],
-                        "sector": p.get("sector"),
-                        "signals": p.get("reasons", []),
-                    }
-                    for p in col["picks"][:4]
-                ],
-            })
-        prompt = (
-            "You are a cautious equity research assistant. Based only on these ranked candidates, "
-            "write a concise markdown summary with 3 bullets: best long-term, best swing, and key risk. "
-            "Do not claim investment advice. Data:\n"
-            + json.dumps(payload)
-        )
-        with httpx.Client(timeout=120.0) as client:
-            r = client.post(f"{AGENT_URL}/quick", json={"message": prompt, "ticker": "", "history": []})
-            if r.ok:
-                return (r.json().get("response") or "").strip()[:1800]
-    except Exception:
-        return ""
-    return ""
-
-
-def _fallback_pick_summary(columns):
-    leaders = []
-    for col in columns:
-        if col.get("picks"):
-            p = col["picks"][0]
-            leaders.append(f"- **{col['title']}**: {p['symbol']} leads with score {p['scores']['overall']} on {', '.join(p.get('reasons', [])[:3])}.")
-    if not leaders:
-        return ""
-    return "\n".join(leaders + ["- **Risk**: rankings blend cached market data, fundamentals, technicals and headlines; verify catalysts, valuation, liquidity and position sizing before trading."])
-
-
 def _attach_pick_news(columns):
     try:
         import yfinance as yf
@@ -781,7 +737,7 @@ def _ai_picks_compute(max_candidates=260):
         "scored_count": len(scored),
         "model": os.getenv("EQUILIMA_AGENT_URL", "http://localhost:8888"),
         "columns": buckets,
-        "ai_summary": _ai_pick_summary(buckets) or _fallback_pick_summary(buckets),
+        "ai_summary": "",
         "disclaimer": "Research shortlist only. Not investment advice. Verify news, filings, liquidity, and your risk constraints before trading.",
     })
 
