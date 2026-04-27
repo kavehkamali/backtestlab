@@ -1020,8 +1020,8 @@ REDDIT_PICKS_TTL = 6 * 60 * 60
 REDDIT_PICKS_KEY = "reddit_picks_v2"
 REDDIT_SUBREDDITS = ["wallstreetbets", "stocks", "investing", "StockMarket", "pennystocks", "ValueInvesting", "options", "smallstreetbets"]
 REDDIT_COMMON_WORDS = {
-    "A", "AI", "ALL", "ARE", "ATH", "BE", "BIG", "BUY", "CALL", "CAN", "CEO", "CFO", "DD", "DO", "EPS", "ETF",
-    "FOR", "GDP", "GO", "HOLD", "IMO", "IPO", "IT", "JAN", "JUL", "JUN", "LEAP", "LOW", "MACD", "MOON", "NEW",
+    "A", "AI", "ALL", "ARE", "ATH", "BE", "BIG", "BUY", "CALL", "CAN", "CEO", "CFO", "COO", "DD", "DM", "DO", "EPS", "ES", "ETF",
+    "FOR", "GDP", "GO", "HOLD", "IMO", "IPO", "IR", "IT", "JAN", "JUL", "JUN", "LEAP", "LOW", "MACD", "MOON", "NEW",
     "NOW", "ON", "ONE", "OR", "PE", "PEG", "PM", "PUT", "ROI", "RSI", "SEC", "TA", "THE", "TO", "USA", "USD",
 }
 REDDIT_BULLISH_WORDS = {
