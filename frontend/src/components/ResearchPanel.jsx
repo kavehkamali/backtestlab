@@ -177,6 +177,26 @@ const TABS = [
   { id: 'news', label: 'News' },
 ];
 
+const PRICE_WINDOWS = [
+  { key: '1M', label: '1M', days: 21 },
+  { key: '3M', label: '3M', days: 63 },
+  { key: '6M', label: '6M', days: 126 },
+  { key: 'YTD', label: 'YTD', ytd: true },
+  { key: '1Y', label: '1Y', days: 252 },
+  { key: '2Y', label: '2Y', days: 504 },
+];
+
+function filterPriceWindow(chart, windowKey) {
+  if (!chart?.length) return [];
+  const opt = PRICE_WINDOWS.find((w) => w.key === windowKey) || PRICE_WINDOWS[PRICE_WINDOWS.length - 1];
+  if (opt.ytd) {
+    const year = new Date().getFullYear();
+    const rows = chart.filter((row) => Number(String(row.date || '').slice(0, 4)) === year);
+    return rows.length ? rows : chart.slice(-126);
+  }
+  return chart.slice(-Math.min(opt.days, chart.length));
+}
+
 // ═══════════════════════════════════════════
 // SUMMARY TAB
 // ═══════════════════════════════════════════
@@ -189,7 +209,9 @@ function SummaryTab({ data }) {
   const rc = data.revenue_chart || [];
   const rm = data.risk_metrics || {};
   const chart = data.chart || [];
-  const { chartData: priceChartRows, xTicks: priceXTicks } = buildResearchPriceChartRows(chart, 300);
+  const [priceWindow, setPriceWindow] = useState('1Y');
+  const priceWindowRows = filterPriceWindow(chart, priceWindow);
+  const { chartData: priceChartRows, xTicks: priceXTicks } = buildResearchPriceChartRows(priceWindowRows, 260);
 
   return (
     <div className="space-y-5">
@@ -246,7 +268,26 @@ function SummaryTab({ data }) {
 
       {/* Price Chart */}
       {priceChartRows.length > 0 && (
-        <Card title="Price History (2Y)">
+        <Card>
+          <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">Price History</div>
+            <div className="flex flex-wrap gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+              {PRICE_WINDOWS.map((w) => (
+                <button
+                  key={w.key}
+                  type="button"
+                  onClick={() => setPriceWindow(w.key)}
+                  className={`h-6 min-w-8 rounded-md px-2 text-[10px] font-medium transition ${
+                    priceWindow === w.key
+                      ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-700 dark:text-zinc-100 dark:ring-zinc-600'
+                      : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
+                  }`}
+                >
+                  {w.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={priceChartRows} margin={{ top: 4, right: 8, left: 4, bottom: 8 }}>
               <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6366f1" stopOpacity={0.2} /><stop offset="100%" stopColor="#6366f1" stopOpacity={0} /></linearGradient></defs>

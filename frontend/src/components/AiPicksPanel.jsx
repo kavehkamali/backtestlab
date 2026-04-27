@@ -29,6 +29,39 @@ function metric(v, suffix = '') {
   return `${Number(v).toFixed(1)}${suffix}`;
 }
 
+function parseSummaryLine(line) {
+  const text = line.replace(/^[-*]\s*/, '').trim();
+  const match = text.match(/^\*\*(.+?)\*\*:?\s*(.*)$/);
+  if (!match) return { title: '', body: text };
+  return { title: match[1], body: match[2] };
+}
+
+function AiSummary({ text }) {
+  const items = String(text || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map(parseSummaryLine);
+
+  if (!items.length) return null;
+
+  return (
+    <div className="rounded-lg bg-white p-3 ring-1 ring-zinc-200 dark:bg-zinc-900/60 dark:ring-zinc-800">
+      <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase text-zinc-500">
+        <Sparkles className="h-3.5 w-3.5 text-sky-500" /> AI synthesis
+      </div>
+      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+        {items.map((item, idx) => (
+          <div key={`${item.title}-${idx}`} className="rounded-md bg-zinc-50 p-2 ring-1 ring-zinc-100 dark:bg-zinc-950/40 dark:ring-zinc-800">
+            {item.title && <div className="text-xs font-semibold text-zinc-950 dark:text-zinc-100">{item.title}</div>}
+            <div className="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-400">{item.body}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PickCard({ pick, rank, onOpenTicker }) {
   const score = pick?.scores?.overall || 0;
   return (
@@ -133,11 +166,7 @@ export default function AiPicksPanel({ onOpenTicker }) {
         </div>
       </div>
 
-      {data?.ai_summary && (
-        <div className="whitespace-pre-wrap rounded-lg bg-zinc-950 p-4 text-sm leading-6 text-zinc-100 dark:bg-black">
-          {data.ai_summary}
-        </div>
-      )}
+      {data?.ai_summary && <AiSummary text={data.ai_summary} />}
 
       {loading && !data ? (
         <div className="grid gap-3 md:grid-cols-4">
