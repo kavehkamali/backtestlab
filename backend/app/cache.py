@@ -91,7 +91,7 @@ def fetch_price_cached(symbol: str, period: str = "2y", interval: str = "1d") ->
 def fetch_fundamentals_cached(symbol: str) -> dict:
     """Fetch fundamental data with cache."""
     cached = get_cached_fundamentals(symbol)
-    if cached is not None:
+    if cached is not None and any(k in cached for k in ["recommendation_key", "recommendation_mean", "target_mean_price"]):
         return cached
 
     try:
