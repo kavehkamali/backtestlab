@@ -117,20 +117,18 @@ function FairValueBar({ dcf, targetMean }) {
   const values = bars.map((bar) => Number(bar.value)).filter(Number.isFinite);
   const low = Math.min(...values);
   const high = Math.max(...values);
-  const span = high - low || Math.max(high * 0.04, 1);
-  const floor = Math.max(0, low - span * 0.15);
-  const ceiling = high + span * 0.15;
-  const heightPct = (value) => 24 + ((Number(value) - floor) / (ceiling - floor)) * 76;
+  const span = high - low || 1;
+  const heightPct = (value) => values.length > 1 ? 52 + ((Number(value) - low) / span) * 48 : 76;
   const deltaPct = (value) => current_price ? ((Number(value) / Number(current_price)) - 1) * 100 : null;
   return (
     <div>
-      <div className="mb-2 flex h-32 items-end gap-3">
+      <div className="mb-2 flex h-44 items-end justify-center gap-5">
         {bars.map((bar) => {
           const delta = deltaPct(bar.value);
           return (
-            <div key={bar.label} className="flex-1 text-center">
+            <div key={bar.label} className="w-16 text-center">
               <div
-                className={`flex min-h-12 flex-col justify-start rounded-t-lg px-1 ${bar.tone}`}
+                className={`mx-auto flex w-10 flex-col justify-start rounded-t-md px-1 ${bar.tone}`}
                 style={{ height: `${heightPct(bar.value)}%` }}
               >
                 <div className="pt-1 text-[10px] font-bold text-zinc-900">${fmtNum(bar.value, 2)}</div>
