@@ -1287,6 +1287,10 @@ def _agent_select_reddit_picks(items):
             raw = body.get("response") or body.get("message") or body.get("content") or ""
             parsed = _extract_json_object(raw)
             selections = parsed.get("selections", []) if isinstance(parsed, dict) else []
+            if not selections and isinstance(parsed, dict):
+                selections = parsed.get("reviews") or parsed.get("picks") or parsed.get("items") or []
+            if not selections:
+                print(f"[reddit-picks] Agent returned no selections. Raw: {str(raw)[:500]}")
     except Exception as e:
         print(f"[reddit-picks] Agent review failed: {e}")
         return items, False
@@ -1294,7 +1298,7 @@ def _agent_select_reddit_picks(items):
     by_symbol = {}
     for review in selections:
         try:
-            sym = str(review.get("symbol", "")).upper().strip()
+            sym = str(review.get("symbol", "")).upper().strip().lstrip("$")
             if not sym:
                 continue
             by_symbol[sym] = {
