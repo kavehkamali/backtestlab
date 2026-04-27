@@ -730,7 +730,12 @@ def _ai_picks_compute(max_candidates=260):
     from .stock_lists import SP500, MID_CAPS, SMALL_CAPS, TSX60
     from .cache import batch_fetch_prices, fetch_fundamentals_cached
 
-    symbols = list(dict.fromkeys(SP500[:150] + MID_CAPS[:70] + SMALL_CAPS[:55] + TSX60[:45]))[:max(80, min(int(max_candidates or 260), 340))]
+    limit = max(80, min(int(max_candidates or 260), 340))
+    # Keep each market-cap/country sleeve represented before applying the total cap.
+    symbols = list(dict.fromkeys(SP500[:120] + MID_CAPS[:55] + SMALL_CAPS[:45] + TSX60[:40]))
+    if limit > len(symbols):
+        symbols = list(dict.fromkeys(symbols + SP500[120:170] + MID_CAPS[55:80] + SMALL_CAPS[45:70] + TSX60[40:55]))
+    symbols = symbols[:limit]
     prices = batch_fetch_prices(symbols, period="1y")
     funds = {}
     with ThreadPoolExecutor(max_workers=10) as pool:
