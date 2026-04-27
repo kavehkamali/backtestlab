@@ -796,7 +796,8 @@ def _agent_review_picks(columns, market_context, per_column=4):
             "thin/liquidity risk, and macro mismatch. "
             "Return strict JSON only with this schema: "
             "{\"adjustments\":[{\"symbol\":\"AAPL\",\"delta\":0,\"note\":\"short reason\"}]}. "
-            "delta must be an integer from -6 to 6. Use positive delta only when the supplied data supports a stronger setup; "
+            "Include exactly one adjustment object for every finalist symbol. delta must be an integer from -6 to 6. "
+            "Use delta 0 when the candidate should stay where it is. Use positive delta only when the supplied data supports a stronger setup; "
             "use negative delta for overbought, weak fundamentals, bad headlines, macro risk, or liquidity/volatility risk. "
             "Your deltas will affect which candidates are selected into the final columns. Keep each note under 16 words.\n\n"
             f"Macro context: {json.dumps(market_context)}\n"
@@ -828,6 +829,7 @@ def _agent_review_picks(columns, market_context, per_column=4):
             continue
 
     if not by_symbol:
+        print(f"[picks] Agent review returned no usable adjustments: {str(adjustments)[:500]}")
         return columns, False
 
     for col in columns:
@@ -847,7 +849,7 @@ PICKS_DEFAULT_CANDIDATES = 340
 
 
 def _picks_cache_key(max_candidates=PICKS_DEFAULT_CANDIDATES):
-    return f"ai_picks_v5_{int(max_candidates or PICKS_DEFAULT_CANDIDATES)}"
+    return f"ai_picks_v6_{int(max_candidates or PICKS_DEFAULT_CANDIDATES)}"
 
 
 def _refresh_picks_cache_background(max_candidates=PICKS_DEFAULT_CANDIDATES, force=False):
