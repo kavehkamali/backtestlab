@@ -1255,6 +1255,7 @@ def _agent_select_reddit_picks(items):
         return items, False
     try:
         import httpx
+        import re
         payload = []
         for item in items[:24]:
             payload.append({
@@ -1291,6 +1292,22 @@ def _agent_select_reddit_picks(items):
                 selections = parsed.get("reviews") or parsed.get("picks") or parsed.get("items") or []
             if not selections:
                 print(f"[reddit-picks] Agent returned no selections. Raw: {str(raw)[:500]}")
+                valid = {item["symbol"].upper() for item in items}
+                seen = set()
+                selections = []
+                for sym in re.findall(r"\$?([A-Z][A-Z0-9.-]{1,7})(?=\\s|\\)|:|\\*|,)", str(raw)):
+                    symbol = sym.replace("-", ".").upper().strip(".")
+                    if symbol in valid and symbol not in seen:
+                        selections.append({
+                            "symbol": symbol,
+                            "rank": len(selections) + 1,
+                            "sentiment": "mixed",
+                            "note": "Selected by agent from Reddit discussion ranking.",
+                            "risk": "Verify discussion quality and catalysts.",
+                        })
+                        seen.add(symbol)
+                    if len(selections) >= 12:
+                        break
     except Exception as e:
         print(f"[reddit-picks] Agent review failed: {e}")
         return items, False
