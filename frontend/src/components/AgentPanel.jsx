@@ -375,11 +375,22 @@ function packAgentRequestBody(priorMessages, newUserMsg, mode) {
 // ─── Streaming fetch ───
 async function streamAgent(url, body, onToken) {
   const started = performance.now();
+  const controller = new AbortController();
+  const timeoutMs = url.includes('/chat') ? 185000 : 70000;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-  });
+    signal: controller.signal,
+  }).catch((err) => {
+    if (err?.name === 'AbortError') {
+      throw new Error(url.includes('/chat')
+        ? 'Full analysis is taking too long. Try Quick mode or ask a narrower question.'
+        : 'The agent is taking too long to respond. Try again in a moment.');
+    }
+    throw err;
+  }).finally(() => clearTimeout(timeout));
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Agent unavailable' }));
     const msg = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail);

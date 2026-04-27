@@ -945,9 +945,13 @@ async def agent_chat(request: Request):
     try:
         async with httpx.AsyncClient(timeout=180.0) as client:
             resp = await client.post(f"{AGENT_URL}/chat", json=body)
+            if resp.status_code >= 400:
+                raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="Agent timed out — the analysis is taking too long")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Agent unavailable: {str(e)}")
 
@@ -958,9 +962,13 @@ async def agent_quick(request: Request):
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(f"{AGENT_URL}/quick", json=body)
+            if resp.status_code >= 400:
+                raise HTTPException(status_code=resp.status_code, detail=resp.text)
             return resp.json()
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="Agent timed out")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Agent unavailable: {str(e)}")
 
