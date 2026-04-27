@@ -5,6 +5,7 @@ import { fetchAiPicks } from '../api';
 const toneClasses = {
   emerald: 'bg-emerald-50 ring-emerald-200/70 dark:bg-emerald-950/25 dark:ring-emerald-800/60',
   sky: 'bg-sky-50 ring-sky-200/70 dark:bg-sky-950/25 dark:ring-sky-800/60',
+  cyan: 'bg-cyan-50 ring-cyan-200/70 dark:bg-cyan-950/25 dark:ring-cyan-800/60',
   amber: 'bg-amber-50 ring-amber-200/70 dark:bg-amber-950/25 dark:ring-amber-800/60',
   rose: 'bg-rose-50 ring-rose-200/70 dark:bg-rose-950/25 dark:ring-rose-800/60',
 };
@@ -54,7 +55,7 @@ function PickCard({ pick, rank, onOpenTicker }) {
       </div>
       <div className="mt-2 grid grid-cols-3 gap-1 text-[10px] text-zinc-600 dark:text-zinc-400">
         <span>Q {metric(pick.scores?.quality)}</span>
-        <span>M {metric(pick.scores?.momentum)}</span>
+        <span>{pick.category === 'Low-Cap Short-Term' ? 'ST' : 'M'} {metric(pick.category === 'Low-Cap Short-Term' ? pick.scores?.short_term : pick.scores?.momentum)}</span>
         <span>V {metric(pick.scores?.value)}</span>
       </div>
       <div className="mt-2 flex flex-wrap gap-1">
@@ -71,6 +72,11 @@ function PickCard({ pick, rank, onOpenTicker }) {
       {pick.news?.length > 0 && (
         <div className="mt-2 border-t border-zinc-100 pt-2 text-[10px] leading-4 text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
           {pick.news[0]}
+        </div>
+      )}
+      {pick.agent_note && (
+        <div className="mt-2 rounded bg-sky-50 px-2 py-1.5 text-[10px] leading-4 text-sky-800 ring-1 ring-sky-100 dark:bg-sky-950/30 dark:text-sky-200 dark:ring-sky-900">
+          Agent: {pick.agent_note}
         </div>
       )}
     </button>
@@ -126,10 +132,10 @@ export default function AiPicksPanel({ onOpenTicker }) {
           <TrendingUp className="h-4 w-4 text-emerald-500" /> {data?.scored_count || 0} scored from {data?.universe_count || 0} candidates
         </div>
         <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
-          <Sparkles className="h-4 w-4 text-sky-500" /> Fundamentals, technicals, news and agent synthesis
+          <Sparkles className="h-4 w-4 text-sky-500" /> Fundamentals, technicals, recent headlines and macro context
         </div>
         <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
-          <ShieldAlert className="h-4 w-4 text-amber-500" /> Research shortlist, not investment advice
+          <ShieldAlert className="h-4 w-4 text-amber-500" /> {data?.agent_reviewed ? 'Finalists reviewed by tab-1 agent' : 'Click a ticker for full agent research'}
         </div>
       </div>
 
@@ -138,7 +144,7 @@ export default function AiPicksPanel({ onOpenTicker }) {
           {[0, 1, 2, 3].map((i) => <div key={i} className="h-80 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-900" />)}
         </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           {columns.map((col) => (
             <section key={col.id} className={`rounded-lg p-3 ring-1 ${toneClasses[col.tone] || toneClasses.emerald}`}>
               <h3 className="text-sm font-semibold text-zinc-950 dark:text-zinc-100">{col.title}</h3>

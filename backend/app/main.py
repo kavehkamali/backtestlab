@@ -515,9 +515,13 @@ def _fmt_reason(label, value, suffix=""):
     return f"{label}: {value}{suffix}"
 
 
-def _pick_category(symbol, fund, scores):
+def _pick_category(symbol, fund, scores, low_cap_symbols=None):
+    low_cap_symbols = low_cap_symbols or set()
+    market_cap = fund.get("market_cap") or 0
     if symbol.endswith(".TO"):
         return "Canada / Diversified"
+    if (symbol in low_cap_symbols or (market_cap and market_cap <= 5_000_000_000)) and scores.get("short_term", 0) >= 55:
+        return "Low-Cap Short-Term"
     if scores["momentum"] >= scores["quality"] and scores["momentum"] >= 65:
         return "Swing Momentum"
     if scores["value"] >= scores["quality"] and scores["value"] >= 58:
@@ -525,11 +529,43 @@ def _pick_category(symbol, fund, scores):
     return "Long-Term Quality"
 
 
-def _score_pick(symbol, df, fund):
+def _market_context(prices):
+    def pct(sym, days):
+        df = prices.get(sym)
+        if df is None or len(df) <= days:
+            return 0.0
+        close = df["close"]
+        last = float(close.iloc[-1])
+        base = float(close.iloc[-days - 1])
+        return (last / base - 1) * 100 if base else 0.0
+
+    spx_1m = pct("^GSPC", 21)
+    rut_1m = pct("^RUT", 21)
+    nasdaq_1m = pct("^IXIC", 21)
+    vix_df = prices.get("^VIX")
+    vix = float(vix_df["close"].iloc[-1]) if vix_df is not None and len(vix_df) else None
+    tnx_3m = pct("^TNX", 63)
+    risk_off = (spx_1m < -3) or (vix is not None and vix >= 24)
+    small_cap_pressure = rut_1m < spx_1m - 4
+    growth_tailwind = nasdaq_1m > spx_1m + 2 and not risk_off
+    return {
+        "spx_1m": round(spx_1m, 1),
+        "rut_1m": round(rut_1m, 1),
+        "nasdaq_1m": round(nasdaq_1m, 1),
+        "vix": round(vix, 1) if vix is not None else None,
+        "tnx_3m": round(tnx_3m, 1),
+        "risk_off": risk_off,
+        "small_cap_pressure": small_cap_pressure,
+        "growth_tailwind": growth_tailwind,
+    }
+
+
+def _score_pick(symbol, df, fund, market_context=None, low_cap_symbols=None):
     import numpy as np
     from ta.momentum import RSIIndicator
     from ta.trend import MACD as MACD_Indicator
 
+    market_context = market_context or {}
     if df is None or len(df) < 90:
         return None
     close = df["close"]
@@ -589,23 +625,41 @@ def _score_pick(symbol, df, fund):
         + 10 * _clip_score(mh - mh_prev, -0.5, 0.8)
         + 8 * _clip_score(vol_ratio, 0.7, 2.0)
     )
+    short_term = (
+        30 * _clip_score(ret(5), -5, 9)
+        + 30 * _clip_score(ret(20), -8, 18)
+        + 16 * _clip_score(vol_ratio, 0.8, 2.5)
+        + 12 * _clip_score(mh - mh_prev, -0.4, 0.9)
+        + 8 * (1 if price > sma50 else 0)
+        + 4 * (1 if 48 <= rsi_val <= 76 else 0)
+    )
     risk_adj = max(0, 100 - volatility)
     base = 0.42 * quality + 0.32 * momentum + 0.18 * value + 0.08 * risk_adj
     if market_cap and market_cap < 750_000_000:
         base -= 8
     if rsi_val > 78:
         base -= 5
+    if market_context.get("risk_off"):
+        base -= 4
+        short_term -= 5
+    if market_context.get("small_cap_pressure") and (symbol in (low_cap_symbols or set()) or (market_cap and market_cap <= 5_000_000_000)):
+        short_term -= 4
+    if market_context.get("growth_tailwind") and (symbol in (low_cap_symbols or set()) or (market_cap and market_cap <= 5_000_000_000)):
+        short_term += 3
 
     scores = {
         "overall": round(max(0, min(100, base)), 1),
         "quality": round(max(0, min(100, quality)), 1),
         "momentum": round(max(0, min(100, momentum)), 1),
+        "short_term": round(max(0, min(100, short_term)), 1),
         "value": round(max(0, min(100, value)), 1),
         "risk": round(max(0, min(100, risk_adj)), 1),
     }
-    category = _pick_category(symbol, fund, scores)
+    category = _pick_category(symbol, fund, scores, low_cap_symbols)
     if category == "Swing Momentum":
         overall = 0.55 * scores["momentum"] + 0.25 * scores["quality"] + 0.12 * scores["value"] + 0.08 * scores["risk"]
+    elif category == "Low-Cap Short-Term":
+        overall = 0.62 * scores["short_term"] + 0.18 * scores["momentum"] + 0.10 * scores["quality"] + 0.10 * scores["risk"]
     elif category == "Value / Income":
         overall = 0.50 * scores["value"] + 0.25 * scores["quality"] + 0.15 * scores["momentum"] + 0.10 * scores["risk"]
     elif category == "Canada / Diversified":
@@ -615,6 +669,7 @@ def _score_pick(symbol, df, fund):
     scores["overall"] = round(max(0, min(100, overall)), 1)
 
     reasons = [
+        _fmt_reason("5D", round(ret(5), 1), "%"),
         _fmt_reason("1M", round(ret(20), 1), "%"),
         _fmt_reason("3M", round(ret(60), 1), "%"),
         _fmt_reason("RSI", round(rsi_val, 1)),
@@ -673,9 +728,118 @@ def _attach_pick_news(columns):
     return columns
 
 
+def _headline_sentiment(headlines):
+    text = " ".join(headlines or []).lower()
+    if not text:
+        return 0
+    positive = ["beat", "beats", "raises", "raised", "upgrade", "upgraded", "surge", "record", "profit", "growth", "contract", "approval", "launch"]
+    negative = ["miss", "misses", "cut", "cuts", "downgrade", "downgraded", "probe", "lawsuit", "warning", "recall", "loss", "decline", "bankruptcy"]
+    return sum(1 for w in positive if w in text) - sum(1 for w in negative if w in text)
+
+
+def _apply_news_scores(columns):
+    for col in columns:
+        for pick in col.get("picks", []):
+            score = _headline_sentiment(pick.get("news", []))
+            pick["news_score"] = score
+            if score:
+                pick["scores"]["overall"] = round(max(0, min(100, pick["scores"]["overall"] + max(-4, min(4, score * 1.5)))), 1)
+        col["picks"].sort(key=lambda x: x["scores"]["overall"], reverse=True)
+    return columns
+
+
+def _extract_json_object(text):
+    if not text:
+        return None
+    s = str(text).strip()
+    start = s.find("{")
+    end = s.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    try:
+        return json.loads(s[start:end + 1])
+    except Exception:
+        return None
+
+
+def _agent_review_picks(columns, market_context):
+    try:
+        import httpx
+        finalists = []
+        for col in columns:
+            for pick in col.get("picks", [])[:4]:
+                finalists.append({
+                    "symbol": pick["symbol"],
+                    "category": col["title"],
+                    "name": pick.get("name"),
+                    "sector": pick.get("sector"),
+                    "market_cap": pick.get("market_cap"),
+                    "scores": pick.get("scores"),
+                    "price": pick.get("price"),
+                    "change_20d": pick.get("change_20d"),
+                    "change_60d": pick.get("change_60d"),
+                    "rsi": pick.get("rsi"),
+                    "volatility": pick.get("volatility"),
+                    "forward_pe": pick.get("forward_pe"),
+                    "revenue_growth": pick.get("revenue_growth"),
+                    "earnings_growth": pick.get("earnings_growth"),
+                    "return_on_equity": pick.get("return_on_equity"),
+                    "headlines": pick.get("news", [])[:2],
+                })
+        if not finalists:
+            return columns, False
+        prompt = (
+            "You are the Equilima stock-picks review agent. Review these already-ranked finalists using only "
+            "the supplied fundamentals, technicals, recent headlines, and macro context. Do not add facts not in the data. "
+            "Return strict JSON only with this schema: "
+            "{\"adjustments\":[{\"symbol\":\"AAPL\",\"delta\":0,\"note\":\"short reason\"}]}. "
+            "delta must be an integer from -6 to 6. Use positive delta only when the supplied data supports a stronger setup; "
+            "use negative delta for overbought, weak fundamentals, bad headlines, macro risk, or liquidity/volatility risk. "
+            "Keep each note under 16 words.\n\n"
+            f"Macro context: {json.dumps(market_context)}\n"
+            f"Finalists: {json.dumps(finalists)}"
+        )
+        with httpx.Client(timeout=120.0) as client:
+            resp = client.post(f"{AGENT_URL}/chat", json={"message": prompt, "history": []})
+            if not resp.ok:
+                resp = client.post(f"{AGENT_URL}/quick", json={"message": prompt, "ticker": "", "history": []})
+            if not resp.ok:
+                return columns, False
+            body = resp.json()
+            parsed = _extract_json_object(body.get("response") or body.get("message") or body.get("content") or "")
+            adjustments = parsed.get("adjustments", []) if isinstance(parsed, dict) else []
+    except Exception:
+        return columns, False
+
+    by_symbol = {}
+    for adj in adjustments:
+        try:
+            symbol = str(adj.get("symbol", "")).strip().upper()
+            delta = int(adj.get("delta", 0))
+            note = str(adj.get("note", "")).strip()
+            if symbol:
+                by_symbol[symbol] = {"delta": max(-6, min(6, delta)), "note": note[:180]}
+        except Exception:
+            continue
+
+    if not by_symbol:
+        return columns, False
+
+    for col in columns:
+        for pick in col.get("picks", []):
+            adj = by_symbol.get(pick["symbol"].upper())
+            if not adj:
+                continue
+            pick["agent_delta"] = adj["delta"]
+            pick["agent_note"] = adj["note"]
+            pick["scores"]["overall"] = round(max(0, min(100, pick["scores"]["overall"] + adj["delta"])), 1)
+        col["picks"].sort(key=lambda x: x["scores"]["overall"], reverse=True)
+    return columns, True
+
+
 @app.post("/api/picks")
 def ai_picks(req: PicksRequest):
-    cache_key = f"ai_picks_v2_{int(req.max_candidates)}"
+    cache_key = f"ai_picks_v3_{int(req.max_candidates)}"
     if req.refresh:
         return _ai_picks_compute(req.max_candidates)
     return get_cached_or_refresh_bg(cache_key, 30 * 60, lambda: _ai_picks_compute(req.max_candidates))
@@ -688,11 +852,14 @@ def _ai_picks_compute(max_candidates=260):
 
     limit = max(80, min(int(max_candidates or 260), 340))
     # Keep each market-cap/country sleeve represented before applying the total cap.
-    symbols = list(dict.fromkeys(SP500[:120] + MID_CAPS[:55] + SMALL_CAPS[:45] + TSX60[:40]))
+    symbols = list(dict.fromkeys(SP500[:120] + MID_CAPS[:55] + SMALL_CAPS[:70] + TSX60[:40]))
     if limit > len(symbols):
-        symbols = list(dict.fromkeys(symbols + SP500[120:170] + MID_CAPS[55:80] + SMALL_CAPS[45:70] + TSX60[40:55]))
+        symbols = list(dict.fromkeys(symbols + SP500[120:170] + MID_CAPS[55:80] + SMALL_CAPS[70:] + TSX60[40:55]))
     symbols = symbols[:limit]
-    prices = batch_fetch_prices(symbols, period="1y")
+    macro_symbols = ["^GSPC", "^IXIC", "^RUT", "^VIX", "^TNX", "CL=F", "GC=F"]
+    prices = batch_fetch_prices(list(dict.fromkeys(symbols + macro_symbols)), period="1y")
+    market_context = _market_context(prices)
+    low_cap_symbols = set(SMALL_CAPS)
     funds = {}
     with ThreadPoolExecutor(max_workers=10) as pool:
         futures = {pool.submit(fetch_fundamentals_cached, s): s for s in symbols}
@@ -705,7 +872,7 @@ def _ai_picks_compute(max_candidates=260):
     scored = []
     for sym in symbols:
         try:
-            item = _score_pick(sym, prices.get(sym), funds.get(sym, {}))
+            item = _score_pick(sym, prices.get(sym), funds.get(sym, {}), market_context, low_cap_symbols)
             if item and item["scores"]["overall"] >= 45:
                 scored.append(item)
         except Exception:
@@ -714,6 +881,7 @@ def _ai_picks_compute(max_candidates=260):
     buckets = [
         {"id": "long_term", "title": "Long-Term Quality", "tone": "emerald", "subtitle": "Durable fundamentals and balanced technicals"},
         {"id": "swing", "title": "Swing Momentum", "tone": "sky", "subtitle": "Near-term trend strength with confirmation"},
+        {"id": "low_cap", "title": "Low-Cap Short-Term", "tone": "cyan", "subtitle": "Smaller-cap momentum with liquidity and risk checks"},
         {"id": "value", "title": "Value / Income", "tone": "amber", "subtitle": "Valuation, yield, and balance-sheet support"},
         {"id": "canada", "title": "Canada / Diversified", "tone": "rose", "subtitle": "TSX and non-US diversification candidates"},
     ]
@@ -729,13 +897,17 @@ def _ai_picks_compute(max_candidates=260):
         fallback = [x for x in sorted(scored, key=lambda x: x["scores"]["overall"], reverse=True) if x["symbol"] not in used]
         buckets[0]["picks"].extend(fallback[: 3 - len(buckets[0]["picks"])])
 
-    buckets = _attach_pick_news(buckets)
+    buckets = _apply_news_scores(_attach_pick_news(buckets))
+    buckets, agent_reviewed = _agent_review_picks(buckets, market_context)
 
     return _sanitize({
         "as_of": pd.Timestamp.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
         "universe_count": len(symbols),
         "scored_count": len(scored),
         "model": os.getenv("EQUILIMA_AGENT_URL", "http://localhost:8888"),
+        "market_context": market_context,
+        "agent_reviewed": agent_reviewed,
+        "method": "Deterministic first-pass ranking over cached fundamentals, technicals, recent headlines, and macro context; finalists are then reviewed by the same home LLM agent service used by tab 1.",
         "columns": buckets,
         "ai_summary": "",
         "disclaimer": "Research shortlist only. Not investment advice. Verify news, filings, liquidity, and your risk constraints before trading.",
