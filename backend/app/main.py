@@ -114,7 +114,7 @@ class ScreenerRequest(BaseModel):
 
 class PicksRequest(BaseModel):
     refresh: bool = False
-    max_candidates: int = 260
+    max_candidates: int = 340
 
 
 @app.get("/api/health")
@@ -790,8 +790,10 @@ def _agent_review_picks(columns, market_context, per_column=4):
         if not finalists:
             return columns, False
         prompt = (
-            "You are the Equilima stock-picks selection agent. Review this broader pre-selection pool using only "
-            "the supplied fundamentals, technicals, recent headlines, and macro context. Do not add facts not in the data. "
+            "You are the Equilima deep stock-picks selection agent. Review this broader pre-selection pool with careful reasoning. "
+            "Use the supplied fundamentals, technicals, recent headlines, and macro context, and use your configured research/news/macro/fundamental "
+            "capabilities if they are available. Prefer evidence over excitement, penalize fragile balance sheets, weak catalysts, overbought charts, "
+            "thin/liquidity risk, and macro mismatch. "
             "Return strict JSON only with this schema: "
             "{\"adjustments\":[{\"symbol\":\"AAPL\",\"delta\":0,\"note\":\"short reason\"}]}. "
             "delta must be an integer from -6 to 6. Use positive delta only when the supplied data supports a stronger setup; "
@@ -800,16 +802,18 @@ def _agent_review_picks(columns, market_context, per_column=4):
             f"Macro context: {json.dumps(market_context)}\n"
             f"Finalists: {json.dumps(finalists)}"
         )
-        with httpx.Client(timeout=120.0) as client:
+        with httpx.Client(timeout=600.0) as client:
             resp = client.post(f"{AGENT_URL}/chat", json={"message": prompt, "history": []})
             if not resp.ok:
                 resp = client.post(f"{AGENT_URL}/quick", json={"message": prompt, "ticker": "", "history": []})
             if not resp.ok:
+                print(f"[picks] Agent review HTTP {resp.status_code}: {resp.text[:500]}")
                 return columns, False
             body = resp.json()
             parsed = _extract_json_object(body.get("response") or body.get("message") or body.get("content") or "")
             adjustments = parsed.get("adjustments", []) if isinstance(parsed, dict) else []
-    except Exception:
+    except Exception as e:
+        print(f"[picks] Agent review failed: {e}")
         return columns, False
 
     by_symbol = {}
@@ -839,11 +843,11 @@ def _agent_review_picks(columns, market_context, per_column=4):
 
 
 PICKS_TTL = 24 * 60 * 60
-PICKS_DEFAULT_CANDIDATES = 260
+PICKS_DEFAULT_CANDIDATES = 340
 
 
 def _picks_cache_key(max_candidates=PICKS_DEFAULT_CANDIDATES):
-    return f"ai_picks_v4_{int(max_candidates or PICKS_DEFAULT_CANDIDATES)}"
+    return f"ai_picks_v5_{int(max_candidates or PICKS_DEFAULT_CANDIDATES)}"
 
 
 def _refresh_picks_cache_background(max_candidates=PICKS_DEFAULT_CANDIDATES, force=False):
@@ -919,7 +923,7 @@ def _ai_picks_compute(max_candidates=260):
         {"id": "value", "title": "Value / Income", "tone": "amber", "subtitle": "Valuation, yield, and balance-sheet support"},
         {"id": "canada", "title": "Canada / Diversified", "tone": "rose", "subtitle": "TSX and non-US diversification candidates"},
     ]
-    agent_pool_per_bucket = 8
+    agent_pool_per_bucket = 12
     final_picks_per_bucket = 4
     used = set()
     for b in buckets:
