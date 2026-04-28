@@ -5,6 +5,7 @@ import { fetchResearch } from '../api';
 import SnowflakeChart from './SnowflakeChart';
 import { buildResearchPriceChartRows, formatResearchPriceXTick } from '../utils/marketHeroChart';
 import TerminalPanel from './terminal/TerminalPanel';
+import ComparePanel from './ComparePanel';
 
 const RESEARCH_RECENTS_KEY = 'eq_research_recent_symbols_v1';
 const DEFAULT_RESEARCH_SHORTCUTS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'JPM', 'V', 'WMT', 'UNH', 'XOM'];
@@ -340,6 +341,7 @@ const TABS = [
   { id: 'terminal', label: 'Chart' },
   { id: 'news', label: 'News' },
   { id: 'ownership', label: 'Ownership' },
+  { id: 'backtest', label: 'Backtesting' },
 ];
 
 const PRICE_WINDOWS = [
@@ -1063,7 +1065,12 @@ function NewsTab({ data }) {
 // ═══════════════════════════════════════════
 // FUNDAMENTALS (symbol lookup + tabs)
 // ═══════════════════════════════════════════
-function ResearchFundamentals() {
+function ResearchFundamentals({
+  strategies = [],
+  onCompare,
+  compareResults = null,
+  compareLoading = false,
+}) {
   const [symbol, setSymbol] = useState('AAPL');
   const [symbolInput, setSymbolInput] = useState('AAPL');
   const [data, setData] = useState(null);
@@ -1115,6 +1122,7 @@ function ResearchFundamentals() {
     const onSub = (e) => {
       const sub = e.detail?.sub;
       if (sub === 'terminal' || sub === 'chart') setTab('terminal');
+      else if (sub === 'backtest') setTab('backtest');
       else if (sub === 'fundamentals') setTab('summary');
     };
     window.addEventListener('eq-research-subtab', onSub);
@@ -1242,6 +1250,14 @@ function ResearchFundamentals() {
             <div className="overflow-hidden rounded-xl ring-1 ring-zinc-200/70 dark:ring-zinc-800">
               <TerminalPanel embedded symbol={symbol} />
             </div>
+          )}
+          {tab === 'backtest' && (
+            <ComparePanel
+              strategies={strategies}
+              onCompare={onCompare}
+              results={compareResults}
+              loading={compareLoading}
+            />
           )}
         </>
       )}
