@@ -28,7 +28,18 @@ function chatPlainStorageKey(userId) {
 }
 
 // ─── Known tickers for detection ───
-const KNOWN_TICKERS = new Set(['AAPL','MSFT','GOOGL','GOOG','AMZN','NVDA','TSLA','META','JPM','V','WMT','UNH','JNJ','XOM','PG','MA','HD','CVX','MRK','ABBV','LLY','PEP','KO','COST','AVGO','MCD','CSCO','TMO','ABT','ACN','AMD','INTC','QCOM','CRM','ADBE','NFLX','DIS','BA','GE','CAT','GS','BLK','PYPL','SQ','COIN','SHOP','SNAP','UBER','ABNB','RIVN','PLTR','SOFI','NET','CRWD','DDOG','ZS','BTC','ETH','SOL','SPY','QQQ']);
+const KNOWN_TICKERS = new Set(['AAPL','MSFT','GOOGL','GOOG','AMZN','NVDA','TSLA','META','JPM','V','WMT','UNH','JNJ','XOM','PG','MA','HD','CVX','MRK','ABBV','LLY','PEP','KO','COST','AVGO','MCD','CSCO','TMO','ABT','ACN','AMD','INTC','QCOM','CRM','ADBE','NFLX','DIS','BA','GE','CAT','GS','BLK','PYPL','SQ','COIN','SHOP','SNAP','UBER','ABNB','RIVN','PLTR','SOFI','NET','CRWD','DDOG','ZS','ORCL','IBM','NOW','PANW','MU','TXN','ARM','SMCI','DELL','HPE','TSM','ASML','NVO','PFE','T','TMUS','NFLX','NKE','SBUX','TGT','LOW','BAC','C','WFC','MS','SCHW','BX','SPY','QQQ','IWM','DIA','TLT','GLD','SLV','USO','BTC','ETH','SOL']);
+const COMPANY_TICKER_ALIASES = [
+  ['apple', 'AAPL'], ['microsoft', 'MSFT'], ['alphabet', 'GOOGL'], ['google', 'GOOGL'], ['amazon', 'AMZN'],
+  ['nvidia', 'NVDA'], ['tesla', 'TSLA'], ['meta', 'META'], ['facebook', 'META'], ['jpmorgan', 'JPM'],
+  ['jp morgan', 'JPM'], ['visa', 'V'], ['walmart', 'WMT'], ['costco', 'COST'], ['broadcom', 'AVGO'],
+  ['netflix', 'NFLX'], ['disney', 'DIS'], ['boeing', 'BA'], ['amd', 'AMD'], ['intel', 'INTC'],
+  ['qualcomm', 'QCOM'], ['salesforce', 'CRM'], ['adobe', 'ADBE'], ['palantir', 'PLTR'], ['coinbase', 'COIN'],
+  ['shopify', 'SHOP'], ['uber', 'UBER'], ['airbnb', 'ABNB'], ['rivian', 'RIVN'], ['sofi', 'SOFI'],
+  ['crowdstrike', 'CRWD'], ['datadog', 'DDOG'], ['oracle', 'ORCL'], ['micron', 'MU'], ['texas instruments', 'TXN'],
+  ['arm holdings', 'ARM'], ['super micro', 'SMCI'], ['dell', 'DELL'], ['taiwan semiconductor', 'TSM'],
+  ['novo nordisk', 'NVO'], ['pfizer', 'PFE'], ['bank of america', 'BAC'], ['wells fargo', 'WFC'],
+];
 
 function extractTickers(text) {
   if (!text) return [];
@@ -41,7 +52,11 @@ function extractTickers(text) {
       found.add(clean);
     }
   }
-  return [...found].slice(0, 3); // max 3 tickers
+  const lower = text.toLowerCase();
+  for (const [name, ticker] of COMPANY_TICKER_ALIASES) {
+    if (lower.includes(name)) found.add(ticker);
+  }
+  return [...found].slice(0, 12);
 }
 
 // ─── Markdown renderer ───
@@ -296,7 +311,11 @@ function TickerInsightCard({ ticker, onNavigate }) {
 function Message({ msg, onNavigate }) {
   const isUser = msg.role === 'user';
   const tickers = !isUser
-    ? [...new Set([...extractTickers(msg.content), ...(msg.ticker ? [String(msg.ticker).trim().toUpperCase()] : [])])].filter(Boolean)
+    ? [...new Set([
+        ...extractTickers(msg.content),
+        ...(Array.isArray(msg.tickers) ? msg.tickers.map(t => String(t).trim().toUpperCase()) : []),
+        ...(msg.ticker ? [String(msg.ticker).trim().toUpperCase()] : []),
+      ])].filter(Boolean).slice(0, 12)
     : [];
 
   return (
@@ -675,7 +694,7 @@ export default function AgentPanel({ onNavigate, user, dek }) {
         setStreamingText(text);
       });
       setLastRun({ mode, url, elapsedMs });
-      const nextMessages = [...messages, { role: 'user', content: msg }, { role: 'assistant', content: streamTextRef.current, ticker: streamTickerRef.current }];
+      const nextMessages = [...messages, { role: 'user', content: msg }, { role: 'assistant', content: streamTextRef.current, ticker: streamTickerRef.current, tickers: data.tickers || [] }];
       updateActiveSession({ messages: nextMessages, lastRun: { mode, url, elapsedMs }, mode });
     } catch (e) {
       const nextMessages = [...messages, { role: 'user', content: msg }, { role: 'assistant', content: `**Error:** ${e.message}` }];

@@ -13,6 +13,7 @@ from dataclasses import asdict
 import time
 import os
 import threading
+import re
 
 from .data_fetcher import fetch_stock_data, add_technical_indicators, fetch_multiple, DEFAULT_INDICES
 from .backtester import BacktestConfig, StrategyType, run_backtest
@@ -1881,16 +1882,135 @@ import httpx
 # Separate process/repo (e.g. TradingAgents on home-linux). Override for tunnels or remote host.
 AGENT_URL = os.getenv("EQUILIMA_AGENT_URL", "http://localhost:8888").rstrip("/")
 
+AGENT_TICKER_ALIASES = {
+    "apple": "AAPL", "microsoft": "MSFT", "alphabet": "GOOGL", "google": "GOOGL", "amazon": "AMZN",
+    "nvidia": "NVDA", "tesla": "TSLA", "meta": "META", "facebook": "META", "jpmorgan": "JPM",
+    "jp morgan": "JPM", "visa": "V", "walmart": "WMT", "costco": "COST", "broadcom": "AVGO",
+    "netflix": "NFLX", "disney": "DIS", "boeing": "BA", "amd": "AMD", "intel": "INTC",
+    "qualcomm": "QCOM", "salesforce": "CRM", "adobe": "ADBE", "palantir": "PLTR", "coinbase": "COIN",
+    "shopify": "SHOP", "uber": "UBER", "airbnb": "ABNB", "rivian": "RIVN", "sofi": "SOFI",
+    "crowdstrike": "CRWD", "datadog": "DDOG", "oracle": "ORCL", "micron": "MU",
+    "texas instruments": "TXN", "arm holdings": "ARM", "super micro": "SMCI", "dell": "DELL",
+    "taiwan semiconductor": "TSM", "novo nordisk": "NVO", "pfizer": "PFE",
+    "bank of america": "BAC", "wells fargo": "WFC",
+}
+AGENT_KNOWN_TICKERS = set(AGENT_TICKER_ALIASES.values()) | {
+    "AAPL","MSFT","GOOGL","GOOG","AMZN","NVDA","TSLA","META","JPM","V","WMT","UNH","JNJ","XOM","PG","MA",
+    "HD","CVX","MRK","ABBV","LLY","PEP","KO","COST","AVGO","MCD","CSCO","TMO","ABT","ACN","AMD","INTC",
+    "QCOM","CRM","ADBE","NFLX","DIS","BA","GE","CAT","GS","BLK","PYPL","SQ","COIN","SHOP","SNAP","UBER",
+    "ABNB","RIVN","PLTR","SOFI","NET","CRWD","DDOG","ZS","ORCL","IBM","NOW","PANW","MU","TXN","ARM","SMCI",
+    "DELL","HPE","TSM","ASML","NVO","PFE","T","TMUS","NKE","SBUX","TGT","LOW","BAC","C","WFC","MS","SCHW",
+    "BX","SPY","QQQ","IWM","DIA","TLT","GLD","SLV","USO","BTC","ETH","SOL",
+}
+AGENT_FALSE_TICKERS = {"AI","US","USA","CEO","ETF","IPO","GDP","PE","EPS","YTD","QOQ","YOY","ROE","ROA","RSI","SMA","EMA","BB","MACD","DCF","FCF","SEC","FED","CPI","FOMC","EV"}
+
+
+def _agent_extract_tickers(*texts):
+    found = []
+    def add(sym):
+        sym = (sym or "").strip().upper()
+        if sym and sym not in found and sym not in AGENT_FALSE_TICKERS:
+            if sym in AGENT_KNOWN_TICKERS or sym.endswith(".TO"):
+                found.append(sym)
+    for text in texts:
+        if not text:
+            continue
+        text = str(text)
+        for match in re.findall(r"\$([A-Z]{1,5}(?:\.TO)?)\b|\b([A-Z]{2,5}(?:\.TO)?)\b", text):
+            add(match[0] or match[1])
+        lower = text.lower()
+        for name, sym in AGENT_TICKER_ALIASES.items():
+            if name in lower:
+                add(sym)
+    return found[:12]
+
+
+def _agent_live_context(tickers):
+    if not tickers:
+        return (
+            "LIVE DATA INSTRUCTION: Use live internet/news/research tools while thinking when current facts matter. "
+            "If a fact is not in your retrieved context, search/verify it before answering. Do not say your data is not live unless the live source call actually failed. "
+            "Mention source links for market/news claims when possible."
+        )
+    try:
+        import yfinance as yf
+    except Exception:
+        return "LIVE DATA INSTRUCTION: yfinance is unavailable here. Use your configured internet/news tools and cite source links."
+    lines = [
+        f"LIVE MARKET CONTEXT as of {pd.Timestamp.utcnow().strftime('%Y-%m-%d %H:%M UTC')}:",
+        "Use this live snapshot and any configured internet/news tools. Do not claim data is stale unless a source failed. Cite links when useful.",
+    ]
+    for sym in tickers[:8]:
+        try:
+            ticker = yf.Ticker(sym)
+            hist = ticker.history(period="5d", interval="1d")
+            info = ticker.info or {}
+            price = float(hist["Close"].iloc[-1]) if hist is not None and len(hist) else info.get("regularMarketPrice")
+            prev = float(hist["Close"].iloc[-2]) if hist is not None and len(hist) > 1 else info.get("previousClose")
+            chg = ((price / prev - 1) * 100) if price and prev else None
+            parts = [
+                f"{sym}: price ${round(price, 2) if price else 'n/a'}",
+                f"5D/latest change {round(chg, 2)}%" if chg is not None else None,
+                f"market cap {info.get('marketCap')}" if info.get("marketCap") else None,
+                f"forward P/E {info.get('forwardPE')}" if info.get("forwardPE") else None,
+                f"recommendation {info.get('recommendationKey')}" if info.get("recommendationKey") else None,
+                f"source https://finance.yahoo.com/quote/{sym}",
+            ]
+            lines.append(" - " + "; ".join([p for p in parts if p]))
+            news = ticker.news or []
+            titles = []
+            for item in news[:3]:
+                content = item.get("content", {}) if isinstance(item, dict) else {}
+                title = content.get("title") or item.get("title")
+                url = content.get("canonicalUrl", {}).get("url") if isinstance(content.get("canonicalUrl"), dict) else item.get("link")
+                if title:
+                    titles.append(f"{title}{f' ({url})' if url else ''}")
+            if titles:
+                lines.append("   Recent news: " + " | ".join(titles[:3]))
+        except Exception as e:
+            lines.append(f" - {sym}: live snapshot failed ({str(e)[:80]}). Try configured internet/news tools.")
+    return "\n".join(lines)
+
+
+def _prepare_agent_body(body):
+    body = dict(body or {})
+    original = str(body.get("message") or "")
+    tickers = _agent_extract_tickers(original, body.get("ticker") or "")
+    live_context = _agent_live_context(tickers)
+    body["message"] = (
+        f"{live_context}\n\n"
+        "Answer using current data and recent internet/news research where relevant. "
+        "Be specific, concise, and practical: give concrete levels, catalysts, risks, valuation/technical evidence, and next checks. "
+        "Avoid generic investing advice, broad disclaimers, vague caveats, and filler. "
+        "If you mention tickers, use ticker symbols explicitly so the UI can attach research cards.\n\n"
+        f"USER QUESTION:\n{original}"
+    )
+    if tickers and not body.get("ticker"):
+        body["ticker"] = tickers[0]
+    body["_equilima_live_tickers"] = tickers
+    return body
+
+
+def _augment_agent_response(data, body):
+    if not isinstance(data, dict):
+        return data
+    response = data.get("response") or ""
+    tickers = _agent_extract_tickers(body.get("message") or "", response, body.get("ticker") or "", data.get("ticker") or "")
+    if tickers:
+        data["tickers"] = tickers
+        data["ticker"] = data.get("ticker") or tickers[0]
+    return data
+
 @app.post("/api/agent/chat")
 async def agent_chat(request: Request):
     """Proxy chat to the AI agent on home-linux (full TradingAgents pipeline)."""
-    body = await request.json()
+    body = _prepare_agent_body(await request.json())
     try:
         async with httpx.AsyncClient(timeout=180.0) as client:
             resp = await client.post(f"{AGENT_URL}/chat", json=body)
             if resp.status_code >= 400:
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
-            return resp.json()
+            return _augment_agent_response(resp.json(), body)
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="Agent timed out — the analysis is taking too long")
     except HTTPException:
@@ -1901,13 +2021,13 @@ async def agent_chat(request: Request):
 @app.post("/api/agent/quick")
 async def agent_quick(request: Request):
     """Proxy quick analysis to AI agent (direct LLM, faster)."""
-    body = await request.json()
+    body = _prepare_agent_body(await request.json())
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(f"{AGENT_URL}/quick", json=body)
             if resp.status_code >= 400:
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
-            return resp.json()
+            return _augment_agent_response(resp.json(), body)
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="Agent timed out")
     except HTTPException:
