@@ -221,12 +221,13 @@ export default function InteractiveSnowflake({ dims, values, onChange, enabled, 
           const p = getPoint(i, 7.8);
           const val = values[d.key] || 0;
           const isActive = dragging === i || hovering === i;
+          const threshold = d.formatThreshold ? d.formatThreshold(val) : `>=${val}`;
           return (
             <g key={`l${i}`}>
               <text x={p.x} y={p.y - 5} textAnchor="middle" dominantBaseline="middle"
                 fill={enabled ? (isActive ? '#fff' : d.color) : '#555'} fontSize={9} fontWeight={600}>{d.label}</text>
               <text x={p.x} y={p.y + 7} textAnchor="middle" dominantBaseline="middle"
-                fill={enabled ? (isActive ? '#ddd' : '#888') : '#444'} fontSize={8} fontWeight={500}>≥{val}</text>
+                fill={enabled ? (isActive ? '#ddd' : '#888') : '#444'} fontSize={8} fontWeight={500}>{threshold}</text>
             </g>
           );
         })}

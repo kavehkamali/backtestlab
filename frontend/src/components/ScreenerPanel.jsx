@@ -200,6 +200,7 @@ export default function ScreenerPanel({ onOpenResearch }) {
   });
 
   // ─── Interactive Snowflake Filters ───
+  const scoreCut = (val, labels) => labels[Math.max(0, Math.min(labels.length - 1, Math.round(Number(val) || 0)))];
   const SF_QUALITY_DIMS = [
     { key: 'value', label: 'Value', color: '#818cf8' },
     { key: 'future', label: 'Future', color: '#34d399' },
@@ -207,31 +208,59 @@ export default function ScreenerPanel({ onOpenResearch }) {
     { key: 'health', label: 'Health', color: '#22d3ee' },
     { key: 'dividend', label: 'Dividend', color: '#f472b6' },
   ];
+  const SF_FUNDAMENTAL_DIMS = [
+    { key: 'valuation', label: 'Valuation', color: '#818cf8', formatThreshold: v => `P/E <= ${scoreCut(v, ['50+', '50', '35', '25', '18', '12', '8'])}` },
+    { key: 'growth', label: 'Growth', color: '#34d399', formatThreshold: v => `Rev >= ${scoreCut(v, ['-10%', '0%', '5%', '10%', '20%', '35%', '50%'])}` },
+    { key: 'profitability', label: 'Profit', color: '#fbbf24', formatThreshold: v => `Mrg >= ${scoreCut(v, ['-5%', '0%', '5%', '10%', '20%', '35%', '50%'])}` },
+    { key: 'balance', label: 'Balance', color: '#22d3ee', formatThreshold: v => `D/E <= ${scoreCut(v, ['400+', '400', '250', '150', '80', '40', '20'])}` },
+    { key: 'income', label: 'Income', color: '#f472b6', formatThreshold: v => `Div >= ${scoreCut(v, ['0%', '0.5%', '1%', '2%', '3%', '4%', '6%'])}` },
+  ];
   const SF_TECHNICAL_DIMS = [
-    { key: 'rsi_score', label: 'RSI', color: '#818cf8' },
+    { key: 'rsi_score', label: 'RSI', color: '#818cf8', formatThreshold: v => `RSI >= ${scoreCut(v, ['20', '30', '40', '50', '60', '70', '80'])}` },
     { key: 'macd_score', label: 'MACD', color: '#34d399' },
-    { key: 'volume_score', label: 'Volume', color: '#fbbf24' },
-    { key: 'trend_score', label: 'Trend', color: '#22d3ee' },
+    { key: 'volume_score', label: 'Volume', color: '#fbbf24', formatThreshold: v => `Vol >= ${scoreCut(v, ['0.3x', '0.6x', '0.8x', '1.0x', '1.5x', '2.0x', '3.0x'])}` },
+    { key: 'trend_score', label: 'Trend', color: '#22d3ee', formatThreshold: v => `${Math.round(Number(v) || 0)}/6` },
     { key: 'bb_score', label: 'Bollinger', color: '#f472b6' },
   ];
   const SF_MOMENTUM_DIMS = [
-    { key: 'mom_1d', label: '1D', color: '#818cf8' },
-    { key: 'mom_5d', label: '5D', color: '#34d399' },
-    { key: 'mom_20d', label: '1M', color: '#fbbf24' },
-    { key: 'mom_60d', label: '3M', color: '#22d3ee' },
-    { key: 'mom_52w', label: '52W', color: '#f472b6' },
+    { key: 'mom_1d', label: '1D', color: '#818cf8', formatThreshold: v => `>= ${scoreCut(v, ['-10%', '-5%', '0%', '+3%', '+8%', '+15%', '+15%'])}` },
+    { key: 'mom_5d', label: '5D', color: '#34d399', formatThreshold: v => `>= ${scoreCut(v, ['-10%', '-5%', '0%', '+3%', '+8%', '+15%', '+15%'])}` },
+    { key: 'mom_20d', label: '1M', color: '#fbbf24', formatThreshold: v => `>= ${scoreCut(v, ['-10%', '-5%', '0%', '+3%', '+8%', '+15%', '+15%'])}` },
+    { key: 'mom_60d', label: '3M', color: '#22d3ee', formatThreshold: v => `>= ${scoreCut(v, ['-10%', '-5%', '0%', '+3%', '+8%', '+15%', '+15%'])}` },
+    { key: 'mom_52w', label: '52W', color: '#f472b6', formatThreshold: v => `near ${scoreCut(v, ['-20%', '-15%', '-10%', '-5%', '0%', '+5%', '+10%'])}` },
   ];
 
   const [sfQualityEnabled, setSfQualityEnabled] = useState(false);
+  const [sfFundEnabled, setSfFundEnabled] = useState(false);
   const [sfTechEnabled, setSfTechEnabled] = useState(false);
   const [sfMomEnabled, setSfMomEnabled] = useState(false);
   const [sfQuality, setSfQuality] = useState({ value: 3, future: 3, past: 3, health: 3, dividend: 3 });
+  const [sfFund, setSfFund] = useState({ valuation: 3, growth: 3, profitability: 3, balance: 3, income: 3 });
   const [sfTech, setSfTech] = useState({ rsi_score: 3, macd_score: 3, volume_score: 3, trend_score: 3, bb_score: 3 });
   const [sfMom, setSfMom] = useState({ mom_1d: 3, mom_5d: 3, mom_20d: 3, mom_60d: 3, mom_52w: 3 });
 
-  const anySfActive = sfQualityEnabled || sfTechEnabled || sfMomEnabled;
+  const anySfActive = sfQualityEnabled || sfFundEnabled || sfTechEnabled || sfMomEnabled;
 
   // Helper: compute technical/momentum scores from stock data (0-6)
+  const computeFundScores = (r) => {
+    const sc = (val, thresholds, reverse = false) => {
+      if (val == null) return 3;
+      const scores = reverse ? [6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6];
+      for (let i = 0; i < thresholds.length; i++) { if (val < thresholds[i]) return scores[i]; }
+      return scores[scores.length - 1];
+    };
+    const avg = (vals) => {
+      const nums = vals.filter(v => v != null && Number.isFinite(Number(v)));
+      return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 3;
+    };
+    return {
+      valuation: Math.round(avg([sc(r.pe_ratio, [8, 12, 18, 25, 35, 50], true), sc(r.price_to_book, [1, 2, 3, 5, 8, 15], true)]) * 10) / 10,
+      growth: Math.round(avg([sc(r.revenue_growth, [-10, 0, 5, 10, 20, 35]), sc(r.earnings_growth, [-10, 0, 5, 10, 20, 35])]) * 10) / 10,
+      profitability: Math.round(avg([sc(r.profit_margin, [-5, 0, 5, 10, 20, 35]), sc(r.return_on_equity, [-5, 0, 5, 10, 20, 35])]) * 10) / 10,
+      balance: Math.round(avg([sc(r.debt_to_equity, [20, 40, 80, 150, 250, 400], true), sc(r.current_ratio, [0.5, 0.8, 1.0, 1.5, 2.0, 3.0])]) * 10) / 10,
+      income: sc(r.dividend_yield, [0, 0.5, 1, 2, 3, 4]),
+    };
+  };
   const computeTechScores = (r) => {
     const sc = (val, thresholds) => {
       if (val == null) return 3;
@@ -388,6 +417,12 @@ export default function ScreenerPanel({ onOpenResearch }) {
           if ((sf[d.key] || 0) < sfQuality[d.key]) return false;
         }
       }
+      if (sfFundEnabled) {
+        const fs = computeFundScores(r);
+        for (const d of SF_FUNDAMENTAL_DIMS) {
+          if ((fs[d.key] || 0) < sfFund[d.key]) return false;
+        }
+      }
       if (sfTechEnabled) {
         const ts = computeTechScores(r);
         for (const d of SF_TECHNICAL_DIMS) {
@@ -416,7 +451,7 @@ export default function ScreenerPanel({ onOpenResearch }) {
       if (typeof va === 'boolean') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
       return sortAsc ? va - vb : vb - va;
     });
-  }, [results, searchTerm, filters, sortKey, sortAsc, sfQualityEnabled, sfTechEnabled, sfMomEnabled, sfQuality, sfTech, sfMom]);
+  }, [results, searchTerm, filters, sortKey, sortAsc, sfQualityEnabled, sfFundEnabled, sfTechEnabled, sfMomEnabled, sfQuality, sfFund, sfTech, sfMom]);
 
   const marketLists = lists.filter(l => l.group === 'Markets');
   const sectorLists = lists.filter(l => l.group === 'Sectors');
@@ -636,12 +671,13 @@ export default function ScreenerPanel({ onOpenResearch }) {
               <span className="text-[9px] text-zinc-600">Drag points to set minimum thresholds</span>
             </div>
             <div className="flex gap-1.5">
-              <button onClick={() => { setSfQualityEnabled(false); setSfTechEnabled(false); setSfMomEnabled(false); }}
+              <button onClick={() => { setSfQualityEnabled(false); setSfFundEnabled(false); setSfTechEnabled(false); setSfMomEnabled(false); }}
                 className="px-2 py-0.5 rounded text-[9px] text-zinc-500 hover:text-zinc-900 bg-zinc-100">All Off</button>
-              <button onClick={() => { setSfQualityEnabled(true); setSfTechEnabled(true); setSfMomEnabled(true); }}
+              <button onClick={() => { setSfQualityEnabled(true); setSfFundEnabled(true); setSfTechEnabled(true); setSfMomEnabled(true); }}
                 className="px-2 py-0.5 rounded text-[9px] text-zinc-500 hover:text-zinc-900 bg-zinc-100">All On</button>
               <button onClick={() => {
                 setSfQuality({ value: 3, future: 3, past: 3, health: 3, dividend: 3 });
+                setSfFund({ valuation: 3, growth: 3, profitability: 3, balance: 3, income: 3 });
                 setSfTech({ rsi_score: 3, macd_score: 3, volume_score: 3, trend_score: 3, bb_score: 3 });
                 setSfMom({ mom_1d: 3, mom_5d: 3, mom_20d: 3, mom_60d: 3, mom_52w: 3 });
               }}
@@ -656,6 +692,14 @@ export default function ScreenerPanel({ onOpenResearch }) {
               onChange={(key, val) => setSfQuality(prev => ({ ...prev, [key]: val }))}
               enabled={sfQualityEnabled}
               onToggle={() => setSfQualityEnabled(p => !p)}
+            />
+            <InteractiveSnowflake
+              title="Fundamentals"
+              dims={SF_FUNDAMENTAL_DIMS}
+              values={sfFund}
+              onChange={(key, val) => setSfFund(prev => ({ ...prev, [key]: val }))}
+              enabled={sfFundEnabled}
+              onToggle={() => setSfFundEnabled(p => !p)}
             />
             <InteractiveSnowflake
               title="Technical"
