@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Loader2, Search, ExternalLink, Clock, TrendingUp, TrendingDown } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, ComposedChart, Line, PieChart, Pie } from 'recharts';
 import { fetchResearch } from '../api';
@@ -6,6 +6,140 @@ import SnowflakeChart from './SnowflakeChart';
 import { buildResearchPriceChartRows, formatResearchPriceXTick } from '../utils/marketHeroChart';
 import TerminalPanel from './terminal/TerminalPanel';
 import ComparePanel from './ComparePanel';
+
+const RESEARCH_RECENTS_KEY = 'eq_research_recent_symbols_v1';
+const DEFAULT_RESEARCH_SHORTCUTS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'JPM', 'V', 'WMT', 'UNH', 'XOM'];
+const RESEARCH_SEARCH_INDEX = [
+  ['AAPL', 'Apple Inc.'],
+  ['MSFT', 'Microsoft Corporation'],
+  ['GOOGL', 'Alphabet Inc. Class A'],
+  ['GOOG', 'Alphabet Inc. Class C'],
+  ['AMZN', 'Amazon.com Inc.'],
+  ['NVDA', 'NVIDIA Corporation'],
+  ['TSLA', 'Tesla Inc.'],
+  ['META', 'Meta Platforms Inc.'],
+  ['JPM', 'JPMorgan Chase & Co.'],
+  ['V', 'Visa Inc.'],
+  ['WMT', 'Walmart Inc.'],
+  ['UNH', 'UnitedHealth Group Incorporated'],
+  ['XOM', 'Exxon Mobil Corporation'],
+  ['MA', 'Mastercard Incorporated'],
+  ['LLY', 'Eli Lilly and Company'],
+  ['AVGO', 'Broadcom Inc.'],
+  ['COST', 'Costco Wholesale Corporation'],
+  ['PG', 'Procter & Gamble Company'],
+  ['HD', 'Home Depot Inc.'],
+  ['JNJ', 'Johnson & Johnson'],
+  ['ABBV', 'AbbVie Inc.'],
+  ['BAC', 'Bank of America Corporation'],
+  ['KO', 'Coca-Cola Company'],
+  ['NFLX', 'Netflix Inc.'],
+  ['MRK', 'Merck & Co. Inc.'],
+  ['CVX', 'Chevron Corporation'],
+  ['AMD', 'Advanced Micro Devices Inc.'],
+  ['CRM', 'Salesforce Inc.'],
+  ['PEP', 'PepsiCo Inc.'],
+  ['ADBE', 'Adobe Inc.'],
+  ['TMO', 'Thermo Fisher Scientific Inc.'],
+  ['ORCL', 'Oracle Corporation'],
+  ['LIN', 'Linde plc'],
+  ['ACN', 'Accenture plc'],
+  ['MCD', "McDonald's Corporation"],
+  ['CSCO', 'Cisco Systems Inc.'],
+  ['ABT', 'Abbott Laboratories'],
+  ['IBM', 'International Business Machines Corporation'],
+  ['GE', 'GE Aerospace'],
+  ['QCOM', 'Qualcomm Incorporated'],
+  ['TXN', 'Texas Instruments Incorporated'],
+  ['INTC', 'Intel Corporation'],
+  ['AMAT', 'Applied Materials Inc.'],
+  ['MU', 'Micron Technology Inc.'],
+  ['ARM', 'Arm Holdings plc'],
+  ['SMCI', 'Super Micro Computer Inc.'],
+  ['DELL', 'Dell Technologies Inc.'],
+  ['PANW', 'Palo Alto Networks Inc.'],
+  ['NOW', 'ServiceNow Inc.'],
+  ['CRWD', 'CrowdStrike Holdings Inc.'],
+  ['DDOG', 'Datadog Inc.'],
+  ['ZS', 'Zscaler Inc.'],
+  ['NET', 'Cloudflare Inc.'],
+  ['PLTR', 'Palantir Technologies Inc.'],
+  ['SHOP', 'Shopify Inc.'],
+  ['UBER', 'Uber Technologies Inc.'],
+  ['ABNB', 'Airbnb Inc.'],
+  ['COIN', 'Coinbase Global Inc.'],
+  ['PYPL', 'PayPal Holdings Inc.'],
+  ['SQ', 'Block Inc.'],
+  ['SOFI', 'SoFi Technologies Inc.'],
+  ['RIVN', 'Rivian Automotive Inc.'],
+  ['LCID', 'Lucid Group Inc.'],
+  ['DIS', 'Walt Disney Company'],
+  ['NKE', 'Nike Inc.'],
+  ['SBUX', 'Starbucks Corporation'],
+  ['TGT', 'Target Corporation'],
+  ['LOW', "Lowe's Companies Inc."],
+  ['CAT', 'Caterpillar Inc.'],
+  ['BA', 'Boeing Company'],
+  ['GS', 'Goldman Sachs Group Inc.'],
+  ['MS', 'Morgan Stanley'],
+  ['WFC', 'Wells Fargo & Company'],
+  ['C', 'Citigroup Inc.'],
+  ['BLK', 'BlackRock Inc.'],
+  ['BX', 'Blackstone Inc.'],
+  ['SCHW', 'Charles Schwab Corporation'],
+  ['T', 'AT&T Inc.'],
+  ['VZ', 'Verizon Communications Inc.'],
+  ['TMUS', 'T-Mobile US Inc.'],
+  ['PFE', 'Pfizer Inc.'],
+  ['NVO', 'Novo Nordisk A/S'],
+  ['TSM', 'Taiwan Semiconductor Manufacturing Company'],
+  ['ASML', 'ASML Holding N.V.'],
+  ['BABA', 'Alibaba Group Holding Limited'],
+  ['PDD', 'PDD Holdings Inc.'],
+  ['NIO', 'NIO Inc.'],
+  ['SPY', 'SPDR S&P 500 ETF Trust'],
+  ['QQQ', 'Invesco QQQ Trust'],
+  ['IWM', 'iShares Russell 2000 ETF'],
+  ['DIA', 'SPDR Dow Jones Industrial Average ETF'],
+  ['TLT', 'iShares 20+ Year Treasury Bond ETF'],
+  ['GLD', 'SPDR Gold Shares'],
+  ['SLV', 'iShares Silver Trust'],
+  ['USO', 'United States Oil Fund'],
+  ['RY.TO', 'Royal Bank of Canada'],
+  ['TD.TO', 'Toronto-Dominion Bank'],
+  ['SHOP.TO', 'Shopify Inc. TSX'],
+  ['ENB.TO', 'Enbridge Inc.'],
+  ['CNR.TO', 'Canadian National Railway Company'],
+  ['CP.TO', 'Canadian Pacific Kansas City Limited'],
+  ['BNS.TO', 'Bank of Nova Scotia'],
+  ['BMO.TO', 'Bank of Montreal'],
+  ['BCE.TO', 'BCE Inc.'],
+  ['SU.TO', 'Suncor Energy Inc.'],
+].map(([symbol, name]) => ({ symbol, name }));
+
+function normalizeResearchSearch(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9.]+/g, ' ');
+}
+
+function getResearchRecents() {
+  if (typeof window === 'undefined') return DEFAULT_RESEARCH_SHORTCUTS;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(RESEARCH_RECENTS_KEY) || '[]');
+    const clean = parsed.filter(s => typeof s === 'string' && s.trim()).map(s => s.trim().toUpperCase());
+    return clean.length ? clean.slice(0, 12) : DEFAULT_RESEARCH_SHORTCUTS;
+  } catch {
+    return DEFAULT_RESEARCH_SHORTCUTS;
+  }
+}
+
+function saveResearchRecents(symbols) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(RESEARCH_RECENTS_KEY, JSON.stringify(symbols.slice(0, 12)));
+  } catch {
+    // Ignore storage failures; the search still works without shortcuts.
+  }
+}
 
 // ─── Helpers ───
 function fmtNum(v, dec = 2) { return v != null ? Number(v).toFixed(dec) : '—'; }
@@ -928,18 +1062,32 @@ function ResearchFundamentals({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState('summary');
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [recentSymbols, setRecentSymbols] = useState(getResearchRecents);
+  const symbolRef = useRef(symbol);
+
+  useEffect(() => {
+    symbolRef.current = symbol;
+  }, [symbol]);
 
   const loadSymbol = useCallback((sym) => {
     const s = String(sym).trim().toUpperCase();
-    setSymbol(s);
     setSymbolInput(s);
     setLoading(true);
     setError(null);
-    setData(null);
-    setTab('summary');
     fetchResearch(s)
-      .then(d => setData(d))
-      .catch(e => setError(e.message))
+      .then(d => {
+        setSymbol(s);
+        setSymbolInput(s);
+        setData(d);
+        setTab('summary');
+        setRecentSymbols(prev => {
+          const next = [s, ...prev.filter(item => item !== s)].slice(0, 12);
+          saveResearchRecents(next);
+          return next;
+        });
+      })
+      .catch(e => setError(`No research found for "${s}". Keeping ${symbolRef.current || 'the previous ticker'}. ${e.message || ''}`.trim()))
       .finally(() => setLoading(false));
   }, []);
 
@@ -965,24 +1113,95 @@ function ResearchFundamentals({
     return () => window.removeEventListener('eq-research-subtab', onSub);
   }, []);
 
+  const searchSuggestions = useMemo(() => {
+    const raw = symbolInput.trim();
+    const q = normalizeResearchSearch(raw);
+    if (!q) return [];
+    const compact = q.replace(/\s+/g, '');
+    return RESEARCH_SEARCH_INDEX
+      .map(item => {
+        const symbolNorm = item.symbol.toLowerCase();
+        const nameNorm = normalizeResearchSearch(item.name);
+        const nameCompact = nameNorm.replace(/\s+/g, '');
+        let score = 0;
+        if (symbolNorm === compact) score = 100;
+        else if (nameNorm === q) score = 96;
+        else if (symbolNorm.startsWith(compact)) score = 90 - symbolNorm.length / 10;
+        else if (nameNorm.startsWith(q)) score = 82 - nameNorm.length / 100;
+        else if (nameCompact.startsWith(compact)) score = 78 - nameCompact.length / 100;
+        else if (symbolNorm.includes(compact)) score = 70 - symbolNorm.indexOf(compact);
+        else if (nameNorm.includes(q)) score = 62 - nameNorm.indexOf(q) / 10;
+        else if (nameCompact.includes(compact)) score = 58 - nameCompact.indexOf(compact) / 10;
+        return { ...item, score };
+      })
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score || a.symbol.localeCompare(b.symbol))
+      .slice(0, 8);
+  }, [symbolInput]);
+
+  const resolveSearchSymbol = useCallback(() => {
+    const raw = symbolInput.trim();
+    if (!raw) return null;
+    const upper = raw.toUpperCase();
+    const normalized = normalizeResearchSearch(raw).replace(/\s+/g, '');
+    const exact = RESEARCH_SEARCH_INDEX.find(item => item.symbol === upper || normalizeResearchSearch(item.name).replace(/\s+/g, '') === normalized);
+    if (exact) return exact.symbol;
+    if (searchSuggestions.length) return searchSuggestions[0].symbol;
+    if (/^[A-Z0-9][A-Z0-9.-]{0,11}$/.test(upper)) return upper;
+    return null;
+  }, [searchSuggestions, symbolInput]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    const s = symbolInput.trim().toUpperCase();
-    if (s) loadSymbol(s);
+    const resolved = resolveSearchSymbol();
+    if (!resolved) {
+      setError(`No matching company or ticker for "${symbolInput.trim()}". Keeping ${symbol}.`);
+      return;
+    }
+    setSuggestionsOpen(false);
+    loadSymbol(resolved);
   };
 
-  const popular = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'JPM', 'V', 'WMT', 'UNH', 'XOM'];
+  const shortcutSymbols = recentSymbols.length ? recentSymbols : DEFAULT_RESEARCH_SHORTCUTS;
 
   return (
     <div className="space-y-4">
       <div className="space-y-2">
         <form onSubmit={handleSubmit} className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-          <input type="text" value={symbolInput} onChange={e => setSymbolInput(e.target.value.toUpperCase())}
-            placeholder="Search ticker..." className="w-full bg-white rounded-xl pl-10 pr-4 py-2.5 text-zinc-900 text-sm shadow-sm ring-1 ring-zinc-200/70 focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+          <input
+            type="text"
+            value={symbolInput}
+            onFocus={() => setSuggestionsOpen(true)}
+            onChange={e => { setSymbolInput(e.target.value); setSuggestionsOpen(true); setError(null); }}
+            onBlur={() => window.setTimeout(() => setSuggestionsOpen(false), 120)}
+            placeholder="Search company or ticker..."
+            className="w-full bg-white rounded-xl pl-10 pr-4 py-2.5 text-zinc-900 text-sm shadow-sm ring-1 ring-zinc-200/70 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          />
+          {suggestionsOpen && symbolInput.trim() && (
+            <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-zinc-200/80">
+              {searchSuggestions.length ? searchSuggestions.map(item => (
+                <button
+                  key={item.symbol}
+                  type="button"
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => { setSuggestionsOpen(false); loadSymbol(item.symbol); }}
+                  className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-zinc-50"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-xs font-semibold text-zinc-900">{item.symbol}</span>
+                    <span className="block truncate text-[11px] text-zinc-500">{item.name}</span>
+                  </span>
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0 text-zinc-300" />
+                </button>
+              )) : (
+                <div className="px-3 py-2 text-xs text-zinc-500">No matching company or ticker. Current research stays unchanged.</div>
+              )}
+            </div>
+          )}
         </form>
         <div className="flex gap-1 overflow-x-auto no-scrollbar">
-          {popular.map(s => (
+          {shortcutSymbols.map(s => (
             <button key={s} onClick={() => { setSymbolInput(s); loadSymbol(s); }}
               className={`px-2.5 py-1.5 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all ${
                 symbol === s ? 'bg-indigo-100 text-indigo-800 ring-1 ring-indigo-200' : 'bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200/60 hover:text-zinc-900'
