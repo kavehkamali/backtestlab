@@ -82,6 +82,32 @@ function Section({ title, children, right }) {
   );
 }
 
+const ADMIN_TIME_ZONE = 'America/New_York';
+
+function parseAdminUtcTimestamp(value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+  const iso = raw.includes('T') ? raw : raw.replace(' ', 'T');
+  const d = new Date(hasZone ? iso : `${iso}Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatAdminEt(value, { includeYear = true, includeZone = true } = {}) {
+  const d = parseAdminUtcTimestamp(value);
+  if (!d) return value || '—';
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: ADMIN_TIME_ZONE,
+    year: includeYear ? '2-digit' : undefined,
+    month: 'short',
+    day: '2-digit',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: includeZone ? 'short' : undefined,
+  }).format(d);
+}
+
 // ─── Login Screen ───
 function AdminLogin({ onLogin }) {
   const [username, setUsername] = useState('');
@@ -832,7 +858,7 @@ export default function AdminPanel() {
                 <tbody>
                   {(mailHistory || []).map((row) => (
                     <tr key={row.id} className="border-b border-zinc-100">
-                      <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{row.sent_at || '—'}</td>
+                      <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{formatAdminEt(row.sent_at)}</td>
                       <td className="py-1.5 px-2 text-zinc-600">{row.kind}</td>
                       <td className="py-1.5 px-2 text-zinc-700 max-w-[200px] truncate" title={row.subject}>
                         {row.subject}
@@ -1075,8 +1101,8 @@ export default function AdminPanel() {
                   <td className="py-1.5 px-2 text-zinc-500 font-mono">#{u.id}</td>
                   <td className="py-1.5 px-2 text-zinc-900 font-medium">{u.name || '—'}</td>
                   <td className="py-1.5 px-2 text-zinc-600">{u.email}</td>
-                  <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{u.created_at?.slice(0, 16)}</td>
-                  <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{u.last_login?.slice(0, 16) || 'Never'}</td>
+                  <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{formatAdminEt(u.created_at)}</td>
+                  <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{u.last_login ? formatAdminEt(u.last_login) : 'Never'}</td>
                   <td className="py-1.5 px-2 text-center">
                     {u.newsletter ? <Mail className="w-3.5 h-3.5 text-indigo-600 mx-auto" /> : <span className="text-zinc-700">—</span>}
                   </td>
@@ -1141,7 +1167,7 @@ export default function AdminPanel() {
             <tbody>
               {recentRows.map((v, i) => (
                 <tr key={i} className="border-b border-zinc-100 hover:bg-zinc-50">
-                  <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{v.timestamp?.slice(5, 16)}</td>
+                  <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{formatAdminEt(v.timestamp, { includeYear: false })}</td>
                   <td className="py-1.5 px-2 text-zinc-500 font-mono">
                     <button
                       type="button"
@@ -1241,7 +1267,7 @@ export default function AdminPanel() {
                     {row.city && row.country ? `${row.city}, ${row.country}` : row.country || row.city || '—'}
                   </td>
                   <td className="py-1.5 px-2 text-right text-zinc-900 font-medium">{row.visits?.toLocaleString?.() ?? row.visits}</td>
-                  <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{row.last_visit?.slice(0, 16) || '—'}</td>
+                  <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{formatAdminEt(row.last_visit)}</td>
                 </tr>
               ))}
             </tbody>
