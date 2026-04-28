@@ -37,7 +37,7 @@ const LAYOUTS = [
   { n: 6, icon: Grid3x3, label: '6 Charts' },
 ];
 
-function TerminalInner({ embedded = false }) {
+function TerminalInner({ embedded = false, symbol }) {
   const { state, dispatch } = useTerminal();
   const focusedPane = state.panes[state.focusedPane] || state.panes[0];
 
@@ -82,6 +82,12 @@ function TerminalInner({ embedded = false }) {
     window.addEventListener('eq-agent-open-ticker', onAgentTicker);
     return () => window.removeEventListener('eq-agent-open-ticker', onAgentTicker);
   }, [dispatch, state.focusedPane]);
+
+  useEffect(() => {
+    const sym = String(symbol || '').trim().toUpperCase();
+    if (!sym) return;
+    dispatch({ type: 'SET_SYMBOL', pane: state.focusedPane, symbol: sym });
+  }, [dispatch, state.focusedPane, symbol]);
 
   const outerStyle = embedded
     ? { display: 'flex', flexDirection: 'column', minHeight: 520, height: 'calc(100vh - 14rem)', maxHeight: 920 }
@@ -195,10 +201,10 @@ function TerminalInner({ embedded = false }) {
   );
 }
 
-export default function TerminalPanel({ embedded = false }) {
+export default function TerminalPanel({ embedded = false, symbol }) {
   return (
     <TerminalProvider>
-      <TerminalInner embedded={embedded} />
+      <TerminalInner embedded={embedded} symbol={symbol} />
     </TerminalProvider>
   );
 }

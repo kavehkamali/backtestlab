@@ -5,7 +5,6 @@ import { fetchResearch } from '../api';
 import SnowflakeChart from './SnowflakeChart';
 import { buildResearchPriceChartRows, formatResearchPriceXTick } from '../utils/marketHeroChart';
 import TerminalPanel from './terminal/TerminalPanel';
-import ComparePanel from './ComparePanel';
 
 const RESEARCH_RECENTS_KEY = 'eq_research_recent_symbols_v1';
 const DEFAULT_RESEARCH_SHORTCUTS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'JPM', 'V', 'WMT', 'UNH', 'XOM'];
@@ -337,16 +336,10 @@ function RiskChecklist({ checks }) {
 // ─── TABS ───
 const TABS = [
   { id: 'summary', label: 'Summary' },
-  { id: 'ratings', label: 'Ratings' },
   { id: 'financials', label: 'Financials' },
-  { id: 'earnings', label: 'Earnings' },
-  { id: 'dividends', label: 'Dividends' },
-  { id: 'risk', label: 'Risk' },
-  { id: 'ownership', label: 'Ownership' },
-  { id: 'peers', label: 'Peers' },
+  { id: 'terminal', label: 'Chart' },
   { id: 'news', label: 'News' },
-  { id: 'terminal', label: 'Terminal Chart' },
-  { id: 'backtest', label: 'Backtesting' },
+  { id: 'ownership', label: 'Ownership' },
 ];
 
 const PRICE_WINDOWS = [
@@ -591,6 +584,8 @@ function SummaryTab({ data }) {
         </Card>
       )}
 
+      <RatingsPeersSection data={data} />
+
       {/* About */}
       {s.description && (
         <Card title={`About ${s.name}`}>
@@ -750,6 +745,8 @@ function FinancialsTab({ data }) {
           </table>
         </div>
       )}
+      <EarningsTab data={data} />
+      <DividendsTab data={data} />
     </div>
   );
 }
@@ -1022,6 +1019,22 @@ function PeersTab({ data }) {
   );
 }
 
+function RatingsPeersSection({ data }) {
+  const peers = data.peers || [];
+  return (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <RatingsTab data={data} />
+      <div className="min-w-0">
+        {peers.length > 0 ? <PeersTab data={data} /> : (
+          <Card title="Peer Comparison">
+            <div className="py-8 text-center text-sm text-zinc-600">No peer data</div>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════
 // NEWS TAB
 // ═══════════════════════════════════════════
@@ -1050,12 +1063,7 @@ function NewsTab({ data }) {
 // ═══════════════════════════════════════════
 // FUNDAMENTALS (symbol lookup + tabs)
 // ═══════════════════════════════════════════
-function ResearchFundamentals({
-  strategies = [],
-  onCompare,
-  compareResults = null,
-  compareLoading = false,
-}) {
+function ResearchFundamentals() {
   const [symbol, setSymbol] = useState('AAPL');
   const [symbolInput, setSymbolInput] = useState('AAPL');
   const [data, setData] = useState(null);
@@ -1106,7 +1114,7 @@ function ResearchFundamentals({
   useEffect(() => {
     const onSub = (e) => {
       const sub = e.detail?.sub;
-      if (sub === 'terminal' || sub === 'backtest') setTab(sub);
+      if (sub === 'terminal' || sub === 'chart') setTab('terminal');
       else if (sub === 'fundamentals') setTab('summary');
     };
     window.addEventListener('eq-research-subtab', onSub);
@@ -1227,26 +1235,13 @@ function ResearchFundamentals({
       {data && !loading && (
         <>
           {tab === 'summary' && <SummaryTab data={data} />}
-          {tab === 'ratings' && <RatingsTab data={data} />}
           {tab === 'financials' && <FinancialsTab data={data} />}
-          {tab === 'earnings' && <EarningsTab data={data} />}
-          {tab === 'dividends' && <DividendsTab data={data} />}
-          {tab === 'risk' && <RiskTab data={data} />}
           {tab === 'ownership' && <OwnershipTab data={data} />}
-          {tab === 'peers' && <PeersTab data={data} />}
           {tab === 'news' && <NewsTab data={data} />}
           {tab === 'terminal' && (
             <div className="overflow-hidden rounded-xl ring-1 ring-zinc-200/70 dark:ring-zinc-800">
-              <TerminalPanel embedded />
+              <TerminalPanel embedded symbol={symbol} />
             </div>
-          )}
-          {tab === 'backtest' && (
-            <ComparePanel
-              strategies={strategies}
-              onCompare={onCompare}
-              results={compareResults}
-              loading={compareLoading}
-            />
           )}
         </>
       )}
