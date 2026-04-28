@@ -338,7 +338,7 @@ export default function AiPicksPanel({ onOpenTicker }) {
           {[0, 1, 2, 3].map((i) => <div key={i} className="h-80 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-900" />)}
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-[1.125rem] md:grid-cols-2 xl:grid-cols-5">
           {columns.map((col) => (
             <section key={col.id} className="min-w-0">
               <div className="mb-2">
