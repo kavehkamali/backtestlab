@@ -1988,6 +1988,7 @@ def _prepare_agent_body(body):
     if tickers and not body.get("ticker"):
         body["ticker"] = tickers[0]
     body["_equilima_live_tickers"] = tickers
+    body["_equilima_original_message"] = original
     return body
 
 
@@ -1995,7 +1996,14 @@ def _augment_agent_response(data, body):
     if not isinstance(data, dict):
         return data
     response = data.get("response") or ""
-    tickers = _agent_extract_tickers(body.get("message") or "", response, body.get("ticker") or "", data.get("ticker") or "")
+    seed_tickers = body.get("_equilima_live_tickers") or []
+    tickers = _agent_extract_tickers(
+        body.get("_equilima_original_message") or "",
+        response,
+        body.get("ticker") or "",
+        data.get("ticker") or "",
+        " ".join(seed_tickers),
+    )
     if tickers:
         data["tickers"] = tickers
         data["ticker"] = data.get("ticker") or tickers[0]
