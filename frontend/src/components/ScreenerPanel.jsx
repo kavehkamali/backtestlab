@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Loader2, X, ChevronDown, ChevronRight, ArrowUpDown, SlidersHorizontal, Columns3 } from 'lucide-react';
+import { Search, Loader2, X, ChevronDown, ChevronRight, ArrowUpDown, SlidersHorizontal, Columns3, ExternalLink } from 'lucide-react';
 import { runScreener, fetchScreenerLists, fetchStockDetail } from '../api';
 import StockDetail from './StockDetail';
 import InteractiveSnowflake from './InteractiveSnowflake';
@@ -173,7 +173,7 @@ function ToggleRow({ label, value, onChange, options }) {
 }
 
 // ─── Main ───
-export default function ScreenerPanel() {
+export default function ScreenerPanel({ onOpenResearch }) {
   const [lists, setLists] = useState([]);
   const [activeList, setActiveList] = useState('sp500');
   const [results, setResults] = useState(null);
@@ -310,6 +310,12 @@ export default function ScreenerPanel() {
     finally { setDetailLoading(false); }
   };
 
+  const openResearch = (symbol) => {
+    const sym = symbol ? String(symbol).trim().toUpperCase() : '';
+    if (!sym) return;
+    onOpenResearch?.(sym);
+  };
+
   useEffect(() => {
     const onAgentTicker = async (e) => {
       const { tab, ticker } = e.detail || {};
@@ -423,7 +429,20 @@ export default function ScreenerPanel() {
   // Render a cell
   const renderCell = (r, colKey) => {
     const col = COLUMNS[colKey];
-    if (colKey === 'symbol') return <span className="font-semibold text-zinc-900">{r.symbol}</span>;
+    if (colKey === 'symbol') return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          openResearch(r.symbol);
+        }}
+        className="inline-flex items-center gap-1 font-semibold text-indigo-700 hover:text-indigo-900 hover:underline"
+        title={`Open full research for ${r.symbol}`}
+      >
+        {r.symbol}
+        <ExternalLink className="h-3 w-3" />
+      </button>
+    );
     if (colKey === 'sparkline') return <Sparkline data={r.sparkline} />;
     if (col.custom === 'rsi') return <RsiBar value={r.rsi} />;
     if (col.custom === 'score') return <ScoreBar count={r.buy_count} total={r.total_strategies} />;
@@ -730,7 +749,16 @@ export default function ScreenerPanel() {
             <div className="bg-white shadow-sm ring-1 ring-zinc-200/70 rounded-xl overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200/80">
                 <span className="text-sm font-semibold text-zinc-900">{selectedStock}</span>
-                <button onClick={() => { setSelectedStock(null); setStockDetail(null); }} className="text-zinc-500 hover:text-zinc-900"><X className="w-4 h-4" /></button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openResearch(selectedStock)}
+                    className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 text-[10px] font-medium text-indigo-700 hover:bg-indigo-100"
+                  >
+                    <ExternalLink className="h-3 w-3" /> Full Research
+                  </button>
+                  <button onClick={() => { setSelectedStock(null); setStockDetail(null); }} className="text-zinc-500 hover:text-zinc-900"><X className="w-4 h-4" /></button>
+                </div>
               </div>
               {detailLoading ? <div className="flex items-center justify-center h-48 text-zinc-500"><Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading...</div>
                 : stockDetail ? <StockDetail data={stockDetail} />

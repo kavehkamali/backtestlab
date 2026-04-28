@@ -307,7 +307,18 @@ function App() {
             />
           </div>
           <div className={activeTab === 'screener' ? '' : 'hidden'}>
-            <ScreenerPanel />
+            <ScreenerPanel
+              onOpenResearch={(ticker) => {
+                const t = ticker ? String(ticker).trim().toUpperCase() : '';
+                setActiveTab('research');
+                window.setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: 'fundamentals' } }));
+                  if (t) {
+                    window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab: 'research', ticker: t } }));
+                  }
+                }, 0);
+              }}
+            />
           </div>
           <div className={activeTab === 'research' ? '' : 'hidden'}>
             <ResearchPanel
