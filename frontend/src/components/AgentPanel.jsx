@@ -63,7 +63,7 @@ function extractTickers(text) {
 function inlineFormat(text) {
   if (!text) return '';
   return text
-    .replace(/`([^`]+)`/g, '<code class="bg-zinc-100 px-1 rounded text-indigo-700 text-[10px]">$1</code>')
+    .replace(/`([^`]+)`/g, '<code class="bg-zinc-100 px-1 rounded text-indigo-700 text-[12px]">$1</code>')
     .replace(/\*{3}([^*]+)\*{3}/g, '<strong class="text-zinc-900 font-semibold"><em>$1</em></strong>')
     .replace(/\*{2}([^*]+)\*{2}/g, '<strong class="text-zinc-900 font-semibold">$1</strong>')
     .replace(/__([^_]+)__/g, '<strong class="text-zinc-900 font-semibold">$1</strong>')
@@ -109,7 +109,7 @@ function RenderMarkdown({ text }) {
       if (table && table.headers.length > 0) {
         elements.push(
           <div key={i} className="overflow-x-auto my-3 rounded-xl bg-zinc-50 ring-1 ring-zinc-200/60">
-            <table className="w-full text-[11px]">
+            <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-zinc-200/80 bg-white">
                   {table.headers.map((h, j) => (
@@ -143,15 +143,15 @@ function RenderMarkdown({ text }) {
     }
 
     // Headings
-    if (trimmed.startsWith('#### ')) { elements.push(<h4 key={i} className="text-xs font-bold text-zinc-900 mt-2 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(5)) }} />); i++; continue; }
-    if (trimmed.startsWith('### ')) { elements.push(<h3 key={i} className="text-sm font-bold text-zinc-900 mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(4)) }} />); i++; continue; }
-    if (trimmed.startsWith('## ')) { elements.push(<h2 key={i} className="text-base font-bold text-zinc-900 mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(3)) }} />); i++; continue; }
-    if (trimmed.startsWith('# ')) { elements.push(<h1 key={i} className="text-lg font-bold text-zinc-900 mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(2)) }} />); i++; continue; }
+    if (trimmed.startsWith('#### ')) { elements.push(<h4 key={i} className="text-sm font-bold text-zinc-900 mt-2 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(5)) }} />); i++; continue; }
+    if (trimmed.startsWith('### ')) { elements.push(<h3 key={i} className="text-base font-bold text-zinc-900 mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(4)) }} />); i++; continue; }
+    if (trimmed.startsWith('## ')) { elements.push(<h2 key={i} className="text-lg font-bold text-zinc-900 mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(3)) }} />); i++; continue; }
+    if (trimmed.startsWith('# ')) { elements.push(<h1 key={i} className="text-xl font-bold text-zinc-900 mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(2)) }} />); i++; continue; }
     if (/^([-]{3,}|[*]{3,}|[_]{3,})\s*$/.test(trimmed) && !/[a-zA-Z]/.test(trimmed)) { elements.push(<hr key={i} className="border-zinc-200 my-2" />); i++; continue; }
     // Unordered list
     if (/^[-*+]\s/.test(trimmed)) {
       elements.push(
-        <div key={i} className="flex gap-2 text-xs text-zinc-600 ml-2 my-0.5">
+        <div key={i} className="flex gap-2 text-sm text-zinc-600 ml-2 my-1 leading-relaxed">
           <span className="text-indigo-500 mt-0.5 shrink-0">•</span>
           <span dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.replace(/^[-*+]\s/, '')) }} />
         </div>
@@ -162,7 +162,7 @@ function RenderMarkdown({ text }) {
     if (/^\d+\.\s/.test(trimmed)) {
       const num = trimmed.match(/^(\d+)\./)[1];
       elements.push(
-        <div key={i} className="flex gap-2 text-xs text-zinc-600 ml-2 my-0.5">
+        <div key={i} className="flex gap-2 text-sm text-zinc-600 ml-2 my-1 leading-relaxed">
           <span className="text-indigo-500 mt-0.5 shrink-0 w-4 text-right">{num}.</span>
           <span dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.replace(/^\d+\.\s/, '')) }} />
         </div>
@@ -171,13 +171,13 @@ function RenderMarkdown({ text }) {
     }
     // Blockquote
     if (trimmed.startsWith('> ')) {
-      elements.push(<div key={i} className="border-l-2 border-indigo-200 pl-3 my-1 text-xs text-zinc-500 italic" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(2)) }} />);
+      elements.push(<div key={i} className="border-l-2 border-indigo-200 pl-3 my-1 text-sm text-zinc-500 italic leading-relaxed" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(2)) }} />);
       i++; continue;
     }
     // Empty line
     if (trimmed === '') { elements.push(<div key={i} className="h-2" />); i++; continue; }
     // Regular paragraph
-    elements.push(<p key={i} className="text-xs text-zinc-600 leading-relaxed my-1" dangerouslySetInnerHTML={{ __html: inlineFormat(line) }} />);
+    elements.push(<p key={i} className="text-sm text-zinc-600 leading-relaxed my-1.5" dangerouslySetInnerHTML={{ __html: inlineFormat(line) }} />);
     i++;
   }
 
