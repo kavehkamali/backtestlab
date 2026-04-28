@@ -14,6 +14,7 @@ import time
 import os
 import threading
 import re
+from functools import lru_cache
 
 from .data_fetcher import fetch_stock_data, add_technical_indicators, fetch_multiple, DEFAULT_INDICES
 from .backtester import BacktestConfig, StrategyType, run_backtest
@@ -1892,7 +1893,10 @@ AGENT_TICKER_ALIASES = {
     "crowdstrike": "CRWD", "datadog": "DDOG", "oracle": "ORCL", "micron": "MU",
     "texas instruments": "TXN", "arm holdings": "ARM", "super micro": "SMCI", "dell": "DELL",
     "taiwan semiconductor": "TSM", "novo nordisk": "NVO", "pfizer": "PFE",
-    "bank of america": "BAC", "wells fargo": "WFC",
+    "bank of america": "BAC", "wells fargo": "WFC", "walgreens": "WBA", "walgreens boots alliance": "WBA",
+}
+AGENT_TICKER_CORRECTIONS = {
+    "WGH": "WBA",
 }
 AGENT_KNOWN_TICKERS = set(AGENT_TICKER_ALIASES.values()) | {
     "AAPL","MSFT","GOOGL","GOOG","AMZN","NVDA","TSLA","META","JPM","V","WMT","UNH","JNJ","XOM","PG","MA",
@@ -1900,22 +1904,50 @@ AGENT_KNOWN_TICKERS = set(AGENT_TICKER_ALIASES.values()) | {
     "QCOM","CRM","ADBE","NFLX","DIS","BA","GE","CAT","GS","BLK","PYPL","SQ","COIN","SHOP","SNAP","UBER",
     "ABNB","RIVN","PLTR","SOFI","NET","CRWD","DDOG","ZS","ORCL","IBM","NOW","PANW","MU","TXN","ARM","SMCI",
     "DELL","HPE","TSM","ASML","NVO","PFE","T","TMUS","NKE","SBUX","TGT","LOW","BAC","C","WFC","MS","SCHW",
-    "BX","SPY","QQQ","IWM","DIA","TLT","GLD","SLV","USO","BTC","ETH","SOL",
+    "BX","WBA","SPY","QQQ","IWM","DIA","TLT","GLD","SLV","USO","BTC","ETH","SOL",
 }
 AGENT_FALSE_TICKERS = {"AI","US","USA","CEO","ETF","IPO","GDP","PE","EPS","YTD","QOQ","YOY","ROE","ROA","RSI","SMA","EMA","BB","MACD","DCF","FCF","SEC","FED","CPI","FOMC","EV"}
 
 
-def _agent_extract_tickers(*texts):
+def _agent_correct_ticker_mentions(text):
+    text = str(text or "")
+    lower = text.lower()
+    if "walgreens" in lower or "boots alliance" in lower:
+        text = re.sub(r"\bWGH\b", "WBA", text)
+    return text
+
+
+@lru_cache(maxsize=512)
+def _agent_symbol_has_market_data(sym):
+    sym = (sym or "").strip().upper()
+    if not sym or sym in AGENT_FALSE_TICKERS:
+        return False
+    if sym in AGENT_KNOWN_TICKERS or sym.endswith(".TO"):
+        return True
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(sym)
+        hist = ticker.history(period="5d", interval="1d")
+        if hist is not None and len(hist) and "Close" in hist:
+            return True
+        info = ticker.fast_info
+        return bool(getattr(info, "last_price", None) or info.get("last_price"))
+    except Exception:
+        return False
+
+
+def _agent_extract_tickers(*texts, validate_unknown=False):
     found = []
     def add(sym):
         sym = (sym or "").strip().upper()
+        sym = AGENT_TICKER_CORRECTIONS.get(sym, sym)
         if sym and sym not in found and sym not in AGENT_FALSE_TICKERS:
-            if sym in AGENT_KNOWN_TICKERS or sym.endswith(".TO"):
+            if sym in AGENT_KNOWN_TICKERS or sym.endswith(".TO") or (validate_unknown and _agent_symbol_has_market_data(sym)):
                 found.append(sym)
     for text in texts:
         if not text:
             continue
-        text = str(text)
+        text = _agent_correct_ticker_mentions(text)
         for match in re.findall(r"\$([A-Z]{1,5}(?:\.TO)?)\b|\b([A-Z]{2,5}(?:\.TO)?)\b", text):
             add(match[0] or match[1])
         lower = text.lower()
@@ -1986,6 +2018,8 @@ def _prepare_agent_body(body):
         "- Each bullet must contain a concrete point: buy/avoid/watch, level, catalyst, risk, metric, or next action.\n"
         "- Do not include generic investing advice, broad disclaimers, vague caveats, textbook explanations, or filler.\n"
         "- Only say data is limited/stale when a live source actually failed.\n"
+        "- Before recommending a ticker, verify the exact listed symbol with live data; do not invent ticker symbols.\n"
+        "- If discussing Walgreens Boots Alliance, the ticker is WBA, not WGH.\n"
         "If you mention tickers, use ticker symbols explicitly so the UI can attach research cards.\n\n"
         f"USER QUESTION:\n{original}"
     )
@@ -1999,7 +2033,9 @@ def _prepare_agent_body(body):
 def _augment_agent_response(data, body):
     if not isinstance(data, dict):
         return data
-    response = data.get("response") or ""
+    response = _agent_correct_ticker_mentions(data.get("response") or "")
+    if response != (data.get("response") or ""):
+        data["response"] = response
     seed_tickers = body.get("_equilima_live_tickers") or []
     tickers = _agent_extract_tickers(
         body.get("_equilima_original_message") or "",
@@ -2007,6 +2043,7 @@ def _augment_agent_response(data, body):
         body.get("ticker") or "",
         data.get("ticker") or "",
         " ".join(seed_tickers),
+        validate_unknown=True,
     )
     if tickers:
         data["tickers"] = tickers

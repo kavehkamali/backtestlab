@@ -28,7 +28,7 @@ function chatPlainStorageKey(userId) {
 }
 
 // ─── Known tickers for detection ───
-const KNOWN_TICKERS = new Set(['AAPL','MSFT','GOOGL','GOOG','AMZN','NVDA','TSLA','META','JPM','V','WMT','UNH','JNJ','XOM','PG','MA','HD','CVX','MRK','ABBV','LLY','PEP','KO','COST','AVGO','MCD','CSCO','TMO','ABT','ACN','AMD','INTC','QCOM','CRM','ADBE','NFLX','DIS','BA','GE','CAT','GS','BLK','PYPL','SQ','COIN','SHOP','SNAP','UBER','ABNB','RIVN','PLTR','SOFI','NET','CRWD','DDOG','ZS','ORCL','IBM','NOW','PANW','MU','TXN','ARM','SMCI','DELL','HPE','TSM','ASML','NVO','PFE','T','TMUS','NFLX','NKE','SBUX','TGT','LOW','BAC','C','WFC','MS','SCHW','BX','SPY','QQQ','IWM','DIA','TLT','GLD','SLV','USO','BTC','ETH','SOL']);
+const KNOWN_TICKERS = new Set(['AAPL','MSFT','GOOGL','GOOG','AMZN','NVDA','TSLA','META','JPM','V','WMT','UNH','JNJ','XOM','PG','MA','HD','CVX','MRK','ABBV','LLY','PEP','KO','COST','AVGO','MCD','CSCO','TMO','ABT','ACN','AMD','INTC','QCOM','CRM','ADBE','NFLX','DIS','BA','GE','CAT','GS','BLK','PYPL','SQ','COIN','SHOP','SNAP','UBER','ABNB','RIVN','PLTR','SOFI','NET','CRWD','DDOG','ZS','ORCL','IBM','NOW','PANW','MU','TXN','ARM','SMCI','DELL','HPE','TSM','ASML','NVO','PFE','T','TMUS','NFLX','NKE','SBUX','TGT','LOW','BAC','C','WFC','MS','SCHW','BX','WBA','SPY','QQQ','IWM','DIA','TLT','GLD','SLV','USO','BTC','ETH','SOL']);
 const COMPANY_TICKER_ALIASES = [
   ['apple', 'AAPL'], ['microsoft', 'MSFT'], ['alphabet', 'GOOGL'], ['google', 'GOOGL'], ['amazon', 'AMZN'],
   ['nvidia', 'NVDA'], ['tesla', 'TSLA'], ['meta', 'META'], ['facebook', 'META'], ['jpmorgan', 'JPM'],
@@ -39,6 +39,7 @@ const COMPANY_TICKER_ALIASES = [
   ['crowdstrike', 'CRWD'], ['datadog', 'DDOG'], ['oracle', 'ORCL'], ['micron', 'MU'], ['texas instruments', 'TXN'],
   ['arm holdings', 'ARM'], ['super micro', 'SMCI'], ['dell', 'DELL'], ['taiwan semiconductor', 'TSM'],
   ['novo nordisk', 'NVO'], ['pfizer', 'PFE'], ['bank of america', 'BAC'], ['wells fargo', 'WFC'],
+  ['walgreens', 'WBA'], ['walgreens boots alliance', 'WBA'],
 ];
 
 function extractTickers(text) {
