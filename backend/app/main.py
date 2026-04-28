@@ -1979,9 +1979,13 @@ def _prepare_agent_body(body):
     live_context = _agent_live_context(tickers)
     body["message"] = (
         f"{live_context}\n\n"
-        "Answer using current data and recent internet/news research where relevant. "
-        "Be specific, concise, and practical: give concrete levels, catalysts, risks, valuation/technical evidence, and next checks. "
-        "Avoid generic investing advice, broad disclaimers, vague caveats, and filler. "
+        "Answer using current data and recent internet/news research where relevant.\n"
+        "STYLE RULES:\n"
+        "- Lead with the practical answer, not background.\n"
+        "- Keep the response short: normally 3-6 bullets or 1 short paragraph plus bullets.\n"
+        "- Each bullet must contain a concrete point: buy/avoid/watch, level, catalyst, risk, metric, or next action.\n"
+        "- Do not include generic investing advice, broad disclaimers, vague caveats, textbook explanations, or filler.\n"
+        "- Only say data is limited/stale when a live source actually failed.\n"
         "If you mention tickers, use ticker symbols explicitly so the UI can attach research cards.\n\n"
         f"USER QUESTION:\n{original}"
     )
