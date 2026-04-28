@@ -2,14 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Brain, ExternalLink, MessageCircle, RefreshCw, ShieldAlert, Sparkles, TrendingUp } from 'lucide-react';
 import { fetchAiPicks, fetchRedditPicks } from '../api';
 
-const toneClasses = {
-  emerald: 'bg-emerald-50 ring-emerald-200/70 dark:bg-emerald-950/25 dark:ring-emerald-800/60',
-  sky: 'bg-sky-50 ring-sky-200/70 dark:bg-sky-950/25 dark:ring-sky-800/60',
-  cyan: 'bg-cyan-50 ring-cyan-200/70 dark:bg-cyan-950/25 dark:ring-cyan-800/60',
-  amber: 'bg-amber-50 ring-amber-200/70 dark:bg-amber-950/25 dark:ring-amber-800/60',
-  rose: 'bg-rose-50 ring-rose-200/70 dark:bg-rose-950/25 dark:ring-rose-800/60',
-};
-
 const scoreColor = (score) => {
   if (score >= 72) return 'bg-emerald-500';
   if (score >= 62) return 'bg-lime-500';
@@ -348,10 +340,12 @@ export default function AiPicksPanel({ onOpenTicker }) {
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           {columns.map((col) => (
-            <section key={col.id} className={`rounded-lg p-3 ring-1 ${toneClasses[col.tone] || toneClasses.emerald}`}>
-              <h3 className="text-sm font-semibold text-zinc-950 dark:text-zinc-100">{col.title}</h3>
-              <p className="mt-0.5 min-h-8 text-xs text-zinc-600 dark:text-zinc-400">{col.subtitle}</p>
-              <div className="mt-3 space-y-2">
+            <section key={col.id} className="min-w-0">
+              <div className="mb-2">
+                <h3 className="text-sm font-semibold text-zinc-950 dark:text-zinc-100">{col.title}</h3>
+                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{col.subtitle}</p>
+              </div>
+              <div className="space-y-2">
                 {(col.picks || []).map((pick, idx) => (
                   <PickCard key={pick.symbol} pick={pick} onOpenTicker={onOpenTicker} />
                 ))}
