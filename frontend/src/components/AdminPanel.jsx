@@ -649,6 +649,41 @@ export default function AdminPanel() {
                 <StatCard label="Output Tokens" value={usageData.summary?.output_tokens} icon={Send} color="text-pink-500" />
               </div>
 
+              <Section title="Usage by page history" right={<Bot className="w-3.5 h-3.5 text-zinc-500" />}>
+                <p className="text-[10px] text-zinc-500 mb-3 leading-relaxed">
+                  Daily request events by page for the selected range. Token totals stay in the table below; this chart shows which tools are being used over time.
+                </p>
+                <ResponsiveContainer width="100%" height={280}>
+                  <ComposedChart data={usageData.daily_usage || []} margin={{ top: 8, right: 14, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
+                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#555' }} interval="preserveStartEnd" />
+                    <YAxis tick={{ fontSize: 9, fill: '#555' }} allowDecimals={false} width={38} />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Legend
+                      verticalAlign="top"
+                      height={30}
+                      wrapperStyle={{ fontSize: '10px', color: '#666' }}
+                      formatter={(value) => <span className="capitalize text-zinc-500">{value}</span>}
+                    />
+                    {(usageData.top_pages || []).map((page, i) => (
+                      <Line
+                        key={page}
+                        type="monotone"
+                        dataKey={page}
+                        name={page}
+                        stroke={COLORS[i % COLORS.length]}
+                        strokeWidth={2.25}
+                        dot={false}
+                        activeDot={{ r: 4, fill: COLORS[i % COLORS.length] }}
+                      />
+                    ))}
+                  </ComposedChart>
+                </ResponsiveContainer>
+                {(!usageData.daily_usage || usageData.daily_usage.length === 0) && (
+                  <p className="text-xs text-zinc-600 text-center py-4">No historical usage yet for this period</p>
+                )}
+              </Section>
+
               <Section title="Usage by page" right={<Bot className="w-3.5 h-3.5 text-zinc-500" />}>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[11px]">

@@ -807,7 +807,7 @@ def get_usage(days: int = 30, limit: int = 300, _admin=Depends(verify_admin)):
         since = (datetime.utcnow() - timedelta(days=days_i)).strftime("%Y-%m-%d %H:%M:%S")
         rows = conn.execute(
             """
-            SELECT page, section, action, conversation_id, is_new_chat, input_tokens, output_tokens
+            SELECT date, page, section, action, conversation_id, is_new_chat, input_tokens, output_tokens
             FROM usage_events
             WHERE timestamp >= ?
             """,
@@ -851,6 +851,25 @@ def get_usage(days: int = 30, limit: int = 300, _admin=Depends(verify_admin)):
             pages.append(d)
         pages.sort(key=lambda x: (x["input_tokens"] + x["output_tokens"], x["events"]), reverse=True)
 
+        top_pages = [p["page"] for p in pages[:8]]
+        daily_map: dict[str, dict] = defaultdict(lambda: {"date": ""})
+        for r in rows:
+            dk = r["date"] or ""
+            page = r["page"] or "other"
+            if not dk or page not in top_pages:
+                continue
+            item = daily_map[dk]
+            item["date"] = dk
+            item[page] = int(item.get(page, 0)) + 1
+            item[f"{page}_tokens"] = int(item.get(f"{page}_tokens", 0)) + int(r["input_tokens"] or 0) + int(r["output_tokens"] or 0)
+        daily_usage = []
+        for dk in sorted(daily_map.keys()):
+            row = daily_map[dk]
+            for page in top_pages:
+                row.setdefault(page, 0)
+                row.setdefault(f"{page}_tokens", 0)
+            daily_usage.append(row)
+
         recent = conn.execute(
             """
             SELECT id, timestamp, date, ip, user_id, username, page, section, action,
@@ -892,6 +911,8 @@ def get_usage(days: int = 30, limit: int = 300, _admin=Depends(verify_admin)):
         return {
             "period_days": days_i,
             "pages": pages,
+            "top_pages": top_pages,
+            "daily_usage": daily_usage,
             "recent_inputs": recent_inputs,
             "summary": {
                 "events": sum(p["events"] for p in pages),
