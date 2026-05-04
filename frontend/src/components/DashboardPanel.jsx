@@ -177,13 +177,18 @@ function getChange(item, period) {
   return item.changes?.[period] ?? null;
 }
 
-function MarketCard({ item, period }) {
+function MarketCard({ item, period, onClick }) {
   const change = getChange(item, period);
   const up = change != null && change >= 0;
   const rawSpark = pickSparkline(item, period);
   const sparkData = sliceSparkline(rawSpark, period);
+  const Wrapper = onClick ? 'button' : 'div';
   return (
-    <div className="bg-white rounded-xl p-3 shadow-sm ring-1 ring-zinc-200/70 hover:ring-zinc-300/80 transition-all overflow-hidden min-w-0">
+    <Wrapper
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className={`bg-white rounded-xl p-3 shadow-sm ring-1 ring-zinc-200/70 hover:ring-zinc-300/80 transition-all overflow-hidden min-w-0 ${onClick ? 'w-full text-left hover:-translate-y-0.5 cursor-pointer' : ''}`}
+    >
       <div className="flex items-start justify-between mb-1.5">
         <div className="text-[10px] text-zinc-500 truncate max-w-[80px]">{item.name}</div>
         <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${change == null ? 'bg-zinc-100 text-zinc-500' : up ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
@@ -204,7 +209,7 @@ function MarketCard({ item, period }) {
           );
         })}
       </div>
-    </div>
+    </Wrapper>
   );
 }
 
@@ -254,20 +259,29 @@ const NEWS_SYMBOLS_BY_ARENA = {
   commodities: 'CL=F,GC=F,BZ=F,SI=F,NG=F,HG=F,ZC=F,ZW=F',
 };
 
-const STOCK_HERO_SPECS = [
-  { symbol: '^GSPC', gradId: 'hg-st-1' },
-  { symbol: '^IXIC', gradId: 'hg-st-2' },
-];
+const DEFAULT_MARKET_ORDERS = {
+  stocks: ['^GSPC', '^IXIC'],
+  forex: ['EURUSD=X', 'JPY=X'],
+  commodities: ['CL=F', 'GC=F'],
+};
 
-const FOREX_HERO_SPECS = [
-  { symbol: 'EURUSD=X', gradId: 'hg-fx-1' },
-  { symbol: 'JPY=X', gradId: 'hg-fx-2' },
-];
-
-const COMMODITY_HERO_SPECS = [
-  { symbol: 'CL=F', gradId: 'hg-cm-1' },
-  { symbol: 'GC=F', gradId: 'hg-cm-2' },
-];
+function orderedMarketSeries(items, order = []) {
+  if (!items?.length) return [];
+  const bySymbol = new Map(items.map((item) => [item.symbol, item]));
+  const used = new Set();
+  const ordered = [];
+  order.forEach((symbol) => {
+    const item = bySymbol.get(symbol);
+    if (item && !used.has(symbol)) {
+      ordered.push(item);
+      used.add(symbol);
+    }
+  });
+  items.forEach((item) => {
+    if (!used.has(item.symbol)) ordered.push(item);
+  });
+  return ordered;
+}
 
 function sortForexSeries(items) {
   if (!items?.length) return [];
@@ -363,20 +377,20 @@ function NewsFeed({ articles, title = 'Market News' }) {
   );
 }
 
-function OverviewHeroRow({ specs, seriesList, activePeriodKey, useQuoteTooltip }) {
+function OverviewHeroRow({ seriesList, activePeriodKey, useQuoteTooltip, gradPrefix }) {
   if (!seriesList?.length) return null;
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {specs.map((h) => {
-        const item = seriesList.find((i) => i.symbol === h.symbol);
+      {seriesList.slice(0, 2).map((item, index) => {
         if (!item) return null;
         const { chartData, xTicks } = buildOverviewHeroChartRows(item, activePeriodKey);
         if (!chartData.length) return null;
         const change = getChange(item, activePeriodKey);
         const up = change != null && change >= 0;
         const dec = heroTooltipDecimals(item);
+        const gradId = `${gradPrefix}-${index + 1}-${item.symbol.replace(/[^a-z0-9]/gi, '-')}`;
         return (
-          <div key={h.symbol} className="bg-white rounded-xl p-4 sm:p-5 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900/80 dark:ring-zinc-800">
+          <div key={item.symbol} className="bg-white rounded-xl p-4 sm:p-5 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900/80 dark:ring-zinc-800">
             <div className="flex items-start justify-between mb-3">
               <div>
                 <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{item.name}</div>
@@ -389,7 +403,7 @@ function OverviewHeroRow({ specs, seriesList, activePeriodKey, useQuoteTooltip }
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={chartData} margin={{ top: 4, right: 2, left: 4, bottom: 8 }}>
                 <defs>
-                  <linearGradient id={h.gradId} x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={up ? '#22c55e' : '#ef4444'} stopOpacity={0.12} />
                     <stop offset="100%" stopColor={up ? '#22c55e' : '#ef4444'} stopOpacity={0} />
                   </linearGradient>
@@ -424,7 +438,7 @@ function OverviewHeroRow({ specs, seriesList, activePeriodKey, useQuoteTooltip }
                     )
                   }
                 />
-                <Area type="monotone" dataKey="price" stroke={up ? '#16a34a' : '#dc2626'} fill={`url(#${h.gradId})`} strokeWidth={2} dot={false} />
+                <Area type="monotone" dataKey="price" stroke={up ? '#16a34a' : '#dc2626'} fill={`url(#${gradId})`} strokeWidth={2} dot={false} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -434,23 +448,23 @@ function OverviewHeroRow({ specs, seriesList, activePeriodKey, useQuoteTooltip }
   );
 }
 
-function StockMarketsOverviewBody({ market, articles, activePeriodKey, activePeriodLabel }) {
+function StockMarketsOverviewBody({ market, articles, activePeriodKey, activePeriodLabel, orderedIndices, onPromote }) {
   return (
     <div className="space-y-6">
-      {market?.indices && (
+      {orderedIndices?.length > 0 && (
         <OverviewHeroRow
-          specs={STOCK_HERO_SPECS}
-          seriesList={market.indices}
+          seriesList={orderedIndices}
           activePeriodKey={activePeriodKey}
           useQuoteTooltip={false}
+          gradPrefix="hg-st"
         />
       )}
 
-      {market?.indices && (
+      {orderedIndices?.length > 0 && (
         <Section title={`Indices — ${activePeriodLabel} change`}>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-            {market.indices.map((item) => (
-              <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
+            {orderedIndices.slice(2).map((item) => (
+              <MarketCard key={item.symbol} item={item} period={activePeriodKey} onClick={() => onPromote(item.symbol, orderedIndices)} />
             ))}
           </div>
         </Section>
@@ -467,23 +481,22 @@ function StockMarketsOverviewBody({ market, articles, activePeriodKey, activePer
   );
 }
 
-function ForexMarketsBody({ market, articles, activePeriodKey, activePeriodLabel }) {
-  const sorted = sortForexSeries(market?.currencies);
-  if (!sorted.length) {
+function ForexMarketsBody({ market, articles, activePeriodKey, activePeriodLabel, orderedPairs, onPromote }) {
+  if (!orderedPairs.length) {
     return <p className="text-sm text-zinc-500 dark:text-zinc-400">No FX data in this snapshot.</p>;
   }
   return (
     <div className="space-y-6">
       <OverviewHeroRow
-        specs={FOREX_HERO_SPECS}
-        seriesList={sorted}
+        seriesList={orderedPairs}
         activePeriodKey={activePeriodKey}
         useQuoteTooltip
+        gradPrefix="hg-fx"
       />
       <Section title={`All FX pairs — ${activePeriodLabel}`}>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-          {sorted.map((item) => (
-            <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
+          {orderedPairs.slice(2).map((item) => (
+            <MarketCard key={item.symbol} item={item} period={activePeriodKey} onClick={() => onPromote(item.symbol, orderedPairs)} />
           ))}
         </div>
       </Section>
@@ -494,23 +507,22 @@ function ForexMarketsBody({ market, articles, activePeriodKey, activePeriodLabel
   );
 }
 
-function CommoditiesMarketsBody({ market, articles, activePeriodKey, activePeriodLabel }) {
-  const sorted = sortCommoditySeries(market?.commodities);
-  if (!sorted.length) {
+function CommoditiesMarketsBody({ market, articles, activePeriodKey, activePeriodLabel, orderedFutures, onPromote }) {
+  if (!orderedFutures.length) {
     return <p className="text-sm text-zinc-500 dark:text-zinc-400">No commodity futures in this snapshot.</p>;
   }
   return (
     <div className="space-y-6">
       <OverviewHeroRow
-        specs={COMMODITY_HERO_SPECS}
-        seriesList={sorted}
+        seriesList={orderedFutures}
         activePeriodKey={activePeriodKey}
         useQuoteTooltip
+        gradPrefix="hg-cm"
       />
       <Section title={`All futures — ${activePeriodLabel}`}>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-          {sorted.map((item) => (
-            <MarketCard key={item.symbol} item={item} period={activePeriodKey} />
+          {orderedFutures.slice(2).map((item) => (
+            <MarketCard key={item.symbol} item={item} period={activePeriodKey} onClick={() => onPromote(item.symbol, orderedFutures)} />
           ))}
         </div>
       </Section>
@@ -527,6 +539,7 @@ export default function DashboardPanel() {
   const [marketLoading, setMarketLoading] = useState(true);
   const [period, setPeriod] = useState('1Y');
   const [arena, setArena] = useState('stocks');
+  const [marketOrders, setMarketOrders] = useState(DEFAULT_MARKET_ORDERS);
 
   useEffect(() => {
     setMarketLoading(true);
@@ -569,6 +582,22 @@ export default function DashboardPanel() {
   const articles = (news?.articles || []).slice(0, 10);
   const activePeriodKey = PERIODS.find((p) => p.key === period)?.key ?? null;
   const activePeriodLabel = PERIODS.find((p) => p.key === period)?.label ?? '1Y';
+  const orderedIndices = orderedMarketSeries(market?.indices || [], marketOrders.stocks);
+  const orderedFxPairs = orderedMarketSeries(sortForexSeries(market?.currencies || []), marketOrders.forex);
+  const orderedCommodityFutures = orderedMarketSeries(sortCommoditySeries(market?.commodities || []), marketOrders.commodities);
+
+  const promoteMarketCard = (arenaId, symbol, orderedItems) => {
+    const symbols = (orderedItems || []).map((item) => item.symbol);
+    const fromIndex = symbols.indexOf(symbol);
+    if (fromIndex <= 0) return;
+    const next = [...symbols];
+    const previousFirst = next[0];
+    const previousSecond = next[1];
+    next[0] = symbol;
+    next[1] = previousFirst;
+    if (fromIndex > 1 && previousSecond) next[fromIndex] = previousSecond;
+    setMarketOrders((prev) => ({ ...prev, [arenaId]: next }));
+  };
 
   if (arena !== 'crypto' && marketLoading) {
     return (
@@ -610,6 +639,8 @@ export default function DashboardPanel() {
           articles={articles}
           activePeriodKey={activePeriodKey}
           activePeriodLabel={activePeriodLabel}
+          orderedIndices={orderedIndices}
+          onPromote={(symbol, orderedItems) => promoteMarketCard('stocks', symbol, orderedItems)}
         />
       )}
 
@@ -619,6 +650,8 @@ export default function DashboardPanel() {
           articles={articles}
           activePeriodKey={activePeriodKey}
           activePeriodLabel={activePeriodLabel}
+          orderedPairs={orderedFxPairs}
+          onPromote={(symbol, orderedItems) => promoteMarketCard('forex', symbol, orderedItems)}
         />
       )}
 
@@ -628,6 +661,8 @@ export default function DashboardPanel() {
           articles={articles}
           activePeriodKey={activePeriodKey}
           activePeriodLabel={activePeriodLabel}
+          orderedFutures={orderedCommodityFutures}
+          onPromote={(symbol, orderedItems) => promoteMarketCard('commodities', symbol, orderedItems)}
         />
       )}
 
