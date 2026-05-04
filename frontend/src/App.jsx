@@ -68,23 +68,43 @@ function App() {
   }, [isAdmin]);
 
   // Track interactions on tab switch
+  const openUsageAuth = useCallback((info = {}) => {
+    const force = Boolean(info.force_signup);
+    setForceAuth(force);
+    setAuthMode('signup');
+    setAuthMessage(
+      force
+        ? 'Create a completely free Equilima account to continue. Unlimited access, no credit card required.'
+        : 'You are using Equilima actively today. Sign in for completely free unlimited access — no credit card required.'
+    );
+    setShowAuth(true);
+  }, []);
+
+  useEffect(() => {
+    const onGate = (e) => {
+      const info = e.detail || {};
+      if (user) return;
+      if (info.force_signup || (info.show_prompt && !softPromptShown)) {
+        setSoftPromptShown(true);
+        openUsageAuth(info);
+      }
+    };
+    window.addEventListener('eq-usage-gate', onGate);
+    return () => window.removeEventListener('eq-usage-gate', onGate);
+  }, [user, softPromptShown, openUsageAuth]);
+
   const trackInteraction = useCallback(async () => {
     if (user) return;
     try {
-      const data = await checkInteraction();
+      const data = await checkInteraction(activeTab);
       if (data.force_signup) {
-        setForceAuth(true);
-        setAuthMessage('Create a free account to continue using Equilima');
-        setAuthMode('signup');
-        setShowAuth(true);
+        openUsageAuth(data);
       } else if (data.show_prompt && !softPromptShown) {
         setSoftPromptShown(true);
-        setAuthMessage('Sign up for unlimited access — it\'s free!');
-        setAuthMode('signup');
-        setShowAuth(true);
+        openUsageAuth(data);
       }
     } catch {}
-  }, [user, softPromptShown]);
+  }, [user, softPromptShown, activeTab, openUsageAuth]);
 
   // Track page views
   useEffect(() => {

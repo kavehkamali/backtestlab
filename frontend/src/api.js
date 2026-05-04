@@ -8,6 +8,24 @@ function authHeaders() {
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 }
 
+function emitUsageGate(detail) {
+  const payload = detail?.detail || detail?.usage || detail;
+  if (!payload || typeof window === 'undefined') return;
+  if (payload.show_prompt || payload.force_signup) {
+    window.dispatchEvent(new CustomEvent('eq-usage-gate', { detail: payload }));
+  }
+}
+
+async function parseApiError(res, fallback) {
+  const data = await res.json().catch(() => ({}));
+  emitUsageGate(data);
+  const detail = data?.detail;
+  if (detail && typeof detail === 'object') {
+    return detail.message || fallback;
+  }
+  return typeof detail === 'string' ? detail : fallback;
+}
+
 export async function signup({ email, password, name, consent_policy, consent_newsletter }) {
   const res = await fetch(`${BASE}/auth/signup`, {
     method: 'POST',
@@ -84,8 +102,10 @@ export async function deleteAccount({ password, confirm }) {
   return data;
 }
 
-export async function checkInteraction() {
-  const res = await fetch(`${BASE}/auth/interaction`, {
+export async function checkInteraction(page = 'other') {
+  const qp = new URLSearchParams();
+  qp.set('page', page);
+  const res = await fetch(`${BASE}/auth/interaction?${qp.toString()}`, {
     headers: { ...authHeaders() },
   });
   if (!res.ok) return { exceeded: false, count: 0, remaining: 999 };
@@ -100,8 +120,11 @@ export function trackPageView(tab) {
   const user = getStoredUser();
   fetch(`${BASE}/admin/track`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ path: window.location.pathname, tab, session_id: _sessionId, user_id: user?.id }),
+  }).then(async (res) => {
+    const data = await res.json().catch(() => ({}));
+    emitUsageGate(data);
   }).catch(() => {});
 }
 
@@ -143,6 +166,24 @@ export async function fetchAdminStats(daysOrOpts = 30) {
     throw new Error('Failed to load stats');
   }
   return res.json();
+}
+
+export async function fetchAdminUsage({ days = 30, limit = 300 } = {}) {
+  const token = localStorage.getItem('eq_admin_token');
+  const qp = new URLSearchParams();
+  qp.set('days', String(days));
+  qp.set('limit', String(limit));
+  qp.set('_', String(Date.now()));
+  const res = await fetch(`${BASE}/admin/usage?${qp.toString()}`, {
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(data.detail || 'Failed to load usage');
+  }
+  return data;
 }
 
 export async function toggleAdminExcludedIp(ip, ignore) {
@@ -378,13 +419,11 @@ export async function deleteAdminArticle(id) {
 export async function agentChat(message, ticker = '') {
   const res = await fetch(`${BASE}/agent/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, ticker }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Agent unavailable' }));
-    const msg = typeof err.detail === 'string' ? err.detail : Array.isArray(err.detail) ? err.detail.map(e => e.msg || e).join(', ') : JSON.stringify(err.detail);
-    throw new Error(msg || 'Agent error');
+    throw new Error(await parseApiError(res, 'Agent error'));
   }
   return res.json();
 }
@@ -392,13 +431,11 @@ export async function agentChat(message, ticker = '') {
 export async function agentQuick(message, ticker = '') {
   const res = await fetch(`${BASE}/agent/quick`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, ticker }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Agent unavailable' }));
-    const msg = typeof err.detail === 'string' ? err.detail : Array.isArray(err.detail) ? err.detail.map(e => e.msg || e).join(', ') : JSON.stringify(err.detail);
-    throw new Error(msg || 'Agent error');
+    throw new Error(await parseApiError(res, 'Agent error'));
   }
   return res.json();
 }
@@ -414,11 +451,11 @@ export async function fetchAiPicks({ refresh = false } = {}) {
   const res = await fetch(`${BASE}/picks`, {
     method: 'POST',
     cache: 'no-store',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || 'Failed to load AI picks');
+  if (!res.ok) { emitUsageGate(data); throw new Error(typeof data.detail === 'object' ? data.detail.message : data.detail || 'Failed to load AI picks'); }
   return data;
 }
 
@@ -426,11 +463,11 @@ export async function fetchRedditPicks({ refresh = false } = {}) {
   const res = await fetch(`${BASE}/picks/reddit`, {
     method: 'POST',
     cache: 'no-store',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || 'Failed to load Reddit picks');
+  if (!res.ok) { emitUsageGate(data); throw new Error(typeof data.detail === 'object' ? data.detail.message : data.detail || 'Failed to load Reddit picks'); }
   return data;
 }
 
@@ -548,20 +585,19 @@ export async function fetchStrategies() {
 }
 
 export async function fetchStockData(symbol, period = '2y') {
-  const res = await fetch(`${BASE}/stock/${symbol}?period=${period}`);
-  if (!res.ok) throw new Error(`Failed to fetch data for ${symbol}`);
+  const res = await fetch(`${BASE}/stock/${symbol}?period=${period}`, { headers: { ...authHeaders() } });
+  if (!res.ok) throw new Error(await parseApiError(res, `Failed to fetch data for ${symbol}`));
   return res.json();
 }
 
 export async function runBacktest(params) {
   const res = await fetch(`${BASE}/backtest`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   });
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail || 'Backtest failed');
+    throw new Error(await parseApiError(res, 'Backtest failed'));
   }
   return res.json();
 }
@@ -569,12 +605,11 @@ export async function runBacktest(params) {
 export async function compareStrategies(params) {
   const res = await fetch(`${BASE}/compare`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   });
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail || 'Comparison failed');
+    throw new Error(await parseApiError(res, 'Comparison failed'));
   }
   return res.json();
 }
@@ -582,12 +617,11 @@ export async function compareStrategies(params) {
 export async function runScreener(params) {
   const res = await fetch(`${BASE}/screener`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   });
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.detail || 'Screener failed');
+    throw new Error(await parseApiError(res, 'Screener failed'));
   }
   return res.json();
 }
@@ -599,60 +633,60 @@ export async function fetchScreenerLists() {
 }
 
 export async function fetchStockDetail(symbol) {
-  const res = await fetch(`${BASE}/stock/${symbol}/detail`);
-  if (!res.ok) throw new Error(`Failed to fetch detail for ${symbol}`);
+  const res = await fetch(`${BASE}/stock/${symbol}/detail`, { headers: { ...authHeaders() } });
+  if (!res.ok) throw new Error(await parseApiError(res, `Failed to fetch detail for ${symbol}`));
   return res.json();
 }
 
 export async function fetchNews(symbols = '') {
-  const res = await fetch(`${BASE}/news?symbols=${encodeURIComponent(symbols)}`);
-  if (!res.ok) throw new Error('Failed to fetch news');
+  const res = await fetch(`${BASE}/news?symbols=${encodeURIComponent(symbols)}`, { headers: { ...authHeaders() } });
+  if (!res.ok) throw new Error(await parseApiError(res, 'Failed to fetch news'));
   return res.json();
 }
 
 export async function fetchMarketOverview() {
-  const res = await fetch(`${BASE}/market/overview`);
-  if (!res.ok) throw new Error('Failed to fetch market data');
+  const res = await fetch(`${BASE}/market/overview`, { headers: { ...authHeaders() } });
+  if (!res.ok) throw new Error(await parseApiError(res, 'Failed to fetch market data'));
   return res.json();
 }
 
 export async function fetchCrypto() {
-  const res = await fetch(`${BASE}/crypto`);
-  if (!res.ok) throw new Error('Failed to fetch crypto data');
+  const res = await fetch(`${BASE}/crypto`, { headers: { ...authHeaders() } });
+  if (!res.ok) throw new Error(await parseApiError(res, 'Failed to fetch crypto data'));
   return res.json();
 }
 
 // Terminal APIs
 export async function fetchTerminalChart(symbol, period = '1y', interval = '1d') {
-  const res = await fetch(`${BASE}/terminal/chart/${symbol}?period=${period}&interval=${interval}`);
-  if (!res.ok) throw new Error(`Chart data failed for ${symbol}`);
+  const res = await fetch(`${BASE}/terminal/chart/${symbol}?period=${period}&interval=${interval}`, { headers: { ...authHeaders() } });
+  if (!res.ok) throw new Error(await parseApiError(res, `Chart data failed for ${symbol}`));
   return res.json();
 }
 
 export async function fetchTerminalIndicators(symbol, period = '1y', interval = '1d', indicators = 'sma_20,sma_50,volume') {
-  const res = await fetch(`${BASE}/terminal/indicators/${symbol}?period=${period}&interval=${interval}&indicators=${indicators}`);
-  if (!res.ok) throw new Error(`Indicators failed for ${symbol}`);
+  const res = await fetch(`${BASE}/terminal/indicators/${symbol}?period=${period}&interval=${interval}&indicators=${indicators}`, { headers: { ...authHeaders() } });
+  if (!res.ok) throw new Error(await parseApiError(res, `Indicators failed for ${symbol}`));
   return res.json();
 }
 
 export async function fetchAiInsight(symbol, period = '1y') {
   const res = await fetch(`${BASE}/terminal/ai-insight`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ symbol, period }),
   });
-  if (!res.ok) throw new Error(`AI insight failed for ${symbol}`);
+  if (!res.ok) throw new Error(await parseApiError(res, `AI insight failed for ${symbol}`));
   return res.json();
 }
 
 export async function fetchResearch(symbol) {
-  const res = await fetch(`${BASE}/research/${symbol}`);
-  if (!res.ok) throw new Error(`Research failed for ${symbol}`);
+  const res = await fetch(`${BASE}/research/${symbol}`, { headers: { ...authHeaders() } });
+  if (!res.ok) throw new Error(await parseApiError(res, `Research failed for ${symbol}`));
   return res.json();
 }
 
 export async function fetchWatchlistPrices(symbols) {
-  const res = await fetch(`${BASE}/terminal/watchlist-prices?symbols=${symbols.join(',')}`);
-  if (!res.ok) throw new Error('Watchlist fetch failed');
+  const res = await fetch(`${BASE}/terminal/watchlist-prices?symbols=${symbols.join(',')}`, { headers: { ...authHeaders() } });
+  if (!res.ok) throw new Error(await parseApiError(res, 'Watchlist fetch failed'));
   return res.json();
 }

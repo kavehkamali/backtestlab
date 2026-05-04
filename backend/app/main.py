@@ -25,6 +25,7 @@ from .analytics import router as analytics_router
 from .agent_history import router as agent_history_router
 from .articles import public_router as articles_public_router, admin_router as articles_admin_router
 from .shared_cache import get_or_compute, get_cached_or_refresh_bg, get_cached_any, set_cached, is_stale, SCREENER_TTL, DASHBOARD_TTL, CRYPTO_TTL, RESEARCH_TTL, cache_stats
+from .usage import begin_usage_event, finish_usage_event
 
 app = FastAPI(title="Stock Backtesting Dashboard API")
 app.include_router(terminal_router)
@@ -125,14 +126,17 @@ def health():
 
 
 @app.get("/api/stock/{symbol}")
-def get_stock_data(symbol: str, period: str = "2y", interval: str = "1d"):
+def get_stock_data(symbol: str, request: Request, period: str = "2y", interval: str = "1d"):
     """Fetch stock OHLCV data with technical indicators."""
+    event_id, _usage = begin_usage_event(request, "chart", action="stock_data", input_payload={"symbol": symbol, "period": period, "interval": interval})
     try:
         df = fetch_stock_data(symbol, period, interval)
         df = add_technical_indicators(df)
         records = df.reset_index().rename(columns={"index": "date"})
         records["date"] = records["date"].dt.strftime("%Y-%m-%d")
-        return {"symbol": symbol, "data": records.to_dict("records")}
+        out = {"symbol": symbol, "data": records.to_dict("records")}
+        finish_usage_event(event_id, {"rows": len(out["data"]), "symbol": symbol})
+        return out
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -245,8 +249,9 @@ def _sanitize(obj):
 
 
 @app.post("/api/backtest")
-def backtest(req: BacktestRequest):
+def backtest(req: BacktestRequest, request: Request):
     """Run a single strategy backtest."""
+    event_id, _usage = begin_usage_event(request, "backtest", action="run_backtest", input_payload=req.model_dump())
     try:
         df = fetch_stock_data(req.symbol, period=req.period)
         strategy = StrategyType(req.strategy)
@@ -261,14 +266,17 @@ def backtest(req: BacktestRequest):
             params=req.params,
         )
         result = run_backtest(df, config)
-        return _sanitize(asdict(result))
+        out = _sanitize(asdict(result))
+        finish_usage_event(event_id, out)
+        return out
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/api/compare")
-def compare_strategies(req: CompareRequest):
+def compare_strategies(req: CompareRequest, request: Request):
     """Run multiple strategies on the same data for comparison."""
+    event_id, _usage = begin_usage_event(request, "backtest", action="compare", input_payload=req.model_dump())
     try:
         df = fetch_stock_data(req.symbol, period=req.period)
         results = []
@@ -286,7 +294,9 @@ def compare_strategies(req: CompareRequest):
             )
             result = run_backtest(df, config)
             results.append(_sanitize(asdict(result)))
-        return {"results": results}
+        out = {"results": results}
+        finish_usage_event(event_id, out)
+        return out
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -340,8 +350,9 @@ def _compute_snowflake(fund: dict, price: float, change_pct: float) -> dict:
 
 
 @app.post("/api/screener")
-def screener(req: ScreenerRequest):
+def screener(req: ScreenerRequest, request: Request):
     """Professional screener with shared cache for all users."""
+    event_id, _usage = begin_usage_event(request, "screener", action="screen", input_payload=req.model_dump())
     cache_key = f"screener_{req.list_id}"
 
     def _compute():
@@ -349,6 +360,7 @@ def screener(req: ScreenerRequest):
 
     # Always return cached data instantly, refresh in background if stale
     result = get_cached_or_refresh_bg(cache_key, SCREENER_TTL, _compute)
+    finish_usage_event(event_id, {"rows": len(result.get("results", result.get("stocks", []))) if isinstance(result, dict) else 0, "list_id": req.list_id})
     return result
 
 
@@ -950,14 +962,18 @@ def warm_picks_cache_on_startup():
 
 
 @app.post("/api/picks")
-def ai_picks(req: PicksRequest):
+def ai_picks(req: PicksRequest, request: Request):
+    event_id, _usage = begin_usage_event(request, "picks", section="ai_picks", action="load", input_payload=req.model_dump())
     max_candidates = int(req.max_candidates or PICKS_DEFAULT_CANDIDATES)
     cache_key = _picks_cache_key(max_candidates)
     if req.refresh:
         data = _ai_picks_compute(max_candidates)
         set_cached(cache_key, data)
+        finish_usage_event(event_id, {"columns": len(data.get("columns", [])) if isinstance(data, dict) else 0})
         return data
-    return get_cached_or_refresh_bg(cache_key, PICKS_TTL, lambda: _ai_picks_compute(max_candidates))
+    data = get_cached_or_refresh_bg(cache_key, PICKS_TTL, lambda: _ai_picks_compute(max_candidates))
+    finish_usage_event(event_id, {"columns": len(data.get("columns", [])) if isinstance(data, dict) else 0})
+    return data
 
 
 def _ai_picks_compute(max_candidates=260):
@@ -1429,17 +1445,22 @@ def _agent_select_reddit_picks(items):
 
 
 @app.post("/api/picks/reddit")
-def reddit_picks(req: PicksRequest):
+def reddit_picks(req: PicksRequest, request: Request):
+    event_id, _usage = begin_usage_event(request, "reddit", section="reddit_picks", action="load", input_payload=req.model_dump())
     if req.refresh:
         data = _reddit_picks_compute()
         set_cached(REDDIT_PICKS_KEY, data)
+        finish_usage_event(event_id, {"columns": len(data.get("columns", [])) if isinstance(data, dict) else 0})
         return data
-    return get_cached_or_refresh_bg(REDDIT_PICKS_KEY, REDDIT_PICKS_TTL, _reddit_picks_compute)
+    data = get_cached_or_refresh_bg(REDDIT_PICKS_KEY, REDDIT_PICKS_TTL, _reddit_picks_compute)
+    finish_usage_event(event_id, {"columns": len(data.get("columns", [])) if isinstance(data, dict) else 0})
+    return data
 
 
 @app.get("/api/stock/{symbol}/detail")
-def stock_detail(symbol: str):
+def stock_detail(symbol: str, request: Request):
     """Detailed stock info with chart data."""
+    event_id, _usage = begin_usage_event(request, "screener", action="stock_detail", input_payload={"symbol": symbol})
     import numpy as np
     from ta.momentum import RSIIndicator
     from ta.trend import MACD as MACD_Indicator
@@ -1483,7 +1504,7 @@ def stock_detail(symbol: str):
 
         returns = close.pct_change().dropna()
 
-        return _sanitize({
+        out = _sanitize({
             "symbol": symbol,
             "name": fund.get("name", symbol),
             "sector": fund.get("sector", "—"),
@@ -1519,6 +1540,8 @@ def stock_detail(symbol: str):
             "macd_signal": round(float(macd_ind.macd_signal().iloc[-1]), 3) if not np.isnan(macd_ind.macd_signal().iloc[-1]) else 0,
             "macd_hist": round(float(macd_ind.macd_diff().iloc[-1]), 3) if not np.isnan(macd_ind.macd_diff().iloc[-1]) else 0,
         })
+        finish_usage_event(event_id, {"symbol": symbol, "chart_rows": len(chart)})
+        return out
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1533,11 +1556,12 @@ def clear_cache():
 # ─── NEWS ───
 
 @app.get("/api/news")
-def get_news(symbols: str = "AAPL,MSFT,GOOGL,AMZN,NVDA,TSLA,META,^GSPC"):
+def get_news(request: Request, symbols: str = "AAPL,MSFT,GOOGL,AMZN,NVDA,TSLA,META,^GSPC"):
     """Fetch news for given symbols. Returns deduplicated, date-sorted articles."""
     import yfinance as yf
     from datetime import datetime
 
+    event_id, _usage = begin_usage_event(request, "news", action="load_news", input_payload={"symbols": symbols})
     symbol_list = [s.strip() for s in symbols.split(",") if s.strip()]
     seen = set()
     articles = []
@@ -1586,7 +1610,9 @@ def get_news(symbols: str = "AAPL,MSFT,GOOGL,AMZN,NVDA,TSLA,META,^GSPC"):
 
     # Sort by date descending
     articles.sort(key=lambda x: x.get("date", ""), reverse=True)
-    return {"articles": articles[:100]}
+    out = {"articles": articles[:100]}
+    finish_usage_event(event_id, {"articles": len(out["articles"]), "symbols": symbol_list[:15]})
+    return out
 
 
 # ─── MARKET ANALYSIS ───
@@ -1694,9 +1720,12 @@ MARKET_TICKERS = {
 
 
 @app.get("/api/market/overview")
-def market_overview():
+def market_overview(request: Request):
     """Full market overview — shared cache for all users."""
-    return get_or_compute("dashboard_overview", DASHBOARD_TTL, _market_overview_compute)
+    event_id, _usage = begin_usage_event(request, "markets", action="overview")
+    data = get_or_compute("dashboard_overview", DASHBOARD_TTL, _market_overview_compute)
+    finish_usage_event(event_id, {"sections": list(data.keys()) if isinstance(data, dict) else []})
+    return data
 
 
 def _market_overview_compute():
@@ -1814,9 +1843,12 @@ CRYPTO_TICKERS = [
 
 
 @app.get("/api/crypto")
-def crypto_overview():
+def crypto_overview(request: Request):
     """Crypto dashboard — shared cache."""
-    return get_or_compute("crypto_overview", CRYPTO_TTL, _crypto_compute)
+    event_id, _usage = begin_usage_event(request, "markets", section="crypto", action="overview")
+    data = get_or_compute("crypto_overview", CRYPTO_TTL, _crypto_compute)
+    finish_usage_event(event_id, {"rows": len(data) if isinstance(data, list) else 0})
+    return data
 
 
 def _crypto_compute():
@@ -2053,13 +2085,27 @@ def _augment_agent_response(data, body):
 @app.post("/api/agent/chat")
 async def agent_chat(request: Request):
     """Proxy chat to the AI agent on home-linux (full TradingAgents pipeline)."""
-    body = _prepare_agent_body(await request.json())
+    raw_body = await request.json()
+    conversation_id = str(raw_body.get("conversation_id") or raw_body.get("session_id") or "")
+    event_id, _usage = begin_usage_event(
+        request,
+        "agent",
+        section="full",
+        action="chat",
+        conversation_id=conversation_id,
+        is_new_chat=bool(raw_body.get("is_new_chat")),
+        input_text=str(raw_body.get("message") or ""),
+        input_payload=raw_body,
+    )
+    body = _prepare_agent_body(raw_body)
     try:
         async with httpx.AsyncClient(timeout=180.0) as client:
             resp = await client.post(f"{AGENT_URL}/chat", json=body)
             if resp.status_code >= 400:
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
-            return _augment_agent_response(resp.json(), body)
+            out = _augment_agent_response(resp.json(), body)
+            finish_usage_event(event_id, out.get("response") if isinstance(out, dict) else out)
+            return out
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="Agent timed out — the analysis is taking too long")
     except HTTPException:
@@ -2070,13 +2116,27 @@ async def agent_chat(request: Request):
 @app.post("/api/agent/quick")
 async def agent_quick(request: Request):
     """Proxy quick analysis to AI agent (direct LLM, faster)."""
-    body = _prepare_agent_body(await request.json())
+    raw_body = await request.json()
+    conversation_id = str(raw_body.get("conversation_id") or raw_body.get("session_id") or "")
+    event_id, _usage = begin_usage_event(
+        request,
+        "agent",
+        section="quick",
+        action="chat",
+        conversation_id=conversation_id,
+        is_new_chat=bool(raw_body.get("is_new_chat")),
+        input_text=str(raw_body.get("message") or ""),
+        input_payload=raw_body,
+    )
+    body = _prepare_agent_body(raw_body)
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(f"{AGENT_URL}/quick", json=body)
             if resp.status_code >= 400:
                 raise HTTPException(status_code=resp.status_code, detail=resp.text)
-            return _augment_agent_response(resp.json(), body)
+            out = _augment_agent_response(resp.json(), body)
+            finish_usage_event(event_id, out.get("response") if isinstance(out, dict) else out)
+            return out
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail="Agent timed out")
     except HTTPException:

@@ -156,11 +156,16 @@ export default function AuthModal({ onClose, onAuth, mode: initialMode = 'signup
 
         <div className="p-6">
           <div className="text-center mb-6">
+            {message && (
+              <div className="mx-auto mb-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200/80 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-800/60">
+                <Check className="h-3.5 w-3.5" /> Free forever tier · No credit card
+              </div>
+            )}
             <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
               {mode === 'signup' ? 'Create your account' : mode === 'signin' ? 'Welcome back' : mode === 'forgot' ? 'Forgot password' : 'Reset password'}
             </h2>
             {message && <p className="text-sm text-zinc-600 mt-2 dark:text-zinc-300">{message}</p>}
-            {!message && mode === 'signup' && <p className="text-sm text-zinc-500 mt-1 dark:text-zinc-400">Get unlimited access to Equilima</p>}
+            {!message && mode === 'signup' && <p className="text-sm text-zinc-500 mt-1 dark:text-zinc-400">Unlimited access is free. No credit card required.</p>}
             {mode === 'forgot' && <p className="text-sm text-zinc-500 mt-1 dark:text-zinc-400">Enter your email to receive a reset link</p>}
             {mode === 'reset' && <p className="text-sm text-zinc-500 mt-1 dark:text-zinc-400">Choose a new password</p>}
           </div>

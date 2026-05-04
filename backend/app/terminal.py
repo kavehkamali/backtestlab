@@ -3,7 +3,7 @@ from __future__ import annotations
 Terminal API endpoints — optimized for the trading terminal UI.
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 import pandas as pd
 import numpy as np
@@ -35,11 +35,14 @@ def _bar_time_for_lightweight_charts(ts, interval: str) -> int | str:
 @router.get("/chart/{symbol}")
 def get_chart_data(
     symbol: str,
+    request: Request,
     period: str = "1y",
     interval: str = "1d",
 ):
     """OHLCV data formatted for lightweight-charts."""
     import yfinance as yf
+    from .usage import begin_usage_event, finish_usage_event
+    event_id, _usage = begin_usage_event(request, "chart", action="chart", input_payload={"symbol": symbol, "period": period, "interval": interval})
 
     try:
         ticker = yf.Ticker(symbol)
@@ -63,7 +66,9 @@ def get_chart_data(
         data = list(by_time.values())
         data.sort(key=lambda row: row["time"])
 
-        return {"symbol": symbol, "interval": interval, "data": data}
+        out = {"symbol": symbol, "interval": interval, "data": data}
+        finish_usage_event(event_id, {"symbol": symbol, "rows": len(data)})
+        return out
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -71,6 +76,7 @@ def get_chart_data(
 @router.get("/indicators/{symbol}")
 def get_indicators(
     symbol: str,
+    request: Request,
     period: str = "1y",
     interval: str = "1d",
     indicators: str = "sma_20,sma_50,sma_200,rsi_14,macd,bollinger,volume",
@@ -80,6 +86,8 @@ def get_indicators(
     from ta.momentum import RSIIndicator
     from ta.trend import MACD as MACD_Indicator, SMAIndicator, EMAIndicator
     from ta.volatility import BollingerBands
+    from .usage import begin_usage_event, finish_usage_event
+    event_id, _usage = begin_usage_event(request, "chart", action="indicators", input_payload={"symbol": symbol, "period": period, "interval": interval, "indicators": indicators})
 
     try:
         ticker = yf.Ticker(symbol)
@@ -144,17 +152,21 @@ def get_indicators(
             except Exception:
                 continue
 
-        return {"symbol": symbol, "indicators": result}
+        out = {"symbol": symbol, "indicators": result}
+        finish_usage_event(event_id, {"symbol": symbol, "indicator_count": len(result)})
+        return out
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/ai-insight")
-def ai_insight(body: dict):
+def ai_insight(body: dict, request: Request):
     """AI-powered technical analysis."""
     import math
+    from .usage import begin_usage_event, finish_usage_event
     symbol = body.get("symbol", "AAPL")
     period = body.get("period", "1y")
+    event_id, _usage = begin_usage_event(request, "chart", section="ai_insight", action="technical_ai", input_text=str(body), input_payload=body)
 
     try:
         df = fetch_price_cached(symbol, period=period)
@@ -176,14 +188,18 @@ def ai_insight(body: dict):
                 return [sanitize(v) for v in obj]
             return obj
 
-        return sanitize(result)
+        out = sanitize(result)
+        finish_usage_event(event_id, out)
+        return out
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/watchlist-prices")
-def watchlist_prices(symbols: str = "AAPL,MSFT,GOOGL"):
+def watchlist_prices(request: Request, symbols: str = "AAPL,MSFT,GOOGL"):
     """Lightweight batch price fetch for watchlist."""
+    from .usage import begin_usage_event, finish_usage_event
+    event_id, _usage = begin_usage_event(request, "chart", action="watchlist", input_payload={"symbols": symbols})
     symbol_list = [s.strip() for s in symbols.split(",") if s.strip()][:20]
     prices = batch_fetch_prices(symbol_list, period="5d")
 
@@ -205,4 +221,6 @@ def watchlist_prices(symbols: str = "AAPL,MSFT,GOOGL"):
             "sparkline": spark,
         })
 
-    return {"prices": result}
+    out = {"prices": result}
+    finish_usage_event(event_id, {"rows": len(result)})
+    return out

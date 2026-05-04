@@ -17,6 +17,7 @@ from collections import Counter, defaultdict
 
 from fastapi import APIRouter, HTTPException, Request, Depends, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from .usage import begin_usage_event, finish_usage_event
 
 DB_PATH = Path.home() / ".equilima_data" / "equilima.db"
 
@@ -346,6 +347,16 @@ async def track_pageview(request: Request):
 
     ua = request.headers.get("user-agent", "")
     referer = request.headers.get("referer", "")
+    usage_event_id = None
+    usage_info = None
+    if tab and tab not in {"account"}:
+        usage_event_id, usage_info = begin_usage_event(
+            request,
+            str(tab),
+            section="page_view",
+            action="view",
+            input_payload={"path": path, "tab": tab, "session_id": session_id},
+        )
 
     conn = get_db()
     try:
@@ -374,10 +385,11 @@ async def track_pageview(request: Request):
             (ip, path, tab, ua, referer, country, city, session_id, user_id),
         )
         conn.commit()
+        finish_usage_event(usage_event_id, {"tracked": True, "tab": tab})
     finally:
         conn.close()
 
-    return {"ok": True}
+    return {"ok": True, "usage": usage_info}
 
 
 # ─── Excluded IPs (admin — omit from analytics) ───
@@ -773,6 +785,120 @@ def get_stats(
             "ip_directory": ip_directory,
             "users": users_data,
             "cache_stats": _get_cache_stats(),
+        }
+    finally:
+        conn.close()
+
+
+@router.get("/usage")
+def get_usage(days: int = 30, limit: int = 300, _admin=Depends(verify_admin)):
+    """LLM and feature usage by page, with stored user inputs for audit/debug."""
+    conn = get_db()
+    try:
+        try:
+            days_i = max(1, min(3650, int(days)))
+        except Exception:
+            days_i = 30
+        try:
+            limit_i = max(25, min(5000, int(limit)))
+        except Exception:
+            limit_i = 300
+
+        since = (datetime.utcnow() - timedelta(days=days_i)).strftime("%Y-%m-%d %H:%M:%S")
+        rows = conn.execute(
+            """
+            SELECT page, section, action, conversation_id, is_new_chat, input_tokens, output_tokens
+            FROM usage_events
+            WHERE timestamp >= ?
+            """,
+            (since,),
+        ).fetchall()
+
+        by_page: dict[str, dict] = {}
+        conversations: dict[str, set[str]] = defaultdict(set)
+        for r in rows:
+            page = r["page"] or "other"
+            d = by_page.setdefault(
+                page,
+                {
+                    "page": page,
+                    "new_chats": 0,
+                    "total_conversations": 0,
+                    "events": 0,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "sections": {},
+                },
+            )
+            d["events"] += 1
+            d["new_chats"] += int(r["is_new_chat"] or 0)
+            d["input_tokens"] += int(r["input_tokens"] or 0)
+            d["output_tokens"] += int(r["output_tokens"] or 0)
+            conv = (r["conversation_id"] or "").strip()
+            if conv:
+                conversations[page].add(conv)
+            sec = (r["section"] or r["action"] or "general").strip() or "general"
+            sd = d["sections"].setdefault(sec, {"events": 0, "new_chats": 0, "input_tokens": 0, "output_tokens": 0})
+            sd["events"] += 1
+            sd["new_chats"] += int(r["is_new_chat"] or 0)
+            sd["input_tokens"] += int(r["input_tokens"] or 0)
+            sd["output_tokens"] += int(r["output_tokens"] or 0)
+
+        pages = []
+        for page, d in by_page.items():
+            d["total_conversations"] = len(conversations.get(page) or set()) or d["events"]
+            d["sections"] = [{"section": k, **v} for k, v in sorted(d["sections"].items())]
+            pages.append(d)
+        pages.sort(key=lambda x: (x["input_tokens"] + x["output_tokens"], x["events"]), reverse=True)
+
+        recent = conn.execute(
+            """
+            SELECT id, timestamp, date, ip, user_id, username, page, section, action,
+                   conversation_id, is_new_chat, input_text, input_payload,
+                   input_tokens, output_tokens, limited_action, forced
+            FROM usage_events
+            WHERE timestamp >= ?
+            ORDER BY timestamp DESC
+            LIMIT ?
+            """,
+            (since, limit_i),
+        ).fetchall()
+
+        recent_inputs = []
+        for r in recent:
+            txt = (r["input_text"] or "").strip()
+            payload = (r["input_payload"] or "").strip()
+            recent_inputs.append(
+                {
+                    "id": r["id"],
+                    "timestamp": r["timestamp"],
+                    "date": r["date"],
+                    "ip": r["ip"],
+                    "user_id": r["user_id"],
+                    "username": r["username"],
+                    "page": r["page"],
+                    "section": r["section"],
+                    "action": r["action"],
+                    "conversation_id": r["conversation_id"],
+                    "is_new_chat": bool(r["is_new_chat"]),
+                    "input": txt or payload[:1000],
+                    "input_tokens": int(r["input_tokens"] or 0),
+                    "output_tokens": int(r["output_tokens"] or 0),
+                    "limited_action": r["limited_action"],
+                    "forced": bool(r["forced"]),
+                }
+            )
+
+        return {
+            "period_days": days_i,
+            "pages": pages,
+            "recent_inputs": recent_inputs,
+            "summary": {
+                "events": sum(p["events"] for p in pages),
+                "new_chats": sum(p["new_chats"] for p in pages),
+                "input_tokens": sum(p["input_tokens"] for p in pages),
+                "output_tokens": sum(p["output_tokens"] for p in pages),
+            },
         }
     finally:
         conn.close()

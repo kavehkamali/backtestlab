@@ -594,12 +594,21 @@ def delete_me(req: DeleteAccountRequest, user=Depends(get_current_user)):
 
 @router.get("/interaction")
 def check_interaction(request: Request, user=Depends(get_current_user)):
-    if user:
-        return {"count": 0, "soft_limit": SOFT_LIMIT, "hard_limit": HARD_LIMIT, "show_prompt": False, "force_signup": False, "remaining": 999999, "authenticated": True}
-    ip = request.client.host
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        ip = forwarded.split(",")[0].strip()
-    info = track_interaction(ip)
-    info["authenticated"] = False
-    return info
+    page = request.query_params.get("page") or "other"
+    try:
+        from .usage import usage_status
+        info = usage_status(request, page)
+        # Keep legacy keys for older frontend code.
+        info["hard_limit"] = info.get("force_limit")
+        info["remaining"] = info.get("remaining_until_force")
+        return info
+    except Exception:
+        if user:
+            return {"count": 0, "soft_limit": SOFT_LIMIT, "hard_limit": HARD_LIMIT, "show_prompt": False, "force_signup": False, "remaining": 999999, "authenticated": True}
+        ip = request.client.host
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            ip = forwarded.split(",")[0].strip()
+        info = track_interaction(ip)
+        info["authenticated"] = False
+        return info

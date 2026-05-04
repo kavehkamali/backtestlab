@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Users, Eye, Globe, Monitor, Smartphone, Clock, LogOut, RefreshCw, Mail, CheckCircle, XCircle, Filter, Plus, X, Copy, Send } from 'lucide-react';
+import { Loader2, Users, Eye, Globe, Monitor, Smartphone, Clock, LogOut, RefreshCw, Mail, CheckCircle, XCircle, Filter, Plus, X, Copy, Send, Bot, MessageSquare } from 'lucide-react';
 import { Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Line } from 'recharts';
-import { adminLogin, fetchAdminStats, saveAdminExcludedIps, toggleAdminExcludedIp, fetchAdminUsers, updateAdminUser, deleteAdminUser, previewAdminNewsletter, sendAdminNewsletter, fetchAdminNewsletterHistory } from '../api';
+import { adminLogin, fetchAdminStats, fetchAdminUsage, saveAdminExcludedIps, toggleAdminExcludedIp, fetchAdminUsers, updateAdminUser, deleteAdminUser, previewAdminNewsletter, sendAdminNewsletter, fetchAdminNewsletterHistory } from '../api';
 import AdminArticlesTab from './AdminArticlesTab';
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
@@ -173,11 +173,14 @@ export default function AdminPanel() {
   const [newIp, setNewIp] = useState('');
   const [ipFilterSaving, setIpFilterSaving] = useState(false);
   const [ipFilterError, setIpFilterError] = useState(null);
-  const [adminTab, setAdminTab] = useState('analytics'); // analytics | users | email | articles
+  const [adminTab, setAdminTab] = useState('analytics'); // analytics | usage | users | email | articles
   const [usersQ, setUsersQ] = useState('');
   const [usersData, setUsersData] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState(null);
+  const [usageData, setUsageData] = useState(null);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageDays, setUsageDays] = useState(30);
 
   const [mailKind, setMailKind] = useState('newsletter'); // newsletter | welcome | other
   const [mailAudience, setMailAudience] = useState('newsletter_subscribers');
@@ -232,6 +235,18 @@ export default function AdminPanel() {
       else setUsersError(e.message || 'Failed to load users');
     } finally {
       setUsersLoading(false);
+    }
+  };
+
+  const loadUsage = async (d = usageDays) => {
+    setUsageLoading(true);
+    try {
+      const stats = await fetchAdminUsage({ days: d, limit: 500 });
+      setUsageData(stats);
+    } catch (e) {
+      if (e.message === 'Session expired') setAuthed(false);
+    } finally {
+      setUsageLoading(false);
     }
   };
 
@@ -427,6 +442,8 @@ export default function AdminPanel() {
             <h2 className="text-lg font-bold text-zinc-900">
               {adminTab === 'analytics'
                 ? 'Analytics'
+                : adminTab === 'usage'
+                  ? 'LLM & feature usage'
                 : adminTab === 'users'
                   ? 'User management'
                   : adminTab === 'articles'
@@ -444,6 +461,8 @@ export default function AdminPanel() {
                       — daylight saving included.
                     </>
                   )
+                : adminTab === 'usage'
+                  ? 'Agent AI, AI Picks, Reddit, Research, Screener, Markets, Chart, and Backtesting usage by page. User inputs are stored by IP or username for audit/debug.'
                 : adminTab === 'users'
                   ? 'Search accounts, verify email, enable or disable users'
                   : adminTab === 'articles'
@@ -470,6 +489,7 @@ export default function AdminPanel() {
           >
             {[
               { id: 'analytics', label: 'Analytics' },
+              { id: 'usage', label: 'LLM Usage' },
               { id: 'users', label: 'Users' },
               { id: 'email', label: 'Newsletters' },
               { id: 'articles', label: 'Articles' },
@@ -481,6 +501,7 @@ export default function AdminPanel() {
                 aria-selected={adminTab === t.id}
                 onClick={() => {
                   setAdminTab(t.id);
+                  if (t.id === 'usage') loadUsage();
                   if (t.id === 'users') loadUsers();
                   if (t.id === 'email') {
                     loadUsers();
@@ -523,8 +544,138 @@ export default function AdminPanel() {
               </button>
             </div>
           )}
+          {adminTab === 'usage' && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] text-zinc-600 uppercase tracking-wide">Range</span>
+              <div className="flex gap-0.5 bg-zinc-100 rounded-lg p-0.5">
+                {[7, 14, 30, 90].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => { setUsageDays(d); loadUsage(d); }}
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-medium ${
+                      usageDays === d ? 'bg-indigo-500/20 text-indigo-700' : 'text-zinc-500 hover:text-zinc-600'
+                    }`}
+                  >
+                    {d}D
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => loadUsage()}
+                className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
+                title="Refresh usage"
+              >
+                <RefreshCw className={`w-4 h-4 ${usageLoading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
+
+      {adminTab === 'usage' && (
+        <div className="space-y-4">
+          {!usageData && usageLoading && (
+            <div className="flex items-center justify-center h-40 text-zinc-500 text-sm">
+              <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading usage…
+            </div>
+          )}
+          {usageData && (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <StatCard label="Events" value={usageData.summary?.events} icon={Bot} color="text-indigo-600" />
+                <StatCard label="New Chats" value={usageData.summary?.new_chats} icon={MessageSquare} color="text-emerald-600" />
+                <StatCard label="Input Tokens" value={usageData.summary?.input_tokens} icon={Eye} color="text-cyan-500" />
+                <StatCard label="Output Tokens" value={usageData.summary?.output_tokens} icon={Send} color="text-pink-500" />
+              </div>
+
+              <Section title="Usage by page" right={<Bot className="w-3.5 h-3.5 text-zinc-500" />}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[11px]">
+                    <thead className="bg-zinc-100">
+                      <tr className="text-zinc-500 border-b border-zinc-200/80">
+                        <th className="text-left py-2 px-2 font-medium">Page</th>
+                        <th className="text-right py-2 px-2 font-medium">New chat</th>
+                        <th className="text-right py-2 px-2 font-medium">Total conversation</th>
+                        <th className="text-right py-2 px-2 font-medium">Events</th>
+                        <th className="text-right py-2 px-2 font-medium">Input tokens</th>
+                        <th className="text-right py-2 px-2 font-medium">Output tokens</th>
+                        <th className="text-left py-2 px-2 font-medium">Sections</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(usageData.pages || []).map((p) => (
+                        <tr key={p.page} className="border-b border-zinc-100 hover:bg-zinc-50">
+                          <td className="py-2 px-2 text-zinc-900 font-semibold capitalize">{p.page}</td>
+                          <td className="py-2 px-2 text-right text-zinc-700">{p.new_chats?.toLocaleString?.() ?? p.new_chats}</td>
+                          <td className="py-2 px-2 text-right text-zinc-700">{p.total_conversations?.toLocaleString?.() ?? p.total_conversations}</td>
+                          <td className="py-2 px-2 text-right text-zinc-700">{p.events?.toLocaleString?.() ?? p.events}</td>
+                          <td className="py-2 px-2 text-right text-cyan-700 font-mono">{p.input_tokens?.toLocaleString?.() ?? p.input_tokens}</td>
+                          <td className="py-2 px-2 text-right text-pink-700 font-mono">{p.output_tokens?.toLocaleString?.() ?? p.output_tokens}</td>
+                          <td className="py-2 px-2 text-zinc-500">
+                            <div className="flex flex-wrap gap-1.5">
+                              {(p.sections || []).map((s) => (
+                                <span key={s.section} className="rounded bg-zinc-100 px-1.5 py-0.5 ring-1 ring-zinc-200/80">
+                                  {s.section}: {s.events}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {(!usageData.pages || usageData.pages.length === 0) && (
+                    <p className="text-xs text-zinc-600 text-center py-6">No usage yet for this period</p>
+                  )}
+                </div>
+              </Section>
+
+              <Section title="Stored user inputs by IP or username">
+                <div className="overflow-x-auto max-h-[460px] overflow-y-auto">
+                  <table className="w-full text-[11px]">
+                    <thead className="sticky top-0 bg-zinc-100">
+                      <tr className="text-zinc-500 border-b border-zinc-200/80">
+                        <th className="text-left py-2 px-2 font-medium">Time</th>
+                        <th className="text-left py-2 px-2 font-medium">User / IP</th>
+                        <th className="text-left py-2 px-2 font-medium">Page</th>
+                        <th className="text-right py-2 px-2 font-medium">Tokens in/out</th>
+                        <th className="text-left py-2 px-2 font-medium">Input</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(usageData.recent_inputs || []).map((r) => (
+                        <tr key={r.id} className="border-b border-zinc-100 align-top hover:bg-zinc-50">
+                          <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{formatAdminEt(r.timestamp, { includeYear: false })}</td>
+                          <td className="py-1.5 px-2 text-zinc-600">
+                            <div className="font-mono">{r.username || (r.user_id ? `#${r.user_id}` : r.ip)}</div>
+                            {r.username && <div className="text-[10px] text-zinc-500 font-mono">{r.ip}</div>}
+                          </td>
+                          <td className="py-1.5 px-2">
+                            <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 text-[9px] font-medium">{r.page}</span>
+                            {r.section ? <span className="ml-1 text-[10px] text-zinc-500">{r.section}</span> : null}
+                            {r.forced ? <span className="ml-1 text-[10px] text-red-600">forced</span> : null}
+                          </td>
+                          <td className="py-1.5 px-2 text-right font-mono text-zinc-600 whitespace-nowrap">
+                            {r.input_tokens?.toLocaleString?.() ?? r.input_tokens} / {r.output_tokens?.toLocaleString?.() ?? r.output_tokens}
+                          </td>
+                          <td className="py-1.5 px-2 text-zinc-700 max-w-[520px]">
+                            <div className="line-clamp-3 whitespace-pre-wrap break-words">{r.input || '—'}</div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {(!usageData.recent_inputs || usageData.recent_inputs.length === 0) && (
+                    <p className="text-xs text-zinc-600 text-center py-6">No stored inputs yet</p>
+                  )}
+                </div>
+              </Section>
+            </>
+          )}
+        </div>
+      )}
 
       {adminTab === 'users' && (
         <Section title="User Management" right={<Users className="w-3.5 h-3.5 text-zinc-500" />}>

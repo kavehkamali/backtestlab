@@ -400,7 +400,10 @@ async function streamAgent(url, body, onToken) {
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(localStorage.getItem('eq_token') ? { Authorization: `Bearer ${localStorage.getItem('eq_token')}` } : {}),
+    },
     body: JSON.stringify(body),
     signal: controller.signal,
   }).catch((err) => {
@@ -413,7 +416,10 @@ async function streamAgent(url, body, onToken) {
   }).finally(() => clearTimeout(timeout));
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Agent unavailable' }));
-    const msg = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail);
+    if (err?.detail && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('eq-usage-gate', { detail: err.detail }));
+    }
+    const msg = typeof err.detail === 'string' ? err.detail : err.detail?.message || JSON.stringify(err.detail);
     throw new Error(msg);
   }
   const data = await res.json();
@@ -688,7 +694,11 @@ export default function AgentPanel({ onNavigate, user, dek }) {
 
     try {
       const url = mode === 'full' ? '/api/agent/chat' : '/api/agent/quick';
-      const body = packAgentRequestBody(messages, msg, mode);
+      const body = {
+        ...packAgentRequestBody(messages, msg, mode),
+        conversation_id: activeSession.id,
+        is_new_chat: messages.length === 0,
+      };
       const { data, elapsedMs } = await streamAgent(url, body, (text, ticker) => {
         streamTextRef.current = text;
         streamTickerRef.current = ticker;

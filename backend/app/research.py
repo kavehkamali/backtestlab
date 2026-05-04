@@ -4,7 +4,7 @@ Seeking Alpha-style research data endpoints.
 Comprehensive stock analysis: summary, financials, earnings, dividends, peers, ratings.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -49,10 +49,14 @@ def _grade(value, thresholds, reverse=False):
 
 
 @router.get("/{symbol}")
-def get_research(symbol: str):
+def get_research(symbol: str, request: Request):
     """Full research — shared cache per symbol."""
     from .shared_cache import get_or_compute, RESEARCH_TTL
-    return get_or_compute(f"research_{symbol.upper()}", RESEARCH_TTL, lambda: _research_compute(symbol))
+    from .usage import begin_usage_event, finish_usage_event
+    event_id, _usage = begin_usage_event(request, "research", action="research", input_payload={"symbol": symbol})
+    data = get_or_compute(f"research_{symbol.upper()}", RESEARCH_TTL, lambda: _research_compute(symbol))
+    finish_usage_event(event_id, {"symbol": symbol.upper(), "has_summary": bool(data.get("summary")) if isinstance(data, dict) else False})
+    return data
 
 
 def _research_compute(symbol: str):
