@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Loader2, Search } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { fetchMarketOverview, fetchNews } from '../api';
 import CryptoPanel from './CryptoPanel';
@@ -283,6 +283,27 @@ function orderedMarketSeries(items, order = []) {
   return ordered;
 }
 
+function normalizeMarketSearch(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9=^.-]+/g, ' ');
+}
+
+function scoreMarketSearchItem(item, query) {
+  const q = normalizeMarketSearch(query);
+  if (!q) return 0;
+  const compact = q.replace(/\s+/g, '');
+  const symbol = String(item.symbol || '').toLowerCase();
+  const cleanSymbol = symbol.replace(/[^a-z0-9]/g, '');
+  const name = normalizeMarketSearch(item.name || '');
+  const nameCompact = name.replace(/\s+/g, '');
+  if (symbol === compact || cleanSymbol === compact) return 100;
+  if (name === q) return 96;
+  if (symbol.startsWith(compact) || cleanSymbol.startsWith(compact)) return 90 - symbol.length / 10;
+  if (name.startsWith(q) || nameCompact.startsWith(compact)) return 82 - name.length / 100;
+  if (symbol.includes(compact) || cleanSymbol.includes(compact)) return 72 - Math.min(symbol.indexOf(compact), cleanSymbol.indexOf(compact) || 99);
+  if (name.includes(q) || nameCompact.includes(compact)) return 64 - Math.min(name.indexOf(q), nameCompact.indexOf(compact) || 99) / 10;
+  return 0;
+}
+
 function sortForexSeries(items) {
   if (!items?.length) return [];
   return [...items].sort((a, b) => {
@@ -540,6 +561,9 @@ export default function DashboardPanel() {
   const [period, setPeriod] = useState('1Y');
   const [arena, setArena] = useState('stocks');
   const [marketOrders, setMarketOrders] = useState(DEFAULT_MARKET_ORDERS);
+  const [marketSearch, setMarketSearch] = useState('');
+  const [marketSearchOpen, setMarketSearchOpen] = useState(false);
+  const [marketSearchError, setMarketSearchError] = useState('');
 
   useEffect(() => {
     setMarketLoading(true);
@@ -585,6 +609,20 @@ export default function DashboardPanel() {
   const orderedIndices = orderedMarketSeries(market?.indices || [], marketOrders.stocks);
   const orderedFxPairs = orderedMarketSeries(sortForexSeries(market?.currencies || []), marketOrders.forex);
   const orderedCommodityFutures = orderedMarketSeries(sortCommoditySeries(market?.commodities || []), marketOrders.commodities);
+  const marketSearchItems = useMemo(() => ([
+    ...orderedIndices.map((item) => ({ ...item, arenaId: 'stocks', arenaLabel: 'Stocks' })),
+    ...orderedFxPairs.map((item) => ({ ...item, arenaId: 'forex', arenaLabel: 'Forex' })),
+    ...orderedCommodityFutures.map((item) => ({ ...item, arenaId: 'commodities', arenaLabel: 'Commodities' })),
+  ]), [orderedIndices, orderedFxPairs, orderedCommodityFutures]);
+  const marketSearchSuggestions = useMemo(() => {
+    const q = marketSearch.trim();
+    if (!q) return [];
+    return marketSearchItems
+      .map((item) => ({ ...item, score: scoreMarketSearchItem(item, q) }))
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+      .slice(0, 8);
+  }, [marketSearch, marketSearchItems]);
 
   const promoteMarketCard = (arenaId, symbol, orderedItems) => {
     const symbols = (orderedItems || []).map((item) => item.symbol);
@@ -599,6 +637,32 @@ export default function DashboardPanel() {
     setMarketOrders((prev) => ({ ...prev, [arenaId]: next }));
   };
 
+  const getOrderedItemsForArena = (arenaId) => {
+    if (arenaId === 'stocks') return orderedIndices;
+    if (arenaId === 'forex') return orderedFxPairs;
+    if (arenaId === 'commodities') return orderedCommodityFutures;
+    return [];
+  };
+
+  const openMarketSearchItem = (item) => {
+    if (!item) return;
+    setArena(item.arenaId);
+    setMarketSearch(`${item.symbol}`);
+    setMarketSearchOpen(false);
+    setMarketSearchError('');
+    promoteMarketCard(item.arenaId, item.symbol, getOrderedItemsForArena(item.arenaId));
+  };
+
+  const submitMarketSearch = (e) => {
+    e.preventDefault();
+    const best = marketSearchSuggestions[0];
+    if (!best) {
+      setMarketSearchError(`No market chart found for "${marketSearch.trim()}".`);
+      return;
+    }
+    openMarketSearchItem(best);
+  };
+
   if (arena !== 'crypto' && marketLoading) {
     return (
       <div className="flex items-center justify-center h-64 text-zinc-500">
@@ -611,8 +675,50 @@ export default function DashboardPanel() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Markets</h2>
-        {arena !== 'crypto' && <PeriodToolbar period={period} setPeriod={setPeriod} />}
+        <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+          {arena !== 'crypto' && (
+            <form onSubmit={submitMarketSearch} className="relative w-full max-w-xs sm:w-64">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+              <input
+                type="text"
+                value={marketSearch}
+                onFocus={() => setMarketSearchOpen(true)}
+                onChange={(e) => {
+                  setMarketSearch(e.target.value);
+                  setMarketSearchOpen(true);
+                  setMarketSearchError('');
+                }}
+                onBlur={() => window.setTimeout(() => setMarketSearchOpen(false), 120)}
+                placeholder="Search chart..."
+                className="h-8 w-full rounded-lg bg-white pl-8 pr-3 text-xs text-zinc-900 shadow-sm ring-1 ring-zinc-200/70 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700"
+              />
+              {marketSearchOpen && marketSearch.trim() && (
+                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-zinc-200/80 dark:bg-zinc-900 dark:ring-zinc-700">
+                  {marketSearchSuggestions.length ? marketSearchSuggestions.map((item) => (
+                    <button
+                      key={`${item.arenaId}:${item.symbol}`}
+                      type="button"
+                      onMouseDown={(ev) => ev.preventDefault()}
+                      onClick={() => openMarketSearchItem(item)}
+                      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-xs font-semibold text-zinc-900 dark:text-zinc-100">{item.symbol}</span>
+                        <span className="block truncate text-[11px] text-zinc-500 dark:text-zinc-400">{item.name}</span>
+                      </span>
+                      <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-[9px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300">{item.arenaLabel}</span>
+                    </button>
+                  )) : (
+                    <div className="px-3 py-2 text-xs text-zinc-500">No matching market chart.</div>
+                  )}
+                </div>
+              )}
+            </form>
+          )}
+          {arena !== 'crypto' && <PeriodToolbar period={period} setPeriod={setPeriod} />}
+        </div>
       </div>
+      {marketSearchError && <div className="text-xs text-red-600 dark:text-red-300">{marketSearchError}</div>}
 
       <div className="flex flex-wrap gap-1 rounded-xl bg-zinc-100/90 p-1 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
         {MARKET_ARENAS.map((a) => (
