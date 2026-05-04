@@ -186,6 +186,51 @@ export async function fetchAdminUsage({ days = 30, limit = 300 } = {}) {
   return data;
 }
 
+export async function fetchUsageIpOverrides() {
+  const token = localStorage.getItem('eq_admin_token');
+  const res = await fetch(`${BASE}/admin/usage/ip-overrides?_=${Date.now()}`, {
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(data.detail || 'Failed to load usage overrides');
+  }
+  return data;
+}
+
+export async function saveUsageIpOverride(ip, patch) {
+  const token = localStorage.getItem('eq_admin_token');
+  const res = await fetch(`${BASE}/admin/usage/ip-overrides/${encodeURIComponent(ip)}`, {
+    method: 'PUT',
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ip, ...patch }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(data.detail || 'Failed to save usage override');
+  }
+  return data;
+}
+
+export async function deleteUsageIpOverride(ip) {
+  const token = localStorage.getItem('eq_admin_token');
+  const res = await fetch(`${BASE}/admin/usage/ip-overrides/${encodeURIComponent(ip)}`, {
+    method: 'DELETE',
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error(data.detail || 'Failed to delete usage override');
+  }
+  return data;
+}
+
 export async function toggleAdminExcludedIp(ip, ignore) {
   const token = localStorage.getItem('eq_admin_token');
   const res = await fetch(`${BASE}/admin/excluded-ips/toggle`, {

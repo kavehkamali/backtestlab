@@ -904,6 +904,98 @@ def get_usage(days: int = 30, limit: int = 300, _admin=Depends(verify_admin)):
         conn.close()
 
 
+@router.get("/usage/ip-overrides")
+def get_usage_ip_overrides(_admin=Depends(verify_admin)):
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            """
+            SELECT ip, unlimited, force_prompt, force_signup, note, updated_at
+            FROM usage_ip_overrides
+            ORDER BY updated_at DESC, ip ASC
+            """
+        ).fetchall()
+        return {
+            "overrides": [
+                {
+                    "ip": r["ip"],
+                    "unlimited": bool(r["unlimited"]),
+                    "force_prompt": bool(r["force_prompt"]),
+                    "force_signup": bool(r["force_signup"]),
+                    "note": r["note"] or "",
+                    "updated_at": r["updated_at"],
+                }
+                for r in rows
+            ]
+        }
+    finally:
+        conn.close()
+
+
+@router.put("/usage/ip-overrides/{ip:path}")
+async def put_usage_ip_override(ip: str, request: Request, _admin=Depends(verify_admin)):
+    body = await request.json()
+    target_ip = (ip or body.get("ip") or "").strip()
+    if not target_ip:
+        raise HTTPException(status_code=400, detail="IP is required")
+    unlimited = bool(body.get("unlimited"))
+    force_prompt = bool(body.get("force_prompt"))
+    force_signup = bool(body.get("force_signup"))
+    note = str(body.get("note") or "")[:500]
+    # Keep the modes mutually understandable: force signup wins, then force prompt.
+    if force_signup:
+        unlimited = False
+        force_prompt = False
+    elif force_prompt:
+        unlimited = False
+    conn = get_db()
+    try:
+        conn.execute(
+            """
+            INSERT INTO usage_ip_overrides (ip, unlimited, force_prompt, force_signup, note, updated_at)
+            VALUES (?, ?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(ip) DO UPDATE SET
+              unlimited = excluded.unlimited,
+              force_prompt = excluded.force_prompt,
+              force_signup = excluded.force_signup,
+              note = excluded.note,
+              updated_at = datetime('now')
+            """,
+            (target_ip, 1 if unlimited else 0, 1 if force_prompt else 0, 1 if force_signup else 0, note),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT ip, unlimited, force_prompt, force_signup, note, updated_at FROM usage_ip_overrides WHERE ip = ?",
+            (target_ip,),
+        ).fetchone()
+        return {
+            "override": {
+                "ip": row["ip"],
+                "unlimited": bool(row["unlimited"]),
+                "force_prompt": bool(row["force_prompt"]),
+                "force_signup": bool(row["force_signup"]),
+                "note": row["note"] or "",
+                "updated_at": row["updated_at"],
+            }
+        }
+    finally:
+        conn.close()
+
+
+@router.delete("/usage/ip-overrides/{ip:path}")
+def delete_usage_ip_override(ip: str, _admin=Depends(verify_admin)):
+    target_ip = (ip or "").strip()
+    if not target_ip:
+        raise HTTPException(status_code=400, detail="IP is required")
+    conn = get_db()
+    try:
+        conn.execute("DELETE FROM usage_ip_overrides WHERE ip = ?", (target_ip,))
+        conn.commit()
+        return {"ok": True}
+    finally:
+        conn.close()
+
+
 # ─── Admin: user management ───
 @router.get("/users")
 def admin_list_users(q: str = "", limit: int = 200, _admin=Depends(verify_admin)):

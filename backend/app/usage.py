@@ -59,6 +59,15 @@ def init_usage_db():
             PRIMARY KEY(date, ip, page)
         );
 
+        CREATE TABLE IF NOT EXISTS usage_ip_overrides (
+            ip TEXT PRIMARY KEY,
+            unlimited INTEGER DEFAULT 0,
+            force_prompt INTEGER DEFAULT 0,
+            force_signup INTEGER DEFAULT 0,
+            note TEXT,
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+
         CREATE INDEX IF NOT EXISTS idx_usage_events_date_page ON usage_events(date, page);
         CREATE INDEX IF NOT EXISTS idx_usage_events_ip_date ON usage_events(ip, date);
         CREATE INDEX IF NOT EXISTS idx_usage_events_user_date ON usage_events(user_id, date);
@@ -149,6 +158,68 @@ def limit_payload(page: str, count: int, authenticated: bool) -> dict[str, Any]:
     }
 
 
+def get_ip_override(conn: sqlite3.Connection, ip: str) -> dict[str, Any] | None:
+    row = conn.execute(
+        "SELECT ip, unlimited, force_prompt, force_signup, note, updated_at FROM usage_ip_overrides WHERE ip = ?",
+        (ip,),
+    ).fetchone()
+    if not row:
+        return None
+    return {
+        "ip": row["ip"],
+        "unlimited": bool(row["unlimited"]),
+        "force_prompt": bool(row["force_prompt"]),
+        "force_signup": bool(row["force_signup"]),
+        "note": row["note"] or "",
+        "updated_at": row["updated_at"],
+    }
+
+
+def apply_ip_override(info: dict[str, Any], override: dict[str, Any] | None, authenticated: bool) -> dict[str, Any]:
+    if not override:
+        return info
+    out = dict(info)
+    out["ip_override"] = {
+        "unlimited": bool(override.get("unlimited")),
+        "force_prompt": bool(override.get("force_prompt")),
+        "force_signup": bool(override.get("force_signup")),
+        "note": override.get("note") or "",
+    }
+    if override.get("force_signup"):
+        out.update(
+            {
+                "authenticated": authenticated,
+                "show_prompt": True,
+                "force_signup": True,
+                "remaining_until_force": 0,
+                "message": "Create a free Equilima account for unlimited access. No credit card required.",
+            }
+        )
+        return out
+    if override.get("force_prompt"):
+        out.update(
+            {
+                "authenticated": authenticated,
+                "show_prompt": True,
+                "force_signup": False,
+                "message": "Sign in for completely free unlimited access. No credit card required.",
+            }
+        )
+        return out
+    if override.get("unlimited"):
+        out.update(
+            {
+                "authenticated": True,
+                "show_prompt": False,
+                "force_signup": False,
+                "remaining_until_force": 999999,
+                "message": "",
+            }
+        )
+        return out
+    return out
+
+
 def usage_status(request: Request, page: str) -> dict[str, Any]:
     page = normalize_page(page)
     user = current_user_from_request(request)
@@ -156,11 +227,13 @@ def usage_status(request: Request, page: str) -> dict[str, Any]:
     today = datetime.utcnow().strftime("%Y-%m-%d")
     conn = get_db()
     try:
+        override = get_ip_override(conn, ip)
         row = conn.execute(
             "SELECT count FROM usage_daily WHERE date = ? AND ip = ? AND page = ?",
             (today, ip, page),
         ).fetchone()
-        return limit_payload(page, int(row["count"] if row else 0), bool(user))
+        info = limit_payload(page, int(row["count"] if row else 0), bool(user))
+        return apply_ip_override(info, override, bool(user))
     finally:
         conn.close()
 
@@ -193,8 +266,10 @@ def begin_usage_event(
 
     conn = get_db()
     try:
+        override = get_ip_override(conn, ip)
         count = 0
-        if not authenticated:
+        unlimited_override = bool(override and override.get("unlimited") and not override.get("force_prompt") and not override.get("force_signup"))
+        if not authenticated and not unlimited_override:
             conn.execute(
                 "INSERT INTO usage_daily (date, ip, user_id, page, count) VALUES (?, ?, NULL, ?, 1) "
                 "ON CONFLICT(date, ip, page) DO UPDATE SET count = count + 1",
@@ -212,7 +287,7 @@ def begin_usage_event(
             ).fetchone()
             count = int(row["count"] if row else 0)
 
-        info = limit_payload(page, count, authenticated)
+        info = apply_ip_override(limit_payload(page, count, authenticated), override, authenticated)
         event_id = None
         limited_action = "force" if info["force_signup"] else "prompt" if info["show_prompt"] else ""
         if info["force_signup"]:
@@ -267,4 +342,3 @@ def finish_usage_event(event_id: int | None, output: Any = None, output_tokens: 
         conn.commit()
     finally:
         conn.close()
-

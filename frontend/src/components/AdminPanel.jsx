@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Loader2, Users, Eye, Globe, Monitor, Smartphone, Clock, LogOut, RefreshCw, Mail, CheckCircle, XCircle, Filter, Plus, X, Copy, Send, Bot, MessageSquare } from 'lucide-react';
 import { Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Line } from 'recharts';
-import { adminLogin, fetchAdminStats, fetchAdminUsage, saveAdminExcludedIps, toggleAdminExcludedIp, fetchAdminUsers, updateAdminUser, deleteAdminUser, previewAdminNewsletter, sendAdminNewsletter, fetchAdminNewsletterHistory } from '../api';
+import { adminLogin, fetchAdminStats, fetchAdminUsage, fetchUsageIpOverrides, saveUsageIpOverride, deleteUsageIpOverride, saveAdminExcludedIps, toggleAdminExcludedIp, fetchAdminUsers, updateAdminUser, deleteAdminUser, previewAdminNewsletter, sendAdminNewsletter, fetchAdminNewsletterHistory } from '../api';
 import AdminArticlesTab from './AdminArticlesTab';
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
@@ -178,6 +178,11 @@ export default function AdminPanel() {
   const [usersData, setUsersData] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState(null);
+  const [usageOverrides, setUsageOverrides] = useState([]);
+  const [usageOverridesLoading, setUsageOverridesLoading] = useState(false);
+  const [usageOverrideIp, setUsageOverrideIp] = useState('');
+  const [usageOverrideNote, setUsageOverrideNote] = useState('');
+  const [usageOverrideError, setUsageOverrideError] = useState(null);
   const [usageData, setUsageData] = useState(null);
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageDays, setUsageDays] = useState(30);
@@ -230,11 +235,65 @@ export default function AdminPanel() {
     try {
       const d = await fetchAdminUsers(usersQ, 500);
       setUsersData(d.users || []);
+      const overrides = await fetchUsageIpOverrides();
+      setUsageOverrides(overrides.overrides || []);
     } catch (e) {
       if (e.message === 'Session expired') setAuthed(false);
       else setUsersError(e.message || 'Failed to load users');
     } finally {
       setUsersLoading(false);
+    }
+  };
+
+  const loadUsageOverrides = async () => {
+    setUsageOverridesLoading(true);
+    setUsageOverrideError(null);
+    try {
+      const d = await fetchUsageIpOverrides();
+      setUsageOverrides(d.overrides || []);
+    } catch (e) {
+      if (e.message === 'Session expired') setAuthed(false);
+      else setUsageOverrideError(e.message || 'Failed to load IP overrides');
+    } finally {
+      setUsageOverridesLoading(false);
+    }
+  };
+
+  const upsertUsageOverride = async (ip, patch) => {
+    const target = (ip || '').trim();
+    if (!target) return;
+    setUsageOverrideError(null);
+    try {
+      const existing = usageOverrides.find((row) => row.ip === target) || {};
+      await saveUsageIpOverride(target, { ...existing, ...patch });
+      await loadUsageOverrides();
+    } catch (e) {
+      if (e.message === 'Session expired') setAuthed(false);
+      else setUsageOverrideError(e.message || 'Could not save IP override');
+    }
+  };
+
+  const addUsageOverride = async () => {
+    const ip = usageOverrideIp.trim();
+    if (!ip) return;
+    await upsertUsageOverride(ip, {
+      unlimited: true,
+      force_prompt: false,
+      force_signup: false,
+      note: usageOverrideNote.trim(),
+    });
+    setUsageOverrideIp('');
+    setUsageOverrideNote('');
+  };
+
+  const removeUsageOverride = async (ip) => {
+    setUsageOverrideError(null);
+    try {
+      await deleteUsageIpOverride(ip);
+      await loadUsageOverrides();
+    } catch (e) {
+      if (e.message === 'Session expired') setAuthed(false);
+      else setUsageOverrideError(e.message || 'Could not remove IP override');
     }
   };
 
@@ -678,6 +737,92 @@ export default function AdminPanel() {
       )}
 
       {adminTab === 'users' && (
+        <div className="space-y-4">
+        <Section title="Usage IP overrides" right={<Filter className="w-3.5 h-3.5 text-zinc-500" />}>
+          <p className="text-[11px] text-zinc-500 mb-3">
+            Add your own IP here to bypass anonymous limits, or force the friendly suggestion / lock screen for testing. These overrides apply before the daily IP counters.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 mb-3">
+            <input
+              value={usageOverrideIp}
+              onChange={(e) => setUsageOverrideIp(e.target.value)}
+              placeholder="IP address, e.g. 184.146.x.x"
+              className="bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-3 py-2 text-zinc-900 text-xs placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80"
+            />
+            <input
+              value={usageOverrideNote}
+              onChange={(e) => setUsageOverrideNote(e.target.value)}
+              placeholder="Note, e.g. my home"
+              className="bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-3 py-2 text-zinc-900 text-xs placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80"
+            />
+            <button
+              type="button"
+              onClick={addUsageOverride}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-500"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add unlimited
+            </button>
+          </div>
+          {usageOverrideError && <p className="text-xs text-red-600 mb-2">{usageOverrideError}</p>}
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px]">
+              <thead className="bg-zinc-100">
+                <tr className="text-zinc-500 border-b border-zinc-200/80">
+                  <th className="text-left py-2 px-2 font-medium">IP</th>
+                  <th className="text-left py-2 px-2 font-medium">Note</th>
+                  <th className="text-center py-2 px-2 font-medium">Unlimited</th>
+                  <th className="text-center py-2 px-2 font-medium">Force Suggestion</th>
+                  <th className="text-center py-2 px-2 font-medium">Force Lock</th>
+                  <th className="text-left py-2 px-2 font-medium">Updated</th>
+                  <th className="text-right py-2 px-2 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(usageOverrides || []).map((row) => (
+                  <tr key={row.ip} className="border-b border-zinc-100 hover:bg-zinc-50">
+                    <td className="py-1.5 px-2 text-zinc-700 font-mono">{row.ip}</td>
+                    <td className="py-1.5 px-2 text-zinc-500 max-w-[180px] truncate" title={row.note}>{row.note || '—'}</td>
+                    {[
+                      ['unlimited', 'Unlimited'],
+                      ['force_prompt', 'Force suggestion'],
+                      ['force_signup', 'Force lock'],
+                    ].map(([key, label]) => (
+                      <td key={key} className="py-1.5 px-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={!!row[key]}
+                          onChange={(e) => upsertUsageOverride(row.ip, {
+                            unlimited: key === 'unlimited' ? e.target.checked : false,
+                            force_prompt: key === 'force_prompt' ? e.target.checked : false,
+                            force_signup: key === 'force_signup' ? e.target.checked : false,
+                            note: row.note || '',
+                          })}
+                          className="accent-indigo-500"
+                          aria-label={`${label} for ${row.ip}`}
+                        />
+                      </td>
+                    ))}
+                    <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{formatAdminEt(row.updated_at, { includeYear: false })}</td>
+                    <td className="py-1.5 px-2 text-right">
+                      <button
+                        type="button"
+                        onClick={() => removeUsageOverride(row.ip)}
+                        className="px-2 py-1 rounded bg-red-600/80 hover:bg-red-600 text-[10px] text-white"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {usageOverridesLoading && <p className="text-xs text-zinc-600 text-center py-4">Loading overrides…</p>}
+            {!usageOverridesLoading && (!usageOverrides || usageOverrides.length === 0) && (
+              <p className="text-xs text-zinc-600 text-center py-4">No IP overrides yet</p>
+            )}
+          </div>
+        </Section>
+
         <Section title="User Management" right={<Users className="w-3.5 h-3.5 text-zinc-500" />}>
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center mb-3">
             <input
@@ -748,6 +893,7 @@ export default function AdminPanel() {
             {!usersLoading && (!usersData || usersData.length === 0) && <p className="text-xs text-zinc-600 text-center py-4">No users found</p>}
           </div>
         </Section>
+        </div>
       )}
 
       {adminTab === 'email' && (
