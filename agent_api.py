@@ -24,6 +24,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 import uvicorn
 
+# Ollama's OpenAI-compatible endpoint does not require a real key, but the
+# OpenAI SDK used by LangChain refuses to initialize without one.
+os.environ.setdefault("OPENAI_API_KEY", os.environ.get("OLLAMA_OPENAI_API_KEY", "ollama"))
+
 # ─── Resolve TradingAgents package ───
 def _trading_agents_root() -> str:
     here = os.path.dirname(os.path.abspath(__file__))

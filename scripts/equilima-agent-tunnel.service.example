@@ -2,10 +2,12 @@
 Description=Equilima AI Agent reverse tunnel to AWS
 After=network-online.target equilima-agent.service
 Wants=network-online.target
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
 User=neo
+ExecStartPre=/home/neo/.local/bin/equilima-agent-tunnel-cleanup.sh
 ExecStart=/usr/bin/ssh -NT \
   -o ExitOnForwardFailure=yes \
   -o ServerAliveInterval=30 \

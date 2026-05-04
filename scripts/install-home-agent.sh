@@ -70,6 +70,31 @@ setup_repo() {
   bash scripts/setup-agent-venv.sh
 }
 
+write_tunnel_cleanup() {
+  echo "==> Writing tunnel cleanup helper"
+  install -d -m 755 "$HOME_DIR/.local/bin"
+  tee "$HOME_DIR/.local/bin/equilima-agent-tunnel-cleanup.sh" >/dev/null <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+AWS_HOST="$AWS_HOST"
+AWS_USER="$AWS_USER"
+SSH_KEY="$SSH_KEY"
+
+# Remove the retired AWS-side tunnel that used to occupy the agent port.
+# If it is left running, ssh -R fails with "remote port forwarding failed".
+/usr/bin/ssh \\
+  -o BatchMode=yes \\
+  -o ConnectTimeout=10 \\
+  -o StrictHostKeyChecking=accept-new \\
+  -i "\$SSH_KEY" \\
+  "\$AWS_USER@\$AWS_HOST" \\
+  "screen -S tunnel -X quit 2>/dev/null || true; pkill -f 'ssh .* -L $AGENT_PORT:localhost:$AGENT_PORT -p 2222 kaveh@localhost' 2>/dev/null || true" || true
+EOF
+  chmod 755 "$HOME_DIR/.local/bin/equilima-agent-tunnel-cleanup.sh"
+  chown "$USER_NAME:$USER_NAME" "$HOME_DIR/.local/bin/equilima-agent-tunnel-cleanup.sh" 2>/dev/null || true
+}
+
 write_agent_service() {
   echo "==> Writing /etc/systemd/system/equilima-agent.service"
   sudo tee /etc/systemd/system/equilima-agent.service >/dev/null <<EOF
@@ -105,6 +130,7 @@ write_tunnel_service() {
   fi
 
   chmod 600 "$SSH_KEY"
+  write_tunnel_cleanup
 
   echo "==> Writing /etc/systemd/system/equilima-agent-tunnel.service"
   sudo tee /etc/systemd/system/equilima-agent-tunnel.service >/dev/null <<EOF
@@ -112,10 +138,12 @@ write_tunnel_service() {
 Description=Equilima AI Agent reverse tunnel to AWS
 After=network-online.target equilima-agent.service
 Wants=network-online.target
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
 User=$USER_NAME
+ExecStartPre=$HOME_DIR/.local/bin/equilima-agent-tunnel-cleanup.sh
 ExecStart=/usr/bin/ssh -NT \\
   -o ExitOnForwardFailure=yes \\
   -o ServerAliveInterval=30 \\
