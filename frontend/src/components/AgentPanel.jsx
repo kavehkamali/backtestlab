@@ -20,6 +20,8 @@ import {
   LayoutDashboard,
   SlidersHorizontal,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, LineChart, Line, YAxis, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { fetchTerminalChart, fetchResearch, fetchAgentHistory, putAgentHistory } from '../api';
@@ -841,6 +843,10 @@ function AssistantWorkbench({
   const [news, setNews] = useState(null);
   const [macro, setMacro] = useState(null);
   const [screenRows, setScreenRows] = useState([]);
+  const [workspaceNav, setWorkspaceNav] = useState({
+    entries: [{ tab: 'overview', ticker: focusTicker || '' }],
+    index: 0,
+  });
 
   useEffect(() => {
     if (!focusTicker) return;
@@ -900,19 +906,63 @@ function AssistantWorkbench({
       .slice(0, 25);
   }, [screenRows]);
 
+  const pushWorkspaceState = useCallback((next) => {
+    const entry = {
+      tab: next.tab || tab,
+      ticker: Object.prototype.hasOwnProperty.call(next, 'ticker') ? next.ticker : (focusTicker || ''),
+    };
+    setTab(entry.tab);
+    if (Object.prototype.hasOwnProperty.call(next, 'ticker')) setFocusTicker(entry.ticker || '');
+    setWorkspaceNav((prev) => {
+      const current = prev.entries[prev.index] || {};
+      if (current.tab === entry.tab && (current.ticker || '') === (entry.ticker || '')) return prev;
+      const entries = [...prev.entries.slice(0, prev.index + 1), entry].slice(-40);
+      return { entries, index: entries.length - 1 };
+    });
+  }, [focusTicker, setFocusTicker, tab]);
+
+  const goWorkspaceHistory = useCallback((delta) => {
+    const nextIndex = workspaceNav.index + delta;
+    const entry = workspaceNav.entries[nextIndex];
+    if (!entry) return;
+    setTab(entry.tab || 'overview');
+    setFocusTicker(entry.ticker || '');
+    setWorkspaceNav((prev) => ({ ...prev, index: nextIndex }));
+  }, [setFocusTicker, workspaceNav]);
+
   const openWorkspaceResearch = (ticker) => {
     const symbol = ticker ? String(ticker).trim().toUpperCase() : '';
     if (!symbol) return;
-    setFocusTicker(symbol);
-    setTab('research');
+    pushWorkspaceState({ tab: 'research', ticker: symbol });
   };
 
   return (
     <section className="min-w-0 flex-1 overflow-y-auto bg-zinc-50 p-3 dark:bg-zinc-950">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h2 className="text-lg font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">Workspace</h2>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">Research, screen, and monitor macro beside the conversation.</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => goWorkspaceHistory(-1)}
+            disabled={workspaceNav.index <= 0}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 ring-1 ring-zinc-200/70 transition hover:bg-white hover:text-zinc-950 disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-zinc-500 dark:text-zinc-400 dark:ring-zinc-800 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+            title="Previous workspace view"
+            aria-label="Previous workspace view"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => goWorkspaceHistory(1)}
+            disabled={workspaceNav.index >= workspaceNav.entries.length - 1}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 ring-1 ring-zinc-200/70 transition hover:bg-white hover:text-zinc-950 disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-zinc-500 dark:text-zinc-400 dark:ring-zinc-800 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+            title="Next workspace view"
+            aria-label="Next workspace view"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
@@ -923,7 +973,7 @@ function AssistantWorkbench({
             <button
               type="button"
               key={item.id}
-              onClick={() => setTab(item.id)}
+              onClick={() => pushWorkspaceState({ tab: item.id })}
               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${
                 tab === item.id
                   ? 'bg-zinc-900 text-white shadow-sm dark:bg-zinc-100 dark:text-zinc-900'
