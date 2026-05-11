@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Search, Loader2, X, ChevronDown, ChevronRight, ArrowUpDown, SlidersHorizontal, Columns3, ExternalLink } from 'lucide-react';
 import { runScreener, fetchScreenerLists, fetchStockDetail } from '../api';
 import StockDetail from './StockDetail';
@@ -173,7 +173,7 @@ function ToggleRow({ label, value, onChange, options }) {
 }
 
 // ─── Main ───
-export default function ScreenerPanel({ onOpenResearch }) {
+export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
   const [lists, setLists] = useState([]);
   const [activeList, setActiveList] = useState('sp500');
   const [results, setResults] = useState(null);
@@ -186,6 +186,7 @@ export default function ScreenerPanel({ onOpenResearch }) {
   const [selectedStock, setSelectedStock] = useState(null);
   const [stockDetail, setStockDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const appliedAgentIntentRef = useRef('');
 
   // Panels
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -330,6 +331,28 @@ export default function ScreenerPanel({ onOpenResearch }) {
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   };
+
+  useEffect(() => {
+    if (!agentIntent) return;
+    const signature = JSON.stringify({
+      listId: agentIntent.listId,
+      filters: agentIntent.filters,
+      sortKey: agentIntent.sortKey,
+      sortAsc: agentIntent.sortAsc,
+    });
+    if (appliedAgentIntentRef.current === signature) return;
+    appliedAgentIntentRef.current = signature;
+
+    setFilters({ ...DEFAULT_FILTERS, ...(agentIntent.filters || {}) });
+    if (agentIntent.sortKey) setSortKey(agentIntent.sortKey);
+    setSortAsc(Boolean(agentIntent.sortAsc));
+    setFiltersOpen(false);
+    setColumnsOpen(false);
+    if (agentIntent.listId && agentIntent.listId !== activeList) {
+      handleScan(agentIntent.listId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentIntent]);
 
   const handleStockClick = async (symbol) => {
     setSelectedStock(symbol);
@@ -499,6 +522,18 @@ export default function ScreenerPanel({ onOpenResearch }) {
 
   return (
     <div className="space-y-3">
+      {agentIntent?.chips?.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-indigo-50/70 px-3 py-2 text-xs text-indigo-900 ring-1 ring-indigo-100">
+          <span className="font-semibold">Agent screen</span>
+          <span className="text-indigo-500">·</span>
+          <span>{agentIntent.listLabel || 'Market list'}</span>
+          {agentIntent.chips.slice(0, 6).map((chip) => (
+            <span key={chip} className="rounded-full bg-white/75 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-100">
+              {chip}
+            </span>
+          ))}
+        </div>
+      )}
       {/* ─── Top bar ─── */}
       <div className="flex flex-wrap items-center gap-2">
         {marketLists.map(l => (

@@ -157,6 +157,210 @@ function extractTickers(text) {
   return [...found].slice(0, 12);
 }
 
+function latestMessageByRole(messages, role) {
+  return [...(messages || [])].reverse().find((m) => m?.role === role && String(m?.content || '').trim())?.content || '';
+}
+
+function sectorListFromText(text) {
+  const t = String(text || '').toLowerCase();
+  if (/\b(tech|technology|software|semiconductor|chip|ai)\b/.test(t)) return { id: 'sector_technology', label: 'Technology' };
+  if (/\b(health|healthcare|biotech|pharma|medical)\b/.test(t)) return { id: 'sector_healthcare', label: 'Healthcare' };
+  if (/\b(financial|bank|banks|insurance|broker)\b/.test(t)) return { id: 'sector_financials', label: 'Financials' };
+  if (/\b(energy|oil|gas|crude)\b/.test(t)) return { id: 'sector_energy', label: 'Energy' };
+  if (/\b(industrial|industrials|defense|aerospace|machinery)\b/.test(t)) return { id: 'sector_industrials', label: 'Industrials' };
+  if (/\b(utility|utilities|power|electric)\b/.test(t)) return { id: 'sector_utilities', label: 'Utilities' };
+  if (/\b(real estate|reit|reits|property)\b/.test(t)) return { id: 'sector_real_estate', label: 'Real Estate' };
+  if (/\b(material|materials|mining|copper|gold miner|steel)\b/.test(t)) return { id: 'sector_materials', label: 'Materials' };
+  if (/\b(staples|consumer defensive|food|beverage)\b/.test(t)) return { id: 'sector_consumer_staples', label: 'Consumer Staples' };
+  if (/\b(discretionary|retail|consumer|restaurant|auto)\b/.test(t)) return { id: 'sector_consumer_disc', label: 'Consumer Discretionary' };
+  if (/\b(communication|media|telecom|streaming)\b/.test(t)) return { id: 'sector_comm_services', label: 'Communication Services' };
+  return null;
+}
+
+function buildScreenerIntent(text) {
+  const t = String(text || '').toLowerCase();
+  const sector = sectorListFromText(t);
+  const filters = {};
+  const chips = [];
+  let listId = sector?.id || 'sp500';
+  let listLabel = sector?.label || 'S&P 500';
+  let sortKey = 'buy_count';
+  let sortAsc = false;
+
+  if (/\b(small cap|smallcap|low cap|low-cap)\b/.test(t)) {
+    listId = 'smallcap';
+    listLabel = 'Small Caps';
+    filters.market_cap_max = 2;
+    chips.push('Small cap');
+  } else if (/\b(mid cap|midcap)\b/.test(t)) {
+    listId = 'midcap';
+    listLabel = 'Mid Caps';
+    chips.push('Mid cap');
+  } else if (/\b(canada|canadian|tsx)\b/.test(t)) {
+    listId = 'tsx60';
+    listLabel = 'TSX 60';
+    chips.push('Canada');
+  } else if (/\b(all market|wide list|full market|all stocks)\b/.test(t)) {
+    listId = 'all';
+    listLabel = 'All US Stocks';
+    chips.push('Wide market');
+  }
+
+  if (sector) chips.push(sector.label);
+
+  if (/\b(oversold|washed out|pullback|dip)\b/.test(t)) {
+    filters.rsi_max = 35;
+    filters.pct_from_52w_high_max = -5;
+    sortKey = 'rsi';
+    sortAsc = true;
+    chips.push('Oversold');
+  }
+  if (/\b(overbought|extended|too hot)\b/.test(t)) {
+    filters.rsi_min = 70;
+    sortKey = 'rsi';
+    sortAsc = false;
+    chips.push('Overbought');
+  }
+  if (/\b(momentum|breakout|strong trend|trending|relative strength|swing)\b/.test(t)) {
+    filters.above_sma20 = 'yes';
+    filters.above_sma50 = 'yes';
+    filters.change_20d_min = 3;
+    filters.min_buy_signals = Math.max(filters.min_buy_signals || 0, 3);
+    sortKey = 'change_20d';
+    chips.push('Momentum');
+  }
+  if (/\b(bullish|buy signal|best buys|top buys)\b/.test(t)) {
+    filters.min_buy_signals = Math.max(filters.min_buy_signals || 0, 3);
+    filters.above_sma50 = 'yes';
+    sortKey = 'buy_count';
+    chips.push('Bullish signals');
+  }
+  if (/\b(value|cheap|undervalued|low pe|low p\/e)\b/.test(t)) {
+    filters.pe_max = Math.min(filters.pe_max || 999, 22);
+    sortKey = 'pe_ratio';
+    sortAsc = true;
+    chips.push('Value');
+  }
+  if (/\b(dividend|income|yield)\b/.test(t)) {
+    filters.dividend_yield_min = Math.max(filters.dividend_yield_min || 0, 2.5);
+    sortKey = 'dividend_yield';
+    sortAsc = false;
+    chips.push('Income');
+  }
+  if (/\b(short squeeze|high short|short interest)\b/.test(t)) {
+    filters.short_pct_min = Math.max(filters.short_pct_min || 0, 10);
+    sortKey = 'short_pct_float';
+    sortAsc = false;
+    chips.push('High short interest');
+  }
+  if (/\b(low risk|defensive|stable|low beta)\b/.test(t)) {
+    filters.beta_max = Math.min(filters.beta_max || 10, 1.1);
+    filters.volatility_max = Math.min(filters.volatility_max || 200, 45);
+    chips.push('Lower risk');
+  }
+  if (/\b(profitable|margin|quality)\b/.test(t)) {
+    filters.profit_margin_min = Math.max(filters.profit_margin_min || -100, 10);
+    chips.push('Quality');
+  }
+
+  return { listId, listLabel, filters, sortKey, sortAsc, chips: [...new Set(chips)] };
+}
+
+function classifyWorkspaceIntent({ latestUser, latestAssistant, tickers, focusTicker }) {
+  const user = String(latestUser || '').trim();
+  const combined = `${user}\n${latestAssistant || ''}`;
+  const t = user.toLowerCase();
+  const latestTickers = extractTickers(user);
+  const primaryTicker = latestTickers[0] || tickers?.[0] || focusTicker || '';
+  const hasFreshTicker = latestTickers.length > 0;
+  const isScreener = /\b(screen|screener|scan|find stocks|which stocks|show stocks|shortlist|oversold|overbought|breakout|small cap|mid cap|high dividend|short squeeze|low pe|undervalued)\b/.test(t);
+  const isMacro = /\b(macro|fed|rate|rates|inflation|cpi|jobs|unemployment|payroll|yield|deficit|debt|oil|gold|usd|dollar|crypto|bitcoin|china|canada|real estate|housing|recession)\b/.test(t);
+  const isNews = /\b(news|headline|headlines|catalyst|catalysts|latest|today|why.*move|what happened|earnings today)\b/.test(t);
+  const isChart = /\b(chart|price history|technical|trend|support|resistance|backtest)\b/.test(t);
+  const isResearch = hasFreshTicker || /\b(analyze|research|compare|valuation|fundamental|financials|earnings|revenue|margin|risk|buy now|price target)\b/.test(t);
+
+  let tab = 'overview';
+  let label = 'Market desk';
+  let reason = 'Overview of the latest agent context.';
+  let researchSubtab = 'fundamentals';
+  if (isScreener) {
+    tab = 'screener';
+    label = 'Screen stocks';
+    reason = 'The request is asking for a filtered stock list.';
+  } else if (isMacro && !hasFreshTicker) {
+    tab = 'macro';
+    label = 'Macro read';
+    reason = 'The request is focused on macro assets, rates, jobs, commodities, or global risk.';
+  } else if (isNews) {
+    tab = 'news';
+    label = 'News check';
+    reason = 'The request is asking for catalysts and current headlines.';
+  } else if (isResearch) {
+    tab = 'research';
+    label = isChart ? 'Chart and research' : 'Ticker research';
+    reason = hasFreshTicker ? `The request mentions ${primaryTicker}.` : 'The request asks for company-level research.';
+    researchSubtab = isChart ? 'chart' : 'fundamentals';
+  } else if (isMacro) {
+    tab = 'macro';
+    label = 'Macro read';
+    reason = 'The request includes macro language.';
+  } else if (isNews) {
+    tab = 'news';
+    label = 'News check';
+    reason = 'The request includes news language.';
+  }
+
+  return {
+    tab,
+    label,
+    reason,
+    request: user,
+    primaryTicker,
+    tickers: tickers || [],
+    researchSubtab,
+    screener: buildScreenerIntent(combined),
+  };
+}
+
+function rowPassesWorkspaceFilters(row, filters = {}) {
+  if (!row) return false;
+  const checks = [
+    ['rsi_min', 'rsi', (a, b) => a >= b],
+    ['rsi_max', 'rsi', (a, b) => a <= b],
+    ['change_20d_min', 'change_20d', (a, b) => a >= b],
+    ['pct_from_52w_high_max', 'pct_from_52w_high', (a, b) => a <= b],
+    ['market_cap_max', 'market_cap', (a, b) => (a / 1e9) <= b],
+    ['pe_max', 'pe_ratio', (a, b) => a <= b],
+    ['dividend_yield_min', 'dividend_yield', (a, b) => a >= b],
+    ['short_pct_min', 'short_pct_float', (a, b) => a >= b],
+    ['beta_max', 'beta', (a, b) => a <= b],
+    ['volatility_max', 'volatility', (a, b) => a <= b],
+    ['profit_margin_min', 'profit_margin', (a, b) => a >= b],
+    ['min_buy_signals', 'buy_count', (a, b) => a >= b],
+  ];
+  for (const [filterKey, rowKey, pass] of checks) {
+    if (filters[filterKey] == null || row[rowKey] == null) continue;
+    if (!pass(Number(row[rowKey]), Number(filters[filterKey]))) return false;
+  }
+  if (filters.above_sma20 === 'yes' && !row.above_sma20) return false;
+  if (filters.above_sma50 === 'yes' && !row.above_sma50) return false;
+  if (filters.above_sma200 === 'yes' && !row.above_sma200) return false;
+  return true;
+}
+
+function applyWorkspaceScreenIntent(rows, screener) {
+  const filters = screener?.filters || {};
+  const sortKey = screener?.sortKey || 'buy_count';
+  const sortAsc = Boolean(screener?.sortAsc);
+  return [...(rows || [])]
+    .filter((row) => rowPassesWorkspaceFilters(row, filters))
+    .sort((a, b) => {
+      const av = a?.[sortKey] ?? -Infinity;
+      const bv = b?.[sortKey] ?? -Infinity;
+      return sortAsc ? Number(av) - Number(bv) : Number(bv) - Number(av);
+    });
+}
+
 // ─── Markdown renderer ───
 function inlineFormat(text) {
   if (!text) return '';
@@ -797,7 +1001,7 @@ function AgentBriefCard({ text }) {
   return (
     <div className="rounded-xl bg-white p-4 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-        <Bot className="h-4 w-4 text-indigo-500" /> Latest agent result
+        <Bot className="h-4 w-4 text-indigo-500" /> Agent take
       </div>
       {bullets.length ? (
         <div className="grid gap-1.5">
@@ -815,29 +1019,64 @@ function AgentBriefCard({ text }) {
   );
 }
 
-function WorkspaceChatContext({ text, tickers, onTickerSelect }) {
-  const hasContext = Boolean(String(text || '').trim()) || tickers.length > 0;
+function WorkspaceCommandCard({ intent, tickers, onTickerSelect, onTabSelect }) {
+  if (!intent?.request) return null;
+  const activeTab = WORKSPACE_TABS.find((item) => item.id === intent.tab) || WORKSPACE_TABS[0];
+  const Icon = activeTab.icon;
+  const chips = [
+    ...(intent.tab === 'screener' && intent.screener?.listLabel ? [intent.screener.listLabel] : []),
+    ...(intent.tab === 'screener' ? (intent.screener?.chips || []) : []),
+    ...(intent.primaryTicker ? [intent.primaryTicker] : []),
+  ].filter(Boolean);
+  return (
+    <div className="rounded-xl bg-white p-4 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-200 dark:ring-indigo-900">
+              <Icon className="h-3.5 w-3.5" />
+            </span>
+            {intent.label}
+          </div>
+          <p className="mt-2 line-clamp-2 text-sm leading-5 text-zinc-600 dark:text-zinc-300">{intent.request}</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-400">{intent.reason}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onTabSelect?.(intent.tab)}
+          className="shrink-0 rounded-full bg-zinc-50 px-3 py-1.5 text-[11px] font-semibold text-zinc-600 ring-1 ring-zinc-200/70 hover:bg-zinc-100 hover:text-zinc-950 dark:bg-zinc-950 dark:text-zinc-300 dark:ring-zinc-800 dark:hover:bg-zinc-800"
+        >
+          Open {activeTab.label}
+        </button>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {chips.slice(0, 8).map((chip) => (
+          <span key={chip} className="rounded-full bg-zinc-50 px-2.5 py-1 text-[11px] font-semibold text-zinc-500 ring-1 ring-zinc-200/70 dark:bg-zinc-950 dark:text-zinc-400 dark:ring-zinc-800">
+            {chip}
+          </span>
+        ))}
+        {tickers.slice(0, 6).map((ticker) => (
+          <button
+            type="button"
+            key={ticker}
+            onClick={() => onTickerSelect?.(ticker)}
+            className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-100 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-200 dark:ring-indigo-900"
+          >
+            {ticker}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceChatContext({ text, tickers, intent, onTickerSelect, onTabSelect }) {
+  const hasContext = Boolean(String(text || '').trim()) || tickers.length > 0 || Boolean(intent?.request);
   if (!hasContext) return null;
   return (
-    <div className="mb-3 grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto]">
+    <div className="mb-3 grid gap-3 xl:grid-cols-[1.05fr_.95fr]">
+      <WorkspaceCommandCard intent={intent} tickers={tickers} onTickerSelect={onTickerSelect} onTabSelect={onTabSelect} />
       <AgentBriefCard text={text} />
-      {tickers.length > 0 && (
-        <div className="rounded-xl bg-white p-3 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800 xl:w-56">
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Chat tickers</div>
-          <div className="flex flex-wrap gap-1.5">
-            {tickers.slice(0, 8).map((ticker) => (
-              <button
-                type="button"
-                key={ticker}
-                onClick={() => onTickerSelect?.(ticker)}
-                className="rounded-full bg-zinc-50 px-2 py-1 text-[11px] font-semibold text-zinc-600 ring-1 ring-zinc-200/70 hover:bg-indigo-50 hover:text-indigo-700 hover:ring-indigo-100 dark:bg-zinc-950 dark:text-zinc-300 dark:ring-zinc-800 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-200"
-              >
-                {ticker}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -978,10 +1217,18 @@ function AssistantWorkbench({
   compareLoading,
 }) {
   const discussedTickers = useMemo(() => extractSessionTickers(messages), [messages]);
+  const tickerKey = discussedTickers.join('|');
+  const latestUser = useMemo(() => latestMessageByRole(messages, 'user'), [messages]);
   const latestAssistant = useMemo(() => {
     const found = [...(messages || [])].reverse().find((m) => m.role === 'assistant' && String(m.content || '').trim());
     return streamingText || found?.content || '';
   }, [messages, streamingText]);
+  const workspaceIntent = useMemo(() => classifyWorkspaceIntent({
+    latestUser,
+    latestAssistant,
+    tickers: discussedTickers,
+    focusTicker,
+  }), [latestAssistant, latestUser, tickerKey, focusTicker]);
 
   const [tab, setTab] = useState('overview');
   const [research, setResearch] = useState(null);
@@ -994,24 +1241,37 @@ function AssistantWorkbench({
     entries: [{ tab: 'overview', ticker: focusTicker || '' }],
     index: 0,
   });
+  const lastAutoRouteRef = useRef('');
 
   useEffect(() => {
     if (!focusTicker) return;
     let cancelled = false;
     setResearchLoading(true);
-    Promise.all([
-      assistantFetchResearch(focusTicker).catch(() => null),
-      assistantFetchNews(discussedTickers.length ? discussedTickers.join(',') : focusTicker).catch(() => null),
-    ]).then(([r, n]) => {
+    assistantFetchResearch(focusTicker).then((r) => {
       if (cancelled) return;
       setResearch(r);
       setChart(Array.isArray(r?.chart) ? r.chart : []);
-      setNews(n);
     }).finally(() => {
       if (!cancelled) setResearchLoading(false);
     });
     return () => { cancelled = true; };
-  }, [discussedTickers, focusTicker]);
+  }, [focusTicker]);
+
+  const newsSymbols = useMemo(() => {
+    if (discussedTickers.length) return discussedTickers.join(',');
+    if (focusTicker) return focusTicker;
+    if (workspaceIntent.tab === 'macro' || workspaceIntent.tab === 'news') return '^GSPC,^IXIC,GC=F,CL=F,BTC-USD,DX-Y.NYB';
+    return '';
+  }, [focusTicker, tickerKey, workspaceIntent.tab]);
+
+  useEffect(() => {
+    if (!newsSymbols) return;
+    let cancelled = false;
+    assistantFetchNews(newsSymbols)
+      .then((n) => { if (!cancelled) setNews(n); })
+      .catch(() => { if (!cancelled) setNews(null); });
+    return () => { cancelled = true; };
+  }, [newsSymbols]);
 
   useEffect(() => {
     assistantFetchMacroOverview().then(setMacro).catch(() => {});
@@ -1019,7 +1279,7 @@ function AssistantWorkbench({
 
   useEffect(() => {
     let cancelled = false;
-    assistantRunScreener({ list_id: 'sp500', strategies: AGENT_ASSISTANT_STRATEGIES })
+    assistantRunScreener({ list_id: workspaceIntent.screener?.listId || 'sp500', strategies: AGENT_ASSISTANT_STRATEGIES })
       .then((d) => {
         if (!cancelled) setScreenRows(d?.results || []);
       })
@@ -1027,7 +1287,7 @@ function AssistantWorkbench({
         if (!cancelled) setScreenRows([]);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [workspaceIntent.screener?.listId]);
 
   useEffect(() => {
     if (!discussedTickers.length) return;
@@ -1042,9 +1302,9 @@ function AssistantWorkbench({
       window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', {
         detail: { tab: 'research', ticker: focusTicker },
       }));
-      window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: 'fundamentals' } }));
+      window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: workspaceIntent.researchSubtab || 'fundamentals' } }));
     }, 0);
-  }, [tab, focusTicker]);
+  }, [tab, focusTicker, workspaceIntent.researchSubtab]);
 
   useEffect(() => {
     if (tab !== 'screener' || !focusTicker) return;
@@ -1056,11 +1316,12 @@ function AssistantWorkbench({
   }, [tab, focusTicker]);
 
   const visibleScreenRows = useMemo(() => {
-    return (screenRows || [])
-      .filter((row) => (row.buy_count || 0) >= 3)
-      .sort((a, b) => (b.buy_count || 0) - (a.buy_count || 0) || (b.change_20d || 0) - (a.change_20d || 0))
+    const intentRows = applyWorkspaceScreenIntent(screenRows, workspaceIntent.screener);
+    const hasSpecificScreen = Boolean(workspaceIntent.request && workspaceIntent.tab === 'screener');
+    return (intentRows || [])
+      .filter((row) => hasSpecificScreen || (row.buy_count || 0) >= 3)
       .slice(0, 25);
-  }, [screenRows]);
+  }, [screenRows, workspaceIntent.request, workspaceIntent.screener, workspaceIntent.tab]);
 
   const pushWorkspaceState = useCallback((next) => {
     const entry = {
@@ -1091,6 +1352,24 @@ function AssistantWorkbench({
     if (!symbol) return;
     pushWorkspaceState({ tab: 'research', ticker: symbol });
   };
+
+  const openWorkspaceTab = (nextTab) => {
+    pushWorkspaceState({
+      tab: nextTab || workspaceIntent.tab || 'overview',
+      ...(nextTab === 'research' && (workspaceIntent.primaryTicker || focusTicker) ? { ticker: workspaceIntent.primaryTicker || focusTicker } : {}),
+    });
+  };
+
+  useEffect(() => {
+    if (!workspaceIntent.request) return;
+    const routeKey = `${workspaceIntent.request}|${workspaceIntent.tab}|${workspaceIntent.primaryTicker || ''}`;
+    if (lastAutoRouteRef.current === routeKey) return;
+    lastAutoRouteRef.current = routeKey;
+    pushWorkspaceState({
+      tab: workspaceIntent.tab || 'overview',
+      ...(workspaceIntent.tab === 'research' && (workspaceIntent.primaryTicker || focusTicker) ? { ticker: workspaceIntent.primaryTicker || focusTicker } : {}),
+    });
+  }, [focusTicker, pushWorkspaceState, workspaceIntent.primaryTicker, workspaceIntent.request, workspaceIntent.tab]);
 
   return (
     <section className="min-w-0 flex-1 overflow-y-auto bg-zinc-50 p-3 dark:bg-zinc-950">
@@ -1129,7 +1408,7 @@ function AssistantWorkbench({
             <button
               type="button"
               key={item.id}
-              onClick={() => pushWorkspaceState({ tab: item.id })}
+              onClick={() => openWorkspaceTab(item.id)}
               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${
                 tab === item.id
                   ? 'bg-zinc-900 text-white shadow-sm dark:bg-zinc-100 dark:text-zinc-900'
@@ -1137,6 +1416,9 @@ function AssistantWorkbench({
               }`}
             >
               <Icon className="h-3.5 w-3.5" /> {item.label}
+              {workspaceIntent.request && workspaceIntent.tab === item.id && (
+                <span className={`ml-0.5 h-1.5 w-1.5 rounded-full ${tab === item.id ? 'bg-white/75 dark:bg-zinc-900/70' : 'bg-indigo-500'}`} />
+              )}
             </button>
           );
         })}
@@ -1163,6 +1445,12 @@ function AssistantWorkbench({
 
       {tab === 'overview' && (
         <div className="grid grid-cols-1 gap-3">
+          <WorkspaceCommandCard
+            intent={workspaceIntent}
+            tickers={discussedTickers}
+            onTickerSelect={openWorkspaceResearch}
+            onTabSelect={openWorkspaceTab}
+          />
           <div className="grid gap-3 xl:grid-cols-[.95fr_1.05fr]">
             <AgentBriefCard text={latestAssistant} />
             <AssistantMiniVisuals chart={chart} macro={macro} rows={visibleScreenRows} ticker={focusTicker} />
@@ -1185,7 +1473,7 @@ function AssistantWorkbench({
 
       {tab === 'research' && (
         <div>
-          <WorkspaceChatContext text={latestAssistant} tickers={discussedTickers} onTickerSelect={openWorkspaceResearch} />
+          <WorkspaceChatContext text={latestAssistant} tickers={discussedTickers} intent={workspaceIntent} onTickerSelect={openWorkspaceResearch} onTabSelect={openWorkspaceTab} />
           <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
             <ResearchPanel
               strategies={strategies}
@@ -1199,16 +1487,16 @@ function AssistantWorkbench({
 
       {tab === 'screener' && (
         <div>
-          <WorkspaceChatContext text={latestAssistant} tickers={discussedTickers} onTickerSelect={openWorkspaceResearch} />
+          <WorkspaceChatContext text={latestAssistant} tickers={discussedTickers} intent={workspaceIntent} onTickerSelect={openWorkspaceResearch} onTabSelect={openWorkspaceTab} />
           <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-            <ScreenerPanel onOpenResearch={openWorkspaceResearch} />
+            <ScreenerPanel onOpenResearch={openWorkspaceResearch} agentIntent={workspaceIntent.screener} />
           </div>
         </div>
       )}
 
       {tab === 'macro' && (
         <div>
-          <WorkspaceChatContext text={latestAssistant} tickers={discussedTickers} onTickerSelect={openWorkspaceResearch} />
+          <WorkspaceChatContext text={latestAssistant} tickers={discussedTickers} intent={workspaceIntent} onTickerSelect={openWorkspaceResearch} onTabSelect={openWorkspaceTab} />
           <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
             <MacroPanel />
           </div>
@@ -1217,7 +1505,7 @@ function AssistantWorkbench({
 
       {tab === 'news' && (
         <div>
-          <WorkspaceChatContext text={latestAssistant} tickers={discussedTickers} onTickerSelect={openWorkspaceResearch} />
+          <WorkspaceChatContext text={latestAssistant} tickers={discussedTickers} intent={workspaceIntent} onTickerSelect={openWorkspaceResearch} onTabSelect={openWorkspaceTab} />
           <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
