@@ -1203,6 +1203,11 @@ def public_articles_sitemap_xml():
     return _articles_sitemap_response()
 
 
+@page_router.head("/sitemap-articles.xml")
+def public_articles_sitemap_head():
+    return Response(status_code=200, media_type="application/xml")
+
+
 def _articles_sitemap_response():
     conn = get_db()
     try:
