@@ -382,6 +382,37 @@ def _daily_article_fallback_body(field: dict[str, Any], title: str, context: dic
     lead_symbol = lead_ticker.get("symbol") or field.get("tickers", ["the market"])[0]
     lead_change = lead_ticker.get("change_1m")
     lead_price = lead_ticker.get("price")
+    movers = sorted(
+        [t for t in tickers if t.get("change_1m") is not None],
+        key=lambda x: abs(float(x.get("change_1m") or 0)),
+        reverse=True,
+    )
+    top_mover = movers[0] if movers else lead_ticker
+    rate = next((m for m in macro if "Fed" in (m.get("label") or "")), {})
+    unemployment = next((m for m in macro if "Unemployment" in (m.get("label") or "")), {})
+    ten_year = next((m for m in macro if "10Y" in (m.get("label") or "")), {})
+    brief_items = []
+    if top_mover:
+        brief_items.append(
+            f"<li class=\"eq-li\"><strong>{html_escape(str(top_mover.get('symbol') or lead_symbol))}</strong> is the pressure point: {html_escape(str(top_mover.get('price') or 'latest price'))} with a 1M move of {html_escape(str(top_mover.get('change_1m') if top_mover.get('change_1m') is not None else 'n/a'))}%.</li>"
+        )
+    if lead_ticker:
+        brief_items.append(
+            f"<li class=\"eq-li\"><strong>{html_escape(str(lead_ticker.get('symbol') or lead_symbol))}</strong> valuation check: forward P/E {html_escape(str(lead_ticker.get('forward_pe') or 'n/a'))}, profit margin {html_escape(str(lead_ticker.get('profit_margin') or 'n/a'))}, recommendation {html_escape(str(lead_ticker.get('recommendation') or 'n/a'))}.</li>"
+        )
+    if rate or ten_year:
+        brief_items.append(
+            f"<li class=\"eq-li\"><strong>Rates</strong>: Fed Funds {html_escape(str(rate.get('latest') or 'n/a'))}; 10Y Treasury {html_escape(str(ten_year.get('latest') or 'n/a'))}. Duration-sensitive trades need confirmation.</li>"
+        )
+    if unemployment:
+        brief_items.append(
+            f"<li class=\"eq-li\"><strong>Labor</strong>: unemployment at {html_escape(str(unemployment.get('latest') or 'n/a'))}; watch whether risk assets treat it as cooling pressure or demand risk.</li>"
+        )
+    for h in headlines[:2]:
+        brief_items.append(
+            f"<li class=\"eq-li\"><strong>{html_escape(h.get('symbol') or '')}</strong>: {html_escape(h.get('title') or '')}</li>"
+        )
+    brief_html = "".join(brief_items) or "<li class=\"eq-li\"><strong>Watchlist</strong>: price, rates, and fundamentals are the signal stack for this session.</li>"
     headline_items = "".join(
         f"<li><strong>{html_escape(h.get('symbol') or '')}</strong>: {html_escape(h.get('title') or '')}</li>"
         for h in headlines
@@ -400,12 +431,10 @@ def _daily_article_fallback_body(field: dict[str, Any], title: str, context: dic
   <img class="eq-figure-img w-full rounded-lg shadow-md" src="{html_escape(image)}" alt="{html_escape(title)}" loading="lazy" decoding="async" />
 </figure>
 <div class="eq-takeaways rounded-2xl p-6 sm:p-7 mb-10">
-  <p class="eq-kicker text-xs font-semibold uppercase tracking-wider text-violet-800 mb-1">{html_escape(field.get('cluster') or '')}</p>
-  <h2 class="eq-h2">The Setup Before The Bell</h2>
+  <p class="eq-kicker text-xs font-semibold uppercase tracking-wider text-violet-800 mb-1">Morning brief — {html_escape(field_label)} — {html_escape(today)}</p>
+  <h2 class="eq-h2">What Deserves Your Attention Now</h2>
   <ul class="eq-ul list-disc pl-5 space-y-3">
-    <li class="eq-li">The first move is to separate real signal from noisy price action.</li>
-    <li class="eq-li">The second move is to ask which fundamentals actually changed.</li>
-    <li class="eq-li">The final move is to decide what would invalidate the story.</li>
+    {brief_html}
   </ul>
 </div>
 <h2 class="eq-h2">The Morning Scene</h2>
