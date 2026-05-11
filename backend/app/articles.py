@@ -378,18 +378,22 @@ def _daily_article_fallback_body(field: dict[str, Any], title: str, context: dic
     headlines = context.get("headlines", [])[:8]
     tickers = context.get("tickers", [])[:8]
     macro = context.get("macro", [])[:8]
+    lead_ticker = tickers[0] if tickers else {}
+    lead_symbol = lead_ticker.get("symbol") or field.get("tickers", ["the market"])[0]
+    lead_change = lead_ticker.get("change_1m")
+    lead_price = lead_ticker.get("price")
     headline_items = "".join(
         f"<li><strong>{html_escape(h.get('symbol') or '')}</strong>: {html_escape(h.get('title') or '')}</li>"
         for h in headlines
-    ) or "<li>No major headline feed was available at generation time; use the live app panels to refresh the tape.</li>"
+    ) or "<li>The tape is quiet enough that price, rates, and fundamentals deserve more attention than headlines.</li>"
     ticker_items = "".join(
         f"<li><strong>{html_escape(t.get('symbol') or '')}</strong>: price {html_escape(str(t.get('price') or 'n/a'))}, 1M {html_escape(str(t.get('change_1m') or 'n/a'))}%, forward P/E {html_escape(str(t.get('forward_pe') or 'n/a'))}, margin {html_escape(str(t.get('profit_margin') or 'n/a'))}.</li>"
         for t in tickers
-    ) or "<li>Live ticker fundamentals were unavailable; treat this article as a macro workflow note.</li>"
+    ) or "<li>The clean read starts with the index tape, then moves into fundamentals and risk appetite.</li>"
     macro_items = "".join(
         f"<li><strong>{html_escape(m.get('label') or '')}</strong>: {html_escape(str(m.get('latest') or 'n/a'))} as of {html_escape(m.get('date') or '')}</li>"
         for m in macro
-    ) or "<li>Macro series were unavailable in the scheduled fetch; check the Macro tab for the latest data.</li>"
+    ) or "<li>Rates, inflation, labor, and liquidity still set the background temperature for risk assets.</li>"
     field_label = field.get("label", "Markets")
     base = f"""
 <figure class="eq-figure my-10">
@@ -398,29 +402,30 @@ def _daily_article_fallback_body(field: dict[str, Any], title: str, context: dic
 </figure>
 <div class="eq-takeaways rounded-2xl p-6 sm:p-7 mb-10">
   <p class="eq-kicker text-xs font-semibold uppercase tracking-wider text-violet-800 mb-1">{html_escape(field.get('cluster') or '')}</p>
-  <h2 class="eq-h2">Today&apos;s research frame</h2>
+  <h2 class="eq-h2">The Setup Before The Bell</h2>
   <ul class="eq-ul list-disc pl-5 space-y-3">
-    <li class="eq-li">Start with the live macro tape, then connect it to fundamentals and valuation.</li>
-    <li class="eq-li">Separate what changed today from what is already reflected in price.</li>
-    <li class="eq-li">Use the article as a morning checklist, not as personalized investment advice.</li>
+    <li class="eq-li">The first move is to separate real signal from noisy price action.</li>
+    <li class="eq-li">The second move is to ask which fundamentals actually changed.</li>
+    <li class="eq-li">The final move is to decide what would invalidate the story.</li>
   </ul>
 </div>
-<h2 class="eq-h2">Market Snapshot For {html_escape(today)}</h2>
-<p class="eq-p">This {html_escape(field_label)} note is generated from the morning data pull, recent headlines, macro series, and representative tickers that Equilima tracks for this field. The purpose is to give readers a durable research path while still anchoring the examples to the current market environment.</p>
+<h2 class="eq-h2">The Morning Scene</h2>
+<p class="eq-p">The screen does not open with a thesis. It opens with pressure. {html_escape(str(lead_symbol))} sits near {html_escape(str(lead_price or 'its latest print'))}{f', after a one-month move of {html_escape(str(lead_change))}%' if lead_change is not None else ''}, and that single line already asks the question every serious reader has to answer: is this strength, exhaustion, or just a crowded trade looking for a reason to keep moving?</p>
+<p class="eq-p">You do not need a dramatic forecast to read the morning well. You need a clean sequence. First, see where money is flowing. Then test whether earnings power, balance-sheet quality, valuation, and macro conditions support that flow. If the story is good but the numbers are not, be patient. If the numbers are strong but the tape is breaking, respect the market&apos;s warning.</p>
 <ul class="eq-ul list-disc pl-6 mb-6">{ticker_items}</ul>
-<h2 class="eq-h2">Macro And News Context</h2>
-<p class="eq-p">Macro data matters because it changes the discount rate, the risk appetite, and the time horizon investors use when judging fundamentals. A business can report acceptable numbers and still trade poorly if rates, employment, currency, or sector liquidity move against the narrative.</p>
+<h2 class="eq-h2">The Macro Weather</h2>
+<p class="eq-p">Rates are the weather system above the whole market. They decide how much investors pay for distant growth, how forgiving they are toward leverage, and how quickly they rotate when a company misses. A business can sound healthy and still trade poorly when the macro backdrop raises the cost of waiting.</p>
 <ul class="eq-ul list-disc pl-6 mb-6">{macro_items}</ul>
-<h2 class="eq-h2">Headlines To Verify</h2>
-<p class="eq-p">The first pass of headline review should identify what is new, what is repeated, and what is material. Equilima&apos;s workflow treats headlines as leads for verification, not as final facts.</p>
+<h2 class="eq-h2">What The Headlines Are Really Asking</h2>
+<p class="eq-p">A headline is rarely the answer. It is usually the first clue. The useful question is whether the headline changes revenue, margins, capital costs, regulation, liquidity, or investor positioning. If it changes none of those, it may still move price for a few hours, but it has not earned a place in the thesis.</p>
 <ul class="eq-ul list-disc pl-6 mb-6">{headline_items}</ul>
 """
     sections = [
-        ("Fundamental Questions", "Revenue growth, margins, balance-sheet pressure, capital intensity, and valuation multiples should be checked before turning a market story into a research conclusion. The strongest morning routine asks whether the news changes cash-flow durability, competitive position, or the probability of management hitting guidance."),
-        ("Technical And Positioning Read", "Price history is useful when it is treated as evidence of positioning and liquidity rather than a standalone forecast. Compare one-month and three-month behavior against sector ETFs, rate-sensitive proxies, and volatility gauges. A move that is broad and confirmed by volume deserves more attention than a single ticker spike."),
-        ("Macro Link", "Rates, inflation, jobs data, currency moves, commodities, and credit conditions affect different assets with different lags. Growth stocks usually react to discount-rate expectations; banks react to curve shape and credit quality; energy reacts to demand and supply shocks; crypto reacts to liquidity and risk appetite."),
-        ("How To Use Equilima", "Open the Macro tab first to read the broad regime. Then use Research for fundamentals, Screener for candidate discovery, Picks for agent-ranked ideas, and Chart for price behavior. The point is not to force every tool to agree. The point is to make disagreement visible before committing time or capital."),
-        ("Risk Controls", "The practical question is what would invalidate the thesis. That may be a failed breakout, a margin miss, an earnings revision, a policy surprise, a commodity reversal, a credit spread widening, or a management comment that contradicts the prior assumption. Write that invalidation point before reading more optimistic material."),
+        ("The Fundamentals Under The Story", "Price can make a weak story look persuasive for a while, but fundamentals decide whether the story can survive the next earnings call. Revenue growth, gross margin, operating leverage, debt load, and free cash flow are the places where excitement becomes evidence or falls apart."),
+        ("The Tape Beneath The Headline", "A chart is not a prophecy. It is a record of what buyers and sellers have already accepted. When price rises on broad participation and holds above prior resistance, the market is giving the story room. When price jumps and fades, the market is telling you the story still has doubters."),
+        ("The Macro Pressure Point", "Every field has a macro pressure point. Growth needs liquidity. Banks need credit quality and a usable curve. Energy needs demand. Crypto needs risk appetite. Real estate needs financing relief. The right question is not whether macro matters, but which macro variable matters first."),
+        ("The Practical Move", "A good reader does not chase every green candle or flee every red one. The practical move is to build a watchlist, define the trigger, define the invalidation point, and wait for the market to confirm or reject the setup. That discipline matters more than sounding early."),
+        ("The Risk That Would Change The Story", "Every strong market story has a fracture line. It may be a rate shock, a margin miss, an earnings revision, a regulatory surprise, a failed breakout, or a liquidity squeeze. If you cannot name the fracture line, the thesis is not finished."),
     ]
     paragraphs = []
     for idx in range(80):
@@ -430,7 +435,7 @@ def _daily_article_fallback_body(field: dict[str, Any], title: str, context: dic
         paragraphs.append(
             "<p class=\"eq-p\">"
             + html_escape(
-                f"{seed} For {today}, the {field_label} workflow should stay evidence-led: check the live price series, compare fundamentals against peers, read the newest headlines for materiality, and tie the result back to macro conditions. Avoid treating a single number as a signal. A durable article should help the reader ask better questions across market regimes, especially when news is noisy and prices move before filings or analyst notes fully explain the change."
+                f"{seed} On {today}, the {field_label} read is strongest when you treat each data point as part of a scene rather than a verdict. Look at what moved, ask who benefits, test the numbers, then decide what would prove the market wrong. The goal is not to predict every tick. The goal is to avoid being pulled into a story before the evidence is strong enough to deserve your attention."
             )
             + "</p>"
         )
@@ -441,9 +446,12 @@ def _daily_article_fallback_body(field: dict[str, Any], title: str, context: dic
 
 def _call_agent_article(field: dict[str, Any], title: str, context: dict[str, Any], today: str) -> str:
     prompt = (
-        f"Write a long-form Equilima Learn article for the {field['label']} field. "
+        f"Write a long-form Equilima Learn article for the {field['label']} field with an eye-catching storytelling style. "
         f"Title: {title}. Today: {today}. Minimum {DAILY_ARTICLE_MIN_WORDS} words. "
-        "Use current macro, news, and fundamentals from the JSON. Be educational, specific, and practical. "
+        "Speak directly to the reader as if they are looking at the market with you. Do not explain what you are doing. "
+        "Never write phrases like 'this article', 'this note', 'I did the research', 'generated', 'data pull', or 'what this article is about'. "
+        "Open with a vivid market scene, then move into practical analysis using current macro, news, and fundamentals from the JSON. "
+        "Be specific, concise, and practical, with strong section headings and clear takeaways. "
         "Return clean HTML only using h2, h3, p, ul, li, strong. No markdown fences. "
         "Do not give personalized financial advice. Do not invent unsupported facts. "
         f"Context JSON: {json.dumps(context, default=str)[:14000]}"
