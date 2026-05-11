@@ -332,7 +332,7 @@ function classifyWorkspaceIntent({ latestUser, latestAssistant, tickers, focusTi
   const isResearch = hasFreshTicker || /\b(analyze|research|compare|valuation|fundamental|financials|earnings|revenue|margin|risk|buy now|price target)\b/.test(t);
 
   let tab = 'overview';
-  let label = 'Market desk';
+  let label = 'Overview';
   let reason = 'Overview of the latest agent context.';
   let researchSubtab = 'fundamentals';
   if (isScreener) {
@@ -1103,63 +1103,11 @@ function AgentBriefCard({ text }) {
   );
 }
 
-function WorkspaceCommandCard({ intent, tickers, onTickerSelect, onTabSelect }) {
-  if (!intent?.request) return null;
-  const activeTab = WORKSPACE_TABS.find((item) => item.id === intent.tab) || WORKSPACE_TABS[0];
-  const Icon = activeTab.icon;
-  const chips = [
-    ...(intent.tab === 'screener' && intent.screener?.listLabel ? [intent.screener.listLabel] : []),
-    ...(intent.tab === 'screener' ? (intent.screener?.chips || []) : []),
-    ...(intent.primaryTicker ? [intent.primaryTicker] : []),
-  ].filter(Boolean);
-  return (
-    <div className="rounded-xl bg-white p-4 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 ring-1 ring-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-200 dark:ring-indigo-900">
-              <Icon className="h-3.5 w-3.5" />
-            </span>
-            {intent.label}
-          </div>
-          <p className="mt-2 line-clamp-2 text-sm leading-5 text-zinc-600 dark:text-zinc-300">{intent.request}</p>
-          <p className="mt-1 text-xs leading-5 text-zinc-400">{intent.reason}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => onTabSelect?.(intent.tab)}
-          className="shrink-0 rounded-full bg-zinc-50 px-3 py-1.5 text-[11px] font-semibold text-zinc-600 ring-1 ring-zinc-200/70 hover:bg-zinc-100 hover:text-zinc-950 dark:bg-zinc-950 dark:text-zinc-300 dark:ring-zinc-800 dark:hover:bg-zinc-800"
-        >
-          Open {activeTab.label}
-        </button>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {chips.slice(0, 8).map((chip) => (
-          <span key={chip} className="rounded-full bg-zinc-50 px-2.5 py-1 text-[11px] font-semibold text-zinc-500 ring-1 ring-zinc-200/70 dark:bg-zinc-950 dark:text-zinc-400 dark:ring-zinc-800">
-            {chip}
-          </span>
-        ))}
-        {tickers.slice(0, 6).map((ticker) => (
-          <button
-            type="button"
-            key={ticker}
-            onClick={() => onTickerSelect?.(ticker)}
-            className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-100 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-200 dark:ring-indigo-900"
-          >
-            {ticker}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceChatContext({ text, tickers, intent, onTickerSelect, onTabSelect }) {
-  const hasContext = Boolean(String(text || '').trim()) || tickers.length > 0 || Boolean(intent?.request);
+function WorkspaceChatContext({ text }) {
+  const hasContext = Boolean(String(text || '').trim());
   if (!hasContext) return null;
   return (
-    <div className="mb-3 grid gap-3 xl:grid-cols-[1.05fr_.95fr]">
-      <WorkspaceCommandCard intent={intent} tickers={tickers} onTickerSelect={onTickerSelect} onTabSelect={onTabSelect} />
+    <div className="mb-3">
       <AgentBriefCard text={text} />
     </div>
   );
