@@ -5,7 +5,6 @@ import {
   Bot,
   User,
   TrendingUp,
-  TrendingDown,
   Zap,
   BarChart3,
   Search,
@@ -114,10 +113,6 @@ async function silentApiJson(path, options = {}) {
   const res = await fetch(path, { ...options, headers });
   if (!res.ok) return null;
   return res.json();
-}
-
-function assistantFetchMarketOverview() {
-  return silentApiJson('/api/market/overview');
 }
 
 function assistantFetchMacroOverview() {
@@ -477,233 +472,8 @@ function AgentLayoutToggle({ layoutMode, setLayoutMode, assistantAvailable }) {
   );
 }
 
-function MiniSparklineSvg({ rows, up }) {
-  if (!rows?.length) return <div className="h-full rounded-lg bg-zinc-100 dark:bg-zinc-800" />;
-  const values = rows.slice(-90).map((row) => Number(typeof row === 'number' ? row : (row.close ?? row.value ?? row.price))).filter((v) => Number.isFinite(v));
-  if (values.length < 2) return <div className="h-full rounded-lg bg-zinc-100 dark:bg-zinc-800" />;
-  const width = 132;
-  const height = 48;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  const points = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * width;
-    const y = height - ((v - min) / range) * (height - 4) - 2;
-    return [x, y];
-  });
-  const line = points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-  const fill = `0,${height} ${line} ${width},${height}`;
-  const color = up ? '#10b981' : '#f43f5e';
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full overflow-visible" preserveAspectRatio="none" aria-hidden>
-      <polygon points={fill} fill={color} opacity="0.12" />
-      <polyline points={line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function MiniPriceCard({ symbol, label, rows = [], price, change, target, onSelect }) {
-  const first = typeof rows[0] === 'number' ? rows[0] : rows[0]?.close;
-  const lastRaw = rows[rows.length - 1];
-  const last = price ?? (typeof lastRaw === 'number' ? lastRaw : lastRaw?.close);
-  const computedChange = first && last ? (last / first - 1) * 100 : null;
-  const shownChange = change ?? computedChange;
-  const up = Number(shownChange || 0) >= 0;
-
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect?.(target || symbol.replace('-USD', ''))}
-      className="rounded-xl bg-white p-3 text-left shadow-sm ring-1 ring-zinc-200/70 transition hover:-translate-y-0.5 hover:ring-zinc-300 dark:bg-zinc-900 dark:ring-zinc-800 dark:hover:ring-zinc-700"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="text-[11px] font-bold text-zinc-900 dark:text-zinc-100">{label || symbol}</div>
-          <div className="text-[10px] text-zinc-400 dark:text-zinc-500">{symbol}</div>
-        </div>
-        <div className={`text-[11px] font-semibold ${toneClass(shownChange)}`}>{fmtPctValue(shownChange)}</div>
-      </div>
-      <div className="mt-2 h-12">
-        <MiniSparklineSvg rows={rows} up={up} />
-      </div>
-    </button>
-  );
-}
-
-function AssistantMarketRail({ historyList, createNewChat, activeSession, onTickerSelect }) {
-  const [historyExpanded, setHistoryExpanded] = useState(false);
-  const [market, setMarket] = useState(null);
-  const [macro, setMacro] = useState(null);
-  const [scan, setScan] = useState([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    assistantFetchMarketOverview().then((d) => {
-      if (!cancelled) setMarket(d);
-    }).catch(() => {});
-    assistantFetchMacroOverview().then((d) => {
-      if (!cancelled) setMacro(d);
-    }).catch(() => {});
-    assistantRunScreener({ list_id: 'sp500', strategies: AGENT_ASSISTANT_STRATEGIES }).then((d) => {
-      if (!cancelled) setScan((d?.results || []).slice().sort((a, b) => (b.buy_count || 0) - (a.buy_count || 0)).slice(0, 6));
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-
-  const marketTiles = useMemo(() => {
-    const all = [
-      ...(market?.indices || []),
-      ...(market?.commodities || []),
-      ...(market?.currencies || []),
-      ...(market?.crypto || []),
-    ];
-    const wanted = [
-      { match: ['^GSPC', 'SPY'], label: 'S&P 500', target: 'SPY' },
-      { match: ['^IXIC', 'QQQ'], label: 'Nasdaq', target: 'QQQ' },
-      { match: ['GC=F', 'GLD'], label: 'Gold', target: 'GLD' },
-      { match: ['CL=F', 'USO'], label: 'Oil', target: 'USO' },
-      { match: ['BTC-USD', 'BTC'], label: 'Bitcoin', target: 'BTC' },
-      { match: ['DX-Y.NYB', 'UUP'], label: 'USD', target: 'UUP' },
-    ];
-    return wanted.map((w) => {
-      const item = all.find((x) => w.match.includes(x.symbol));
-      return item ? {
-        symbol: item.symbol,
-        label: w.label,
-        target: w.target,
-        rows: item.sparkline || item.history || [],
-        price: item.price,
-        change: item.changes?.['1M'] ?? item.change_20d ?? item.change_1d,
-      } : {
-        symbol: w.match[0],
-        label: w.label,
-        target: w.target,
-        rows: [],
-        price: null,
-        change: null,
-      };
-    });
-  }, [market]);
-
-  return (
-    <aside className="flex h-full w-[286px] shrink-0 flex-col border-r border-zinc-200/70 bg-zinc-50/95 dark:border-zinc-800 dark:bg-zinc-950/95">
-      <div className="shrink-0 border-b border-zinc-200/70 px-3 py-3 dark:border-zinc-800">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <div className="text-xs font-semibold text-zinc-950 dark:text-zinc-100">Assistant desk</div>
-            <div className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">{activeSession?.title || 'New chat'}</div>
-          </div>
-          <button
-            type="button"
-            onClick={createNewChat}
-            className="rounded-lg bg-white p-2 text-zinc-500 shadow-sm ring-1 ring-zinc-200/80 hover:text-zinc-950 dark:bg-zinc-900 dark:ring-zinc-800 dark:hover:text-zinc-100"
-            title="New chat"
-          >
-            <SquarePen className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        <div className="grid grid-cols-2 gap-2">
-          {marketTiles.map((item) => (
-            <MiniPriceCard
-              key={item.symbol}
-              symbol={item.symbol}
-              label={item.label}
-              rows={item.rows}
-              price={item.price}
-              change={item.change}
-              target={item.target}
-              onSelect={onTickerSelect}
-            />
-          ))}
-        </div>
-
-        <section className="mt-4 rounded-xl bg-white p-3 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-zinc-900 dark:text-zinc-100">
-              <Brain className="h-3.5 w-3.5 text-indigo-500" /> Macro calls
-            </div>
-            {macro?.analysis?.cached && <span className="text-[9px] text-zinc-400">cached</span>}
-          </div>
-          <div className="space-y-2">
-            {(macro?.signals || []).slice(0, 4).map((item) => {
-              const short = String(item.short_term || 'Hold').toLowerCase();
-              const Icon = short === 'buy' ? TrendingUp : short === 'sell' ? TrendingDown : Activity;
-              return (
-                <button
-                  type="button"
-                  key={item.asset}
-                  onClick={() => item.symbol && onTickerSelect?.(item.symbol.replace('-USD', ''))}
-                  className="flex w-full items-center justify-between gap-2 rounded-lg bg-zinc-50 px-2.5 py-2 text-left ring-1 ring-zinc-100 hover:bg-zinc-100 dark:bg-zinc-950 dark:ring-zinc-800 dark:hover:bg-zinc-800"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate text-[11px] font-medium text-zinc-800 dark:text-zinc-100">{item.asset}</span>
-                    <span className="block truncate text-[9px] text-zinc-400">{item.symbol}</span>
-                  </span>
-                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                    short === 'buy' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-200'
-                    : short === 'sell' ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-200'
-                    : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-200'
-                  }`}>
-                    <Icon className="h-3 w-3" /> {item.short_term || 'Hold'}
-                  </span>
-                </button>
-              );
-            })}
-            {!macro && <div className="h-20 rounded-lg bg-zinc-100 dark:bg-zinc-800" />}
-          </div>
-        </section>
-
-        <section className="mt-4 rounded-xl bg-white p-3 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-zinc-900 dark:text-zinc-100">
-              <SlidersHorizontal className="h-3.5 w-3.5 text-indigo-500" /> Scanner pulse
-            </div>
-            <span className="text-[9px] text-zinc-400">S&P 500</span>
-          </div>
-          <div className="space-y-1.5">
-            {scan.map((row) => (
-              <button
-                type="button"
-                key={row.symbol}
-                onClick={() => onTickerSelect?.(row.symbol)}
-                className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800"
-              >
-                <span>
-                  <span className="block text-[11px] font-semibold text-zinc-900 dark:text-zinc-100">{row.symbol}</span>
-                  <span className="block max-w-[150px] truncate text-[9px] text-zinc-400">{row.name}</span>
-                </span>
-                <span className="text-right">
-                  <span className="block text-[11px] font-semibold text-indigo-600 dark:text-indigo-300">{row.buy_count}/{row.total_strategies}</span>
-                  <span className={`block text-[9px] ${toneClass(row.change_20d)}`}>{fmtPctValue(row.change_20d)}</span>
-                </span>
-              </button>
-            ))}
-            {!scan.length && <div className="h-24 rounded-lg bg-zinc-100 dark:bg-zinc-800" />}
-          </div>
-        </section>
-
-        <section className="mt-4 rounded-xl bg-white shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-          <button
-            type="button"
-            onClick={() => setHistoryExpanded((v) => !v)}
-            className="flex w-full items-center justify-between gap-2 px-3 py-3 text-left"
-          >
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-zinc-900 dark:text-zinc-100">
-              <MessageSquare className="h-3.5 w-3.5 text-zinc-400" /> Chat history
-            </span>
-            <ChevronDown className={`h-3.5 w-3.5 text-zinc-400 transition-transform ${historyExpanded ? 'rotate-180' : ''}`} />
-          </button>
-          {historyExpanded && <div className="max-h-72 border-t border-zinc-100 dark:border-zinc-800">{historyList}</div>}
-        </section>
-      </div>
-    </aside>
-  );
-}
-
 function AssistantChatColumn({
+  activeSession,
   messages,
   loading,
   streamingText,
@@ -717,22 +487,54 @@ function AssistantChatColumn({
   onNavigate,
   scrollRef,
   suggestions,
+  historyList,
+  createNewChat,
 }) {
   const hasThread = messages.length > 0 || loading;
+  const [historyExpanded, setHistoryExpanded] = useState(false);
   return (
-    <section className="flex min-w-[360px] basis-[36%] flex-col border-r border-zinc-200/70 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-zinc-200/70 px-4 py-3 dark:border-zinc-800">
-        <div>
-          <div className="text-sm font-semibold text-zinc-950 dark:text-zinc-100">Conversation</div>
-          <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-            {mode === 'full' ? 'Deep agent run' : 'Fast agent run'}{lastRun ? ` · ${(lastRun.elapsedMs / 1000).toFixed(1)}s` : ''}
+    <section className="flex w-[420px] min-w-[380px] max-w-[500px] shrink-0 flex-col border-r border-zinc-200/70 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="shrink-0 border-b border-zinc-200/70 px-4 py-3 dark:border-zinc-800">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-zinc-950 dark:text-zinc-100">AI chat</div>
+            <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+              {mode === 'full' ? 'Deep agent run' : 'Fast agent run'}{lastRun ? ` · ${(lastRun.elapsedMs / 1000).toFixed(1)}s` : ''}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={createNewChat}
+              className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-600 hover:bg-zinc-200 hover:text-zinc-950 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
+            >
+              <SquarePen className="h-3.5 w-3.5" /> New
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistoryExpanded((v) => !v)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-600 hover:bg-zinc-200 hover:text-zinc-950 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
+            >
+              <MessageSquare className="h-3.5 w-3.5" /> History
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${historyExpanded ? 'rotate-180' : ''}`} />
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {layoutToggle}
-          {modeToggle}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0 truncate text-[10px] text-zinc-400 dark:text-zinc-500">
+            {activeSession?.title && activeSession.title !== 'New chat' ? activeSession.title : 'Current conversation'}
+          </div>
+          <div className="flex items-center gap-2">
+            {layoutToggle}
+            {modeToggle}
+          </div>
         </div>
       </div>
+      {historyExpanded && (
+        <div className="max-h-72 shrink-0 overflow-hidden border-b border-zinc-200/70 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/70">
+          {historyList}
+        </div>
+      )}
 
       <div className="relative min-h-0 flex-1">
         <div className="pointer-events-none absolute left-0 right-0 top-0 z-10 h-10 bg-gradient-to-b from-white to-transparent dark:from-zinc-950" />
@@ -1291,14 +1093,9 @@ function AssistantMode({
   }, [discussedTickers.join('|')]);
 
   return (
-    <div className="flex h-full min-h-0 w-full overflow-hidden bg-zinc-50 dark:bg-zinc-950">
-      <AssistantMarketRail
-        historyList={historyList}
-        createNewChat={createNewChat}
-        activeSession={activeSession}
-        onTickerSelect={setFocusTicker}
-      />
+    <div className="grid h-full min-h-0 w-full grid-cols-[420px_minmax(0,1fr)] overflow-hidden bg-zinc-50 dark:bg-zinc-950">
       <AssistantChatColumn
+        activeSession={activeSession}
         messages={messages}
         loading={loading}
         streamingText={streamingText}
@@ -1312,6 +1109,8 @@ function AssistantMode({
         onNavigate={onNavigate}
         scrollRef={scrollRef}
         suggestions={suggestions}
+        historyList={historyList}
+        createNewChat={createNewChat}
       />
       <AssistantWorkbench
         messages={messages}
