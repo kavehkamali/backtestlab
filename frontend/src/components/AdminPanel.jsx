@@ -506,7 +506,7 @@ export default function AdminPanel() {
                 : adminTab === 'users'
                   ? 'User management'
                   : adminTab === 'articles'
-                    ? 'Articles & Learn hub'
+                    ? 'Articles & Market Blog'
                     : 'Email & newsletters'}
             </h2>
             <p className="text-xs text-zinc-500 mt-0.5">
@@ -524,8 +524,8 @@ export default function AdminPanel() {
                   ? 'Agent AI, AI Picks, Reddit, Research, Screener, Markets, Chart, and Backtesting usage by page. User inputs are stored by IP or username for audit/debug.'
                 : adminTab === 'users'
                   ? 'Search accounts, verify email, enable or disable users'
-                  : adminTab === 'articles'
-                    ? 'SEO articles at /learn — hub-and-spoke clusters, meta, JSON-LD, sitemap'
+                : adminTab === 'articles'
+                    ? 'SEO blog articles at /learn — hub-and-spoke clusters, meta, JSON-LD, sitemap'
                     : 'Draft with ChatGPT using the instructions below, choose recipients, send and verify delivery'}
             </p>
           </div>

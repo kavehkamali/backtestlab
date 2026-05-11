@@ -20,6 +20,15 @@ const TABS = [
   { id: 'screener', label: 'Screener', short: 'Screen' },
 ];
 
+const TAB_PATHS = {
+  agent: '/',
+  macro: '/macro',
+  picks: '/picks',
+  research: '/research',
+  markets: '/markets',
+  screener: '/screener',
+};
+
 const SUPPORT_EMAIL = 'info@equilima.com';
 
 function UserMenu({ user, setActiveTab, onSignOut }) {
@@ -159,6 +168,10 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
 export default function Header({ activeTab, setActiveTab, user, onSignIn, onSignUp, onSignOut, onOpenLearn }) {
   const handleTab = (id) => {
     setActiveTab(id);
+    const path = TAB_PATHS[id];
+    if (path && window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+    }
   };
 
   const openLearn = () => {
@@ -208,7 +221,7 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
               className="ml-1 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 transition-colors dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800/60"
             >
               <BookOpen className="w-3.5 h-3.5" />
-              Learn
+              Market Blog
             </button>
           )}
         </nav>
@@ -234,7 +247,7 @@ export default function Header({ activeTab, setActiveTab, user, onSignIn, onSign
                 onClick={openLearn}
                 className="px-2 py-1 rounded-md text-[11px] font-medium text-zinc-500 whitespace-nowrap dark:text-zinc-400"
               >
-                Learn
+                Blog
               </button>
             )}
           </div>

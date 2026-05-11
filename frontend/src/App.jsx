@@ -18,11 +18,36 @@ import { applyDocumentTheme, syncSiteThemeUserMeta } from './siteTheme';
 import { bootstrapAgentE2EE, fetchAgentE2EEMeta, rewrapAgentE2EE } from './api';
 import { createAndWrapDek, unwrapDek, wrapExistingDek } from './e2ee';
 
+const APP_PATH_TO_TAB = {
+  '/': 'agent',
+  '/agent': 'agent',
+  '/macro': 'macro',
+  '/picks': 'picks',
+  '/research': 'research',
+  '/markets': 'markets',
+  '/screener': 'screener',
+  '/chart': 'research',
+  '/terminal': 'research',
+  '/backtest': 'research',
+};
+
+function getTabFromPath() {
+  const path = (window.location.pathname || '/').replace(/\/$/, '') || '/';
+  return APP_PATH_TO_TAB[path] || 'agent';
+}
+
+function getResearchSubtabFromPath() {
+  const path = (window.location.pathname || '/').replace(/\/$/, '') || '/';
+  if (path === '/chart' || path === '/terminal') return 'terminal';
+  if (path === '/backtest') return 'backtest';
+  return null;
+}
+
 function App() {
   const [strategies, setStrategies] = useState([]);
   const [isAdmin, setIsAdmin] = useState(window.location.hash === '#admin');
   const [learnRoute, setLearnRoute] = useState(() => getLearnRoute());
-  const [activeTab, setActiveTab] = useState('agent');
+  const [activeTab, setActiveTab] = useState(() => getTabFromPath());
 
   // Listen for hash changes
   useEffect(() => {
@@ -32,9 +57,22 @@ function App() {
   }, []);
 
   useEffect(() => {
-    const syncLearn = () => setLearnRoute(getLearnRoute());
+    const syncLearn = () => {
+      const nextLearn = getLearnRoute();
+      setLearnRoute(nextLearn);
+      if (!nextLearn && !window.location.hash.includes('admin')) {
+        setActiveTab(getTabFromPath());
+        const sub = getResearchSubtabFromPath();
+        if (sub) {
+          window.setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub } }));
+          }, 0);
+        }
+      }
+    };
     window.addEventListener('popstate', syncLearn);
     window.addEventListener('hashchange', syncLearn);
+    syncLearn();
     return () => {
       window.removeEventListener('popstate', syncLearn);
       window.removeEventListener('hashchange', syncLearn);

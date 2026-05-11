@@ -60,7 +60,7 @@ function applyArticleSeo(article) {
 
 function applyIndexSeo() {
   const prevTitle = document.title;
-  document.title = 'Learn | Equilima — Guides & stock investing insights';
+  document.title = 'Market Blog | Equilima — Daily stock, macro, and crypto research';
   let desc = document.querySelector('meta[name="description"]');
   if (!desc) {
     desc = document.createElement('meta');
@@ -69,7 +69,7 @@ function applyIndexSeo() {
   }
   desc.setAttribute(
     'content',
-    'Deep guides on AI research agents, LLM tooling for investors, grounding and evaluation, workflows, and market-structure context—plus Equilima product walkthroughs. Hub-and-spoke internal links for research-grade SEO.',
+    'Daily market blog posts and long-form research on stocks, macro, crypto, screeners, backtests, and market structure, built around current news, fundamentals, and live macro context.',
   );
   let canonical = document.querySelector('link[rel="canonical"]');
   if (!canonical) {
@@ -331,16 +331,16 @@ export default function LearnLayout({ route, setActiveTab }) {
             <div className="flex items-start gap-3 mb-8">
               <BookOpen className="w-10 h-10 text-zinc-500 dark:text-zinc-400 shrink-0 mt-1" />
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 tracking-tight dark:text-zinc-100">Learn</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 tracking-tight dark:text-zinc-100">Market Blog</h1>
                 <p className="text-sm text-zinc-600 mt-2 max-w-2xl dark:text-zinc-400">
-                  Long-form guides on <strong className="text-zinc-800 font-medium dark:text-zinc-200">Research, Crypto, Screener, Backtest, and Markets</strong>—plus the <strong className="text-zinc-800 font-medium dark:text-zinc-200">AI agents for market research</strong> series. Use the topic links above to filter Equilima walkthroughs; open the app from any article when you are ready to apply the ideas.
+                  Daily market stories and long-form research on <strong className="text-zinc-800 font-medium dark:text-zinc-200">Research, Macro, Crypto, Screener, Backtest, and Markets</strong>, grounded in current news, fundamentals, and live macro context.
                 </p>
               </div>
             </div>
             {loading && <p className="text-zinc-500 text-sm">Loading…</p>}
             {error && <p className="text-red-600 text-sm">{error}</p>}
             {!loading && !error && list.length === 0 && (
-              <p className="text-zinc-500 text-sm">No published articles yet. Add them from the admin Learn tab.</p>
+              <p className="text-zinc-500 text-sm">No published articles yet. Add them from the admin Articles tab.</p>
             )}
             {route.topic && TOPIC_TO_CLUSTER[route.topic] && !loading && !error && (
               <p className="text-xs text-zinc-600 mb-6 dark:text-zinc-400">

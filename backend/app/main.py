@@ -23,7 +23,7 @@ from .research import router as research_router
 from .auth import router as auth_router
 from .analytics import router as analytics_router
 from .agent_history import router as agent_history_router
-from .articles import public_router as articles_public_router, admin_router as articles_admin_router
+from .articles import public_router as articles_public_router, admin_router as articles_admin_router, page_router as articles_page_router
 from .shared_cache import get_or_compute, get_cached_or_refresh_bg, get_cached_any, set_cached, is_stale, SCREENER_TTL, DASHBOARD_TTL, CRYPTO_TTL, RESEARCH_TTL, cache_stats
 from .usage import begin_usage_event, client_ip, finish_usage_event, get_db
 
@@ -35,6 +35,7 @@ app.include_router(analytics_router)
 app.include_router(agent_history_router)
 app.include_router(articles_public_router)
 app.include_router(articles_admin_router)
+app.include_router(articles_page_router)
 
 app.add_middleware(
     CORSMiddleware,

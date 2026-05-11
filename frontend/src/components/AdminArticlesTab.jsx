@@ -164,7 +164,7 @@ export default function AdminArticlesTab({ setAuthed }) {
   return (
     <div className="space-y-4">
       <ASection
-        title="Articles — Learn hub & SEO"
+        title="Articles — Market Blog & SEO"
         right={<BookOpen className="w-3.5 h-3.5 text-zinc-500" />}
       >
         <p className="text-[11px] text-zinc-500 mb-3 leading-relaxed">
@@ -174,7 +174,7 @@ export default function AdminArticlesTab({ setAuthed }) {
           <code className="text-zinc-500">/api/sitemap-articles.xml</code> for crawlers.
         </p>
         <p className="text-[11px] text-zinc-600 mb-3 leading-relaxed border-l-2 border-indigo-500/40 pl-3">
-          The bundled AI agent Learn series is imported <strong className="text-zinc-500 font-medium">once per database</strong>. Edit or delete any article here; deletions stay gone after restarts.
+          The bundled AI agent article series is imported <strong className="text-zinc-500 font-medium">once per database</strong>. Edit or delete any article here; deletions stay gone after restarts.
           To re-import that series from disk, remove the <code className="text-zinc-500">learn_ai_agent_series_v1</code> row from the{' '}
           <code className="text-zinc-500">eq_app_seeds</code> table (advanced / SQLite), then restart the API.
         </p>

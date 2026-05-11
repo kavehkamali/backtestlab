@@ -1,6 +1,6 @@
 /** Learn hub routes: /learn and /learn/:slug (pathname), or #/learn / #/learn/:slug (hash fallback). */
 
-const VALID_TOPICS = new Set(['research', 'crypto', 'screener', 'backtest', 'markets']);
+const VALID_TOPICS = new Set(['research', 'macro', 'crypto', 'screener', 'backtest', 'markets']);
 
 function parseLearnTopic() {
   try {
@@ -37,7 +37,7 @@ export function getLearnRoute() {
   return null;
 }
 
-/** Learn index: optional topic filter for Equilima hubs (research | crypto | screener | backtest | markets). */
+/** Learn index: optional topic filter for Equilima hubs (research | macro | crypto | screener | backtest | markets). */
 export function navigateLearn(slug) {
   if (slug) {
     window.history.pushState({}, '', `/learn/${encodeURIComponent(slug)}`);

@@ -20,6 +20,7 @@ except Exception:  # pragma: no cover
     ZoneInfo = None
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse
 
 from .analytics import get_db, verify_admin
 
@@ -28,11 +29,119 @@ AGENT_URL = os.getenv("EQUILIMA_AGENT_URL", "http://localhost:8888").rstrip("/")
 DAILY_ARTICLE_TIMEZONE = os.getenv("EQUILIMA_DAILY_ARTICLE_TZ", "America/Toronto")
 DAILY_ARTICLE_HOUR = int(os.getenv("EQUILIMA_DAILY_ARTICLE_HOUR", "7") or "7")
 DAILY_ARTICLE_MIN_WORDS = int(os.getenv("EQUILIMA_DAILY_ARTICLE_MIN_WORDS", "2500") or "2500")
+FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
 
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 public_router = APIRouter(prefix="/api", tags=["articles"])
 admin_router = APIRouter(prefix="/api/admin/articles", tags=["admin-articles"])
+page_router = APIRouter(tags=["article-pages"])
+
+SITE_SEO_PAGES = {
+    "": {
+        "tab": "agent",
+        "title": "Equilima | Free AI Stock Research Agent, Screener, Macro Dashboard & Backtesting",
+        "description": "Use Equilima for free AI stock research, live macro analysis, stock screening, market dashboards, AI picks, charting, and strategy backtesting.",
+        "h1": "AI stock research, market analysis, screening, and backtesting in one free workspace",
+        "keywords": "AI stock analysis, AI stock research, free stock screener, macro dashboard, stock market dashboard, AI stock picks, stock research app, backtesting software, technical analysis, fundamental analysis",
+        "body": [
+            "Equilima combines an AI research agent, macro dashboard, AI stock picks, research summaries, screeners, charting, and backtesting in a single web platform.",
+            "Use it to research stocks, compare fundamentals, read market context, scan large-cap and small-cap candidates, review crypto and macro signals, and test strategy behavior before making decisions.",
+        ],
+        "priority": "1.0",
+        "changefreq": "daily",
+    },
+    "agent": {
+        "tab": "agent",
+        "title": "AI Stock Research Agent | Equilima",
+        "description": "Ask Equilima's AI stock research agent about tickers, macro conditions, fundamentals, recent news, risks, and practical next steps.",
+        "h1": "AI stock research agent",
+        "keywords": "AI stock research agent, AI investing assistant, stock analysis chatbot, live market AI, ticker research AI, AI financial research",
+        "body": ["Ask focused stock and market questions, then get concise research grounded in live market context, recent headlines, fundamentals, and ticker-specific evidence."],
+        "priority": "0.95",
+        "changefreq": "daily",
+    },
+    "macro": {
+        "tab": "macro",
+        "title": "Macro Dashboard | Rates, GDP, Oil, Gold, Crypto & World Markets | Equilima",
+        "description": "Track macro charts and AI analysis for Fed rates, unemployment, GDP, oil exposure, gold, crypto, real estate, Canada, China, and global markets.",
+        "h1": "Macro dashboard and AI market regime analysis",
+        "keywords": "macro dashboard, AI macro analysis, Fed rates chart, unemployment chart, GDP chart, oil price analysis, gold price analysis, crypto macro, Canada rates, China market analysis",
+        "body": ["Read macro signals across rates, labor, fiscal pressure, GDP, commodities, crypto, real estate, Canada, China, and global equity markets."],
+        "priority": "0.9",
+        "changefreq": "daily",
+    },
+    "picks": {
+        "tab": "picks",
+        "title": "AI Stock Picks & Reddit Stock Sentiment | Equilima",
+        "description": "Review AI-selected stocks using fundamentals, technicals, news, macro context, and Reddit/social sentiment signals.",
+        "h1": "AI stock picks and social sentiment research",
+        "keywords": "AI stock picks, best stocks to buy, Reddit stocks, stock sentiment, social sentiment stocks, AI investing ideas, stock recommendations, swing trade ideas, long term stock picks",
+        "body": ["Compare AI picks across quality, momentum, value, diversified, low-cap, and Reddit-driven stock idea categories."],
+        "priority": "0.9",
+        "changefreq": "daily",
+    },
+    "research": {
+        "tab": "research",
+        "title": "Stock Research Summary, Fundamentals, Ratings & Ownership | Equilima",
+        "description": "Research any ticker with fundamentals, valuation, earnings, dividends, peers, ratings, ownership, news, and chart context.",
+        "h1": "Stock research summaries and fundamentals",
+        "keywords": "stock research, stock fundamentals, stock valuation, analyst ratings, earnings analysis, PE ratio, revenue growth, stock ownership, peer comparison, DCF fair value",
+        "body": ["Use Equilima Research to inspect revenue, earnings, margins, valuation, balance sheet, analyst consensus, ownership, peers, news, and price history."],
+        "priority": "0.9",
+        "changefreq": "daily",
+    },
+    "markets": {
+        "tab": "markets",
+        "title": "Live Markets Dashboard | Stocks, Sectors, Crypto, Bonds, FX & Commodities | Equilima",
+        "description": "Monitor market indices, sector performance, crypto, bonds, yields, currencies, commodities, housing, and real estate.",
+        "h1": "Live markets dashboard",
+        "keywords": "live markets dashboard, stock market today, sector performance, crypto prices, bond yields, forex dashboard, commodities prices, market breadth, real estate stocks",
+        "body": ["Track major indices, sectors, crypto, bonds, yields, currencies, commodities, housing, and real estate from one dashboard."],
+        "priority": "0.85",
+        "changefreq": "daily",
+    },
+    "screener": {
+        "tab": "screener",
+        "title": "Stock Screener With Fundamentals, Technicals & Snowflake Filters | Equilima",
+        "description": "Screen stocks by performance, valuation, profitability, dividends, momentum, technical signals, and visual snowflake filters.",
+        "h1": "Stock screener for fundamentals and technicals",
+        "keywords": "stock screener, free stock screener, fundamental screener, technical screener, dividend stock screener, momentum stocks, value stocks, small cap screener, snowflake stock analysis",
+        "body": ["Filter large stock universes by market cap, valuation, dividends, beta, profitability, RSI, moving averages, volatility, momentum, and quality signals."],
+        "priority": "0.9",
+        "changefreq": "daily",
+    },
+    "chart": {
+        "tab": "research",
+        "title": "Stock Charting Terminal With Indicators | Equilima",
+        "description": "Analyze price charts with technical indicators, watchlists, price history, and AI chart insight for stocks and ETFs.",
+        "h1": "Stock charting terminal",
+        "keywords": "stock charting, technical analysis chart, stock indicators, SMA, RSI, MACD, Bollinger Bands, price history, AI chart analysis",
+        "body": ["Use charting tools for price history, indicators, watchlist context, and AI-assisted technical summaries."],
+        "priority": "0.8",
+        "changefreq": "daily",
+    },
+    "terminal": {
+        "tab": "research",
+        "title": "Stock Charting Terminal With Indicators | Equilima",
+        "description": "Analyze price charts with technical indicators, watchlists, price history, and AI chart insight for stocks and ETFs.",
+        "h1": "Stock charting terminal",
+        "keywords": "stock charting, technical analysis chart, stock indicators, SMA, RSI, MACD, Bollinger Bands, price history, AI chart analysis",
+        "body": ["Use charting tools for price history, indicators, watchlist context, and AI-assisted technical summaries."],
+        "priority": "0.8",
+        "changefreq": "daily",
+    },
+    "backtest": {
+        "tab": "research",
+        "title": "Strategy Backtesting & Walk-Forward Testing | Equilima",
+        "description": "Backtest trading strategies, compare signals, inspect drawdowns, and evaluate walk-forward behavior with no-leakage simulation.",
+        "h1": "Strategy backtesting and walk-forward testing",
+        "keywords": "stock backtesting, trading strategy backtest, walk forward testing, no leakage backtest, RSI backtest, MACD backtest, SMA strategy, strategy performance",
+        "body": ["Test SMA, EMA, RSI, MACD, Bollinger Bands, momentum, buy-and-hold, and walk-forward ML strategies with performance and drawdown metrics."],
+        "priority": "0.8",
+        "changefreq": "weekly",
+    },
+}
 
 _LEARN_AI_DATA = Path(__file__).resolve().parent.parent / "data" / "learn_ai_agent_articles"
 _LEARN_AI_SEED_ID = "learn_ai_agent_series_v1"
@@ -713,6 +822,311 @@ def _row_to_public(row: sqlite3.Row, include_body: bool) -> dict[str, Any]:
     return out
 
 
+def _html_page(
+    title: str,
+    description: str,
+    canonical: str,
+    body: str,
+    json_ld: dict[str, Any] | list[dict[str, Any]] | None = None,
+    image: str = "",
+    keywords: str = "",
+    og_type: str = "website",
+) -> HTMLResponse:
+    img = image or f"{PUBLIC_SITE_URL}/og-image.png"
+    ld = json.dumps(json_ld or {}, ensure_ascii=False)
+    css_tags, js_tags = _frontend_asset_tags()
+    keyword_tag = f'  <meta name="keywords" content="{html_escape(keywords[:600])}" />\n' if keywords else ""
+    html = f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{html_escape(title)}</title>
+  <meta name="description" content="{html_escape(description[:300])}" />
+{keyword_tag}  <meta name="author" content="Equilima" />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <link rel="canonical" href="{html_escape(canonical)}" />
+  <meta property="og:type" content="{html_escape(og_type)}" />
+  <meta property="og:url" content="{html_escape(canonical)}" />
+  <meta property="og:title" content="{html_escape(title)}" />
+  <meta property="og:description" content="{html_escape(description[:300])}" />
+  <meta property="og:site_name" content="Equilima" />
+  <meta property="og:image" content="{html_escape(img)}" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="{html_escape(title)}" />
+  <meta name="twitter:description" content="{html_escape(description[:300])}" />
+  <meta name="twitter:image" content="{html_escape(img)}" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  {css_tags}
+  <script type="application/ld+json">{ld}</script>
+</head>
+<body>
+  {body}
+  {js_tags}
+</body>
+</html>"""
+    return HTMLResponse(html)
+
+
+def _site_page_body(page: dict[str, Any], path: str) -> str:
+    body = "".join(f"<p>{html_escape(p)}</p>" for p in page.get("body", []))
+    keywords = [x.strip() for x in (page.get("keywords") or "").split(",") if x.strip()]
+    keyword_html = "".join(f"<li>{html_escape(k)}</li>" for k in keywords[:16])
+    related = "".join(
+        f'<li><a href="/{html_escape(slug)}">{html_escape(meta["h1"])}</a></li>'
+        for slug, meta in SITE_SEO_PAGES.items()
+        if slug != path and slug not in ("terminal", "")
+    )
+    return f"""
+<main id="eq-seo-shell" class="min-h-screen bg-zinc-50 text-zinc-900">
+  <section class="max-w-5xl mx-auto px-4 sm:px-6 py-12 pb-24">
+    <a href="/" class="text-sm text-zinc-600 hover:text-zinc-900">Equilima</a>
+    <h1 class="mt-5 text-3xl sm:text-5xl font-bold tracking-tight text-zinc-950">{html_escape(page.get('h1') or page.get('title') or 'Equilima')}</h1>
+    <div class="mt-5 max-w-3xl text-base leading-7 text-zinc-700">{body}</div>
+    <div class="mt-8 grid gap-4 md:grid-cols-2">
+      <section class="rounded-xl bg-white p-5 ring-1 ring-zinc-200/80">
+        <h2 class="text-lg font-semibold text-zinc-900">Popular searches covered</h2>
+        <ul class="mt-3 grid grid-cols-1 gap-2 text-sm text-zinc-700">{keyword_html}</ul>
+      </section>
+      <section class="rounded-xl bg-white p-5 ring-1 ring-zinc-200/80">
+        <h2 class="text-lg font-semibold text-zinc-900">Explore Equilima</h2>
+        <ul class="mt-3 grid grid-cols-1 gap-2 text-sm text-zinc-700">{related}</ul>
+      </section>
+    </div>
+    <p class="mt-8 text-xs text-zinc-500">Market data and AI outputs are for education and research. They are not personalized financial advice.</p>
+  </section>
+</main>
+<div id="root"></div>
+<script>
+(() => {{
+  const hideShellWhenAppLoads = () => {{
+    const root = document.getElementById('root');
+    const shell = document.getElementById('eq-seo-shell');
+    if (root && shell && root.children.length) {{
+      shell.remove();
+      return;
+    }}
+    window.requestAnimationFrame(hideShellWhenAppLoads);
+  }};
+  window.requestAnimationFrame(hideShellWhenAppLoads);
+}})();
+</script>
+"""
+
+
+def _site_page_json_ld(page: dict[str, Any], canonical: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            "name": page.get("title"),
+            "description": page.get("description"),
+            "url": canonical,
+            "isPartOf": {"@type": "WebSite", "name": "Equilima", "url": PUBLIC_SITE_URL},
+        },
+        {
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "Equilima",
+            "applicationCategory": "FinanceApplication",
+            "operatingSystem": "Web",
+            "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+            "url": PUBLIC_SITE_URL,
+        },
+    ]
+
+
+@page_router.get("/", response_class=HTMLResponse)
+def seo_home_page():
+    page = SITE_SEO_PAGES[""]
+    return _html_page(page["title"], page["description"], f"{PUBLIC_SITE_URL}/", _site_page_body(page, ""), _site_page_json_ld(page, f"{PUBLIC_SITE_URL}/"))
+
+
+def _seo_app_page(key: str):
+    if key not in SITE_SEO_PAGES or key == "":
+        raise HTTPException(status_code=404, detail="Not found")
+    page = SITE_SEO_PAGES[key]
+    canonical_key = "chart" if key == "terminal" else key
+    canonical = f"{PUBLIC_SITE_URL}/{canonical_key}"
+    return _html_page(
+        page["title"],
+        page["description"],
+        canonical,
+        _site_page_body(page, key),
+        _site_page_json_ld(page, canonical),
+        keywords=page.get("keywords") or "",
+    )
+
+
+@page_router.get("/agent", response_class=HTMLResponse)
+def seo_agent_page():
+    return _seo_app_page("agent")
+
+
+@page_router.get("/macro", response_class=HTMLResponse)
+def seo_macro_page():
+    return _seo_app_page("macro")
+
+
+@page_router.get("/picks", response_class=HTMLResponse)
+def seo_picks_page():
+    return _seo_app_page("picks")
+
+
+@page_router.get("/research", response_class=HTMLResponse)
+def seo_research_page():
+    return _seo_app_page("research")
+
+
+@page_router.get("/markets", response_class=HTMLResponse)
+def seo_markets_page():
+    return _seo_app_page("markets")
+
+
+@page_router.get("/screener", response_class=HTMLResponse)
+def seo_screener_page():
+    return _seo_app_page("screener")
+
+
+@page_router.get("/chart", response_class=HTMLResponse)
+def seo_chart_page():
+    return _seo_app_page("chart")
+
+
+@page_router.get("/terminal", response_class=HTMLResponse)
+def seo_terminal_page():
+    return _seo_app_page("terminal")
+
+
+@page_router.get("/backtest", response_class=HTMLResponse)
+def seo_backtest_page():
+    return _seo_app_page("backtest")
+
+
+def _frontend_asset_tags() -> tuple[str, str]:
+    try:
+        index = (FRONTEND_DIST / "index.html").read_text(encoding="utf-8")
+        css = "\n  ".join(
+            f'<link rel="stylesheet" href="{html_escape(href)}" />'
+            for href in re.findall(r'<link[^>]+href="([^"]+\.css)"', index)
+        )
+        js = "\n  ".join(
+            f'<script type="module" src="{html_escape(src)}"></script>'
+            for src in re.findall(r'<script[^>]+src="([^"]+\.js)"', index)
+        )
+        return css, js
+    except Exception:
+        return "", ""
+
+
+def _article_page_body(article: dict[str, Any]) -> str:
+    return f"""
+<main class="learn-article-shell min-h-screen">
+  <header class="learn-article-shell-header sticky top-0 z-50">
+    <div class="max-w-5xl xl:max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+      <a href="/" class="text-sm text-neutral-600 hover:text-neutral-900">Back to Equilima</a>
+      <a href="/learn" class="text-sm text-neutral-600 hover:text-neutral-900">Market Blog</a>
+    </div>
+  </header>
+  <article class="max-w-5xl xl:max-w-6xl mx-auto px-4 sm:px-6 py-10 pb-24">
+    <p class="learn-article-hero-meta text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">{html_escape(article.get('cluster_key') or 'Market Blog')}</p>
+    <h1 class="learn-article-hero-title text-[2.35rem] sm:text-[2.75rem] font-bold text-neutral-950 mb-3 leading-[1.1]">{html_escape(article.get('title') or '')}</h1>
+    <p class="learn-article-hero-meta text-sm text-neutral-500 mb-10">{html_escape(article.get('author_name') or 'Equilima Research')} {html_escape((article.get('published_at') or '')[:10])}</p>
+    <div class="learn-article-reading">{article.get('body_html') or ''}</div>
+  </article>
+</main>
+<div id="root" style="display:none"></div>
+"""
+
+
+@page_router.get("/learn", response_class=HTMLResponse)
+def market_blog_index_page():
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            """
+            SELECT slug, title, meta_description, excerpt, cluster_key, published_at
+            FROM articles
+            WHERE status = 'published' AND published_at IS NOT NULL
+            ORDER BY datetime(published_at) DESC
+            LIMIT 80
+            """
+        ).fetchall()
+    finally:
+        conn.close()
+    items = "\n".join(
+        f"""<li class="rounded-xl bg-white shadow-sm ring-1 ring-zinc-200/70 p-4">
+  <a href="/learn/{html_escape(r['slug'])}" class="block">
+    <span class="text-[10px] uppercase tracking-wider text-zinc-600 font-medium">{html_escape(r['cluster_key'] or 'Market Blog')}</span>
+    <h2 class="text-lg font-semibold text-zinc-900 mt-1 leading-snug">{html_escape(r['title'])}</h2>
+    <p class="text-sm text-zinc-600 mt-2">{html_escape(r['excerpt'] or r['meta_description'] or '')}</p>
+    <span class="text-[11px] text-zinc-400 mt-2 block">{html_escape((r['published_at'] or '')[:10])}</span>
+  </a>
+</li>"""
+        for r in rows
+    )
+    body = f"""
+<main class="min-h-screen bg-zinc-50 text-zinc-900">
+  <section class="max-w-4xl mx-auto px-4 py-10 pb-20">
+    <h1 class="text-3xl font-bold text-zinc-900">Market Blog</h1>
+    <p class="text-sm text-zinc-600 mt-2 max-w-2xl">Daily market stories and long-form research on stocks, macro, crypto, screeners, backtests, and market structure.</p>
+    <ul class="space-y-4 mt-8">{items}</ul>
+  </section>
+</main>
+<div id="root" style="display:none"></div>
+"""
+    json_ld = {
+        "@context": "https://schema.org",
+        "@type": "Blog",
+        "name": "Equilima Market Blog",
+        "url": f"{PUBLIC_SITE_URL}/learn",
+        "description": "Daily market blog posts and long-form research on stocks, macro, crypto, and market structure.",
+    }
+    return _html_page(
+        "Market Blog | Equilima",
+        "Daily market blog posts and long-form research on stocks, macro, crypto, and market structure.",
+        f"{PUBLIC_SITE_URL}/learn",
+        body,
+        json_ld,
+        keywords="stock market blog, market brief, AI stock research, macro analysis, stock market today, investment research, finance blog, stock research articles",
+    )
+
+
+@page_router.get("/learn/{slug}", response_class=HTMLResponse)
+def market_blog_article_page(slug: str):
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM articles WHERE slug = ? AND status = 'published' AND published_at IS NOT NULL",
+            (slug.strip().lower(),),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Not found")
+        article = _row_to_public(row, include_body=True)
+    finally:
+        conn.close()
+    return _html_page(
+        f"{article['title']} | Equilima",
+        article.get("meta_description") or article.get("excerpt") or article["title"],
+        article["canonical_url"],
+        _article_page_body(article),
+        article.get("json_ld"),
+        article.get("og_image_url") or "",
+        keywords=", ".join(
+            x
+            for x in [
+                "stock market blog",
+                "market brief",
+                "AI stock research",
+                article.get("cluster_key") or "",
+                article.get("title") or "",
+            ]
+            if x
+        ),
+        og_type="article",
+    )
+
+
 @public_router.get("/articles")
 def list_published_articles(cluster: str = ""):
     """Published articles for hub listing (newest first)."""
@@ -781,6 +1195,15 @@ def get_published_article(slug: str, response: Response):
 
 @public_router.get("/sitemap-articles.xml")
 def articles_sitemap_xml():
+    return _articles_sitemap_response()
+
+
+@page_router.get("/sitemap-articles.xml")
+def public_articles_sitemap_xml():
+    return _articles_sitemap_response()
+
+
+def _articles_sitemap_response():
     conn = get_db()
     try:
         rows = conn.execute(
