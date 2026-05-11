@@ -398,7 +398,6 @@ def _daily_article_fallback_body(field: dict[str, Any], title: str, context: dic
     base = f"""
 <figure class="eq-figure my-10">
   <img class="eq-figure-img w-full rounded-lg shadow-md" src="{html_escape(image)}" alt="{html_escape(title)}" loading="lazy" decoding="async" />
-  <figcaption class="eq-caption mt-2 text-sm text-neutral-500">Free finance image from the bundled Equilima Unsplash image set.</figcaption>
 </figure>
 <div class="eq-takeaways rounded-2xl p-6 sm:p-7 mb-10">
   <p class="eq-kicker text-xs font-semibold uppercase tracking-wider text-violet-800 mb-1">{html_escape(field.get('cluster') or '')}</p>
@@ -484,7 +483,6 @@ def _upsert_daily_article(field: dict[str, Any], run_date: str) -> int:
         f"""
 <figure class="eq-figure my-10">
   <img class="eq-figure-img w-full rounded-lg shadow-md" src="{html_escape(field.get('image') or '/learn/hubs/hero-01.jpg')}" alt="{html_escape(title)}" loading="lazy" decoding="async" />
-  <figcaption class="eq-caption mt-2 text-sm text-neutral-500">Free finance image from the bundled Equilima Unsplash image set.</figcaption>
 </figure>
 """
         + body
