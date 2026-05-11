@@ -68,6 +68,15 @@ def init_usage_db():
             updated_at TEXT DEFAULT (datetime('now'))
         );
 
+        CREATE TABLE IF NOT EXISTS macro_daily_analysis (
+            date TEXT NOT NULL,
+            ip TEXT NOT NULL,
+            analysis TEXT NOT NULL,
+            source TEXT DEFAULT 'agent',
+            created_at TEXT DEFAULT (datetime('now')),
+            PRIMARY KEY(date, ip)
+        );
+
         CREATE INDEX IF NOT EXISTS idx_usage_events_date_page ON usage_events(date, page);
         CREATE INDEX IF NOT EXISTS idx_usage_events_ip_date ON usage_events(ip, date);
         CREATE INDEX IF NOT EXISTS idx_usage_events_user_date ON usage_events(user_id, date);
@@ -122,6 +131,8 @@ def normalize_page(page: str | None) -> str:
         "reddit picks": "reddit",
         "markets": "markets",
         "market": "markets",
+        "macro": "macro",
+        "economy": "macro",
         "screener": "screener",
         "research": "research",
         "backtest": "backtest",

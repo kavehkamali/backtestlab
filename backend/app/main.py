@@ -25,7 +25,7 @@ from .analytics import router as analytics_router
 from .agent_history import router as agent_history_router
 from .articles import public_router as articles_public_router, admin_router as articles_admin_router
 from .shared_cache import get_or_compute, get_cached_or_refresh_bg, get_cached_any, set_cached, is_stale, SCREENER_TTL, DASHBOARD_TTL, CRYPTO_TTL, RESEARCH_TTL, cache_stats
-from .usage import begin_usage_event, finish_usage_event
+from .usage import begin_usage_event, client_ip, finish_usage_event, get_db
 
 app = FastAPI(title="Stock Backtesting Dashboard API")
 app.include_router(terminal_router)
@@ -2152,6 +2152,347 @@ async def agent_health():
             return resp.json()
     except Exception:
         return {"status": "offline"}
+
+
+# --- Macro Overview ---
+MACRO_TTL = 60 * 60 * 4
+
+MACRO_MARKETS = {
+    "S&P 500": "^GSPC",
+    "Nasdaq": "^IXIC",
+    "VIX": "^VIX",
+    "Gold": "GC=F",
+    "Oil WTI": "CL=F",
+    "Copper": "HG=F",
+    "Bitcoin": "BTC-USD",
+    "USD Index": "DX-Y.NYB",
+    "US 10Y Yield": "^TNX",
+    "Long Treasury": "TLT",
+    "Real Estate": "VNQ",
+    "China Large Cap": "FXI",
+    "Canada": "EWC",
+}
+
+MACRO_FRED = {
+    "fed_funds": ("Fed Funds Rate", "FEDFUNDS"),
+    "unemployment": ("Unemployment Rate", "UNRATE"),
+    "job_openings": ("Job Openings", "JTSJOL"),
+    "cpi": ("CPI", "CPIAUCSL"),
+    "ten_year": ("10Y Treasury", "DGS10"),
+    "two_year": ("2Y Treasury", "DGS2"),
+    "federal_deficit": ("Federal Surplus/Deficit", "FYFSD"),
+}
+
+
+def _pct_change(series, days):
+    try:
+        if series is None or len(series) <= days:
+            return None
+        last = float(series.iloc[-1])
+        prev = float(series.iloc[-days - 1])
+        if not prev:
+            return None
+        return round((last / prev - 1) * 100, 2)
+    except Exception:
+        return None
+
+
+def _compact_history(df, points=90):
+    if df is None or len(df) == 0 or "close" not in df:
+        return []
+    step = max(1, int(len(df) / points))
+    sample = df.iloc[::step].tail(points)
+    out = []
+    for idx, row in sample.iterrows():
+        try:
+            value = float(row["close"])
+            out.append({"date": idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)[:10], "value": round(value, 4)})
+        except Exception:
+            continue
+    return out
+
+
+def _normalize_series(points):
+    if not points:
+        return []
+    base = next((p["value"] for p in points if p.get("value")), None)
+    if not base:
+        return points
+    return [{"date": p["date"], "value": round((float(p["value"]) / base) * 100, 2)} for p in points if p.get("value") is not None]
+
+
+def _fred_history(label, series_id, years=8):
+    try:
+        url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
+        df = pd.read_csv(url)
+        if df.empty or series_id not in df:
+            return None
+        df["DATE"] = pd.to_datetime(df["DATE"], errors="coerce")
+        df[series_id] = pd.to_numeric(df[series_id], errors="coerce")
+        df = df.dropna().tail(years * 12)
+        if df.empty:
+            return None
+        step = max(1, int(len(df) / 96))
+        points = [
+            {"date": row["DATE"].strftime("%Y-%m-%d"), "value": round(float(row[series_id]), 4)}
+            for _, row in df.iloc[::step].iterrows()
+        ]
+        return {"label": label, "series_id": series_id, "latest": points[-1]["value"] if points else None, "history": points}
+    except Exception:
+        return None
+
+
+def _treasury_debt_history():
+    try:
+        url = (
+            "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/"
+            "accounting/od/debt_to_penny?sort=-record_date&page[size]=180"
+        )
+        data = httpx.get(url, timeout=12.0).json().get("data", [])
+        rows = []
+        for item in reversed(data):
+            try:
+                rows.append({
+                    "date": str(item.get("record_date"))[:10],
+                    "value": round(float(item.get("tot_pub_debt_out_amt")) / 1_000_000_000_000, 2),
+                })
+            except Exception:
+                continue
+        if not rows:
+            return None
+        return {"label": "US Public Debt", "series_id": "TREASURY_DEBT", "latest": rows[-1]["value"], "history": rows[-96:]}
+    except Exception:
+        return None
+
+
+def _macro_signal(label, symbol, short_score, long_score, rationale):
+    avg = (short_score + long_score) / 2
+    if avg >= 62:
+        tone = "buy"
+    elif avg <= 38:
+        tone = "sell"
+    else:
+        tone = "hold"
+    def call(score):
+        return "Buy" if score >= 62 else "Sell" if score <= 38 else "Hold"
+    return {
+        "asset": label,
+        "symbol": symbol,
+        "tone": tone,
+        "score": round(avg, 0),
+        "short_term": call(short_score),
+        "long_term": call(long_score),
+        "rationale": rationale,
+    }
+
+
+def _macro_snapshot_compute():
+    from .cache import fetch_price_cached
+    import yfinance as yf
+
+    updated_at = pd.Timestamp.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    assets = {}
+    for name, symbol in MACRO_MARKETS.items():
+        try:
+            df = fetch_price_cached(symbol, period="2y", interval="1d")
+            if df is None or len(df) < 10:
+                continue
+            close = df["close"]
+            price = float(close.iloc[-1])
+            assets[name] = {
+                "name": name,
+                "symbol": symbol,
+                "price": round(price, 4),
+                "change_1m": _pct_change(close, 21),
+                "change_3m": _pct_change(close, 63),
+                "change_6m": _pct_change(close, 126),
+                "change_1y": _pct_change(close, 252),
+                "history": _compact_history(df),
+            }
+        except Exception:
+            continue
+
+    fred = {}
+    for key, (label, series_id) in MACRO_FRED.items():
+        item = _fred_history(label, series_id)
+        if item:
+            fred[key] = item
+    debt = _treasury_debt_history()
+    if debt:
+        fred["us_debt"] = debt
+
+    def ch(name, field="change_3m"):
+        value = assets.get(name, {}).get(field)
+        return float(value or 0)
+
+    def lvl(name):
+        return float(assets.get(name, {}).get("price") or 0)
+
+    vix = lvl("VIX")
+    ten_y = lvl("US 10Y Yield") / 10 if lvl("US 10Y Yield") > 20 else lvl("US 10Y Yield")
+    signals = [
+        _macro_signal("Gold", "GC=F", 58 + min(18, max(-18, -ch("USD Index") + ch("Gold") / 2)), 66, "Debt/rate uncertainty supports gold; a stronger dollar is the main drag."),
+        _macro_signal("USD", "DX-Y.NYB", 50 + min(22, max(-22, ch("USD Index"))), 45 if ten_y < 4 else 56, "Dollar direction is mainly rate-differential and risk-off driven."),
+        _macro_signal("Oil", "CL=F", 50 + min(25, max(-25, ch("Oil WTI"))), 48 + min(15, max(-15, ch("China Large Cap") / 2)), "Oil needs demand confirmation from China and global PMIs."),
+        _macro_signal("Real Estate", "VNQ", 55 - min(20, max(0, ten_y - 3.8) * 10) + ch("Real Estate") / 3, 60 if ten_y < 4.1 else 44, "Lower yields help real estate; high refinancing costs keep risk elevated."),
+        _macro_signal("Bitcoin", "BTC-USD", 50 + min(28, max(-28, ch("Bitcoin") / 2 - (vix - 18) / 2)), 58, "Crypto favors liquidity and risk appetite; volatility spikes can reverse it fast."),
+        _macro_signal("Long Treasuries", "TLT", 50 + min(24, max(-24, ch("Long Treasury"))), 62 if ten_y > 4.0 else 48, "Long bonds improve if growth cools or the Fed pivots."),
+        _macro_signal("US Equities", "^GSPC", 52 + min(25, max(-25, ch("S&P 500") / 2 - (vix - 18) / 3)), 55, "Trend is constructive when breadth holds and volatility stays contained."),
+        _macro_signal("China", "FXI", 50 + min(25, max(-25, ch("China Large Cap"))), 48 + min(15, max(-15, ch("Copper") / 2)), "China needs policy support plus improving commodities demand."),
+    ]
+
+    news = []
+    for symbol in ["^GSPC", "GC=F", "CL=F", "BTC-USD", "DX-Y.NYB", "FXI", "TLT"]:
+        try:
+            for item in (yf.Ticker(symbol).news or [])[:3]:
+                content = item.get("content", {}) if isinstance(item, dict) else {}
+                title = content.get("title") or item.get("title")
+                url = content.get("canonicalUrl", {}).get("url") if isinstance(content.get("canonicalUrl"), dict) else item.get("link")
+                publisher = content.get("provider", {}).get("displayName") if isinstance(content.get("provider"), dict) else item.get("publisher")
+                if title and title not in {n["title"] for n in news}:
+                    news.append({"symbol": symbol, "title": title, "publisher": publisher or "", "url": url or ""})
+        except Exception:
+            continue
+
+    charts = [
+        {
+            "id": "risk",
+            "title": "Risk Assets",
+            "series": [
+                {"key": "sp500", "label": "S&P 500", "color": "#2563eb", "data": _normalize_series(assets.get("S&P 500", {}).get("history", []))},
+                {"key": "nasdaq", "label": "Nasdaq", "color": "#7c3aed", "data": _normalize_series(assets.get("Nasdaq", {}).get("history", []))},
+                {"key": "bitcoin", "label": "Bitcoin", "color": "#f59e0b", "data": _normalize_series(assets.get("Bitcoin", {}).get("history", []))},
+            ],
+        },
+        {
+            "id": "hard_assets",
+            "title": "Hard Assets & Dollar",
+            "series": [
+                {"key": "gold", "label": "Gold", "color": "#ca8a04", "data": _normalize_series(assets.get("Gold", {}).get("history", []))},
+                {"key": "oil", "label": "Oil", "color": "#dc2626", "data": _normalize_series(assets.get("Oil WTI", {}).get("history", []))},
+                {"key": "usd", "label": "USD Index", "color": "#059669", "data": _normalize_series(assets.get("USD Index", {}).get("history", []))},
+            ],
+        },
+        {
+            "id": "rates_jobs",
+            "title": "Rates & Labor",
+            "series": [
+                {"key": "fed", "label": "Fed Funds", "color": "#2563eb", "data": fred.get("fed_funds", {}).get("history", [])},
+                {"key": "unemployment", "label": "Unemployment", "color": "#dc2626", "data": fred.get("unemployment", {}).get("history", [])},
+                {"key": "ten_year", "label": "10Y Treasury", "color": "#0891b2", "data": fred.get("ten_year", {}).get("history", [])},
+            ],
+        },
+        {
+            "id": "debt_jobs",
+            "title": "Deficit, Debt & Job Openings",
+            "series": [
+                {"key": "debt", "label": "US Debt, $T", "color": "#9333ea", "data": fred.get("us_debt", {}).get("history", [])},
+                {"key": "deficit", "label": "Surplus/Deficit", "color": "#dc2626", "data": fred.get("federal_deficit", {}).get("history", [])},
+                {"key": "jobs", "label": "Job Openings", "color": "#16a34a", "data": fred.get("job_openings", {}).get("history", [])},
+            ],
+        },
+    ]
+
+    return {
+        "updated_at": updated_at,
+        "assets": list(assets.values()),
+        "indicators": list(fred.values()),
+        "signals": signals,
+        "charts": charts,
+        "news": news[:12],
+    }
+
+
+def _fallback_macro_analysis(snapshot):
+    buys = [s for s in snapshot.get("signals", []) if s.get("tone") == "buy"][:3]
+    sells = [s for s in snapshot.get("signals", []) if s.get("tone") == "sell"][:2]
+    buy_text = ", ".join(f"{s['asset']} ({s['short_term']}/{s['long_term']})" for s in buys) or "selective risk assets"
+    sell_text = ", ".join(f"{s['asset']} ({s['short_term']}/{s['long_term']})" for s in sells) or "overextended assets"
+    return (
+        f"Macro setup favors {buy_text} while staying cautious on {sell_text}. "
+        "The dashboard is blending current market prices, rates, labor indicators, debt data, China exposure, commodities, crypto, and recent headlines.\n\n"
+        "- Watch yields and the dollar first; they drive gold, real estate, long bonds, and growth-stock duration.\n"
+        "- If VIX rises while equities weaken, reduce short-term risk exposure and favor defensive hedges.\n"
+        "- If oil and copper improve together, global growth and China-linked assets deserve a higher allocation.\n"
+        "- Recheck the calls after Fed data, CPI, payrolls, and major geopolitical headlines."
+    )
+
+
+async def _macro_agent_analysis(snapshot, ip):
+    today = pd.Timestamp.utcnow().strftime("%Y-%m-%d")
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT analysis, source, created_at FROM macro_daily_analysis WHERE date = ? AND ip = ?",
+            (today, ip or ""),
+        ).fetchone()
+        if row:
+            return {"text": row["analysis"], "source": row["source"], "cached": True, "date": today, "created_at": row["created_at"]}
+    finally:
+        conn.close()
+
+    compact = {
+        "updated_at": snapshot.get("updated_at"),
+        "signals": snapshot.get("signals", []),
+        "assets": [
+            {k: a.get(k) for k in ["name", "symbol", "price", "change_1m", "change_3m", "change_6m", "change_1y"]}
+            for a in snapshot.get("assets", [])
+        ],
+        "indicators": [
+            {"label": i.get("label"), "latest": i.get("latest"), "series_id": i.get("series_id")}
+            for i in snapshot.get("indicators", [])
+        ],
+        "news": snapshot.get("news", [])[:8],
+    }
+    prompt = (
+        "You are Equilima's macro allocation agent. Use only the live snapshot and recent headlines below. "
+        "Write 1-2 concise paragraphs followed by 4-6 practical bullets. "
+        "Be specific on short-term and long-term Buy/Hold/Sell calls for gold, oil, USD, real estate, crypto, treasuries, US equities, China, and Canada where relevant. "
+        "Avoid generic advice and disclaimers. Mention the key trigger that would change the view. "
+        f"Today is {today}. Snapshot JSON: {json.dumps(compact, default=str)}"
+    )
+    text = ""
+    source = "agent"
+    try:
+        async with httpx.AsyncClient(timeout=180.0) as client:
+            resp = await client.post(f"{AGENT_URL}/quick", json={"message": prompt, "ticker": "", "history": []})
+            if resp.is_success:
+                body = resp.json()
+                text = str(body.get("response") or body.get("message") or body.get("content") or "").strip()
+    except Exception as e:
+        print(f"[macro] Agent analysis failed: {e}")
+    if not text:
+        text = _fallback_macro_analysis(snapshot)
+        source = "fallback"
+
+    conn = get_db()
+    try:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO macro_daily_analysis (date, ip, analysis, source, created_at)
+            VALUES (?, ?, ?, ?, datetime('now'))
+            """,
+            (today, ip or "", text, source),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT created_at FROM macro_daily_analysis WHERE date = ? AND ip = ?",
+            (today, ip or ""),
+        ).fetchone()
+        created_at = row["created_at"] if row else None
+    finally:
+        conn.close()
+    return {"text": text, "source": source, "cached": False, "date": today, "created_at": created_at}
+
+
+@app.get("/api/macro")
+async def macro_overview(request: Request):
+    event_id, _usage = begin_usage_event(request, "macro", section="overview", action="load")
+    snapshot = get_or_compute("macro_snapshot_v1", MACRO_TTL, _macro_snapshot_compute)
+    analysis = await _macro_agent_analysis(snapshot, client_ip(request))
+    out = {**snapshot, "analysis": analysis}
+    finish_usage_event(event_id, {"signals": len(snapshot.get("signals", [])), "analysis_cached": analysis.get("cached")})
+    return out
 
 
 # ─── Static file serving for production ───

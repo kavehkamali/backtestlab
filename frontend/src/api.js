@@ -695,6 +695,12 @@ export async function fetchMarketOverview() {
   return res.json();
 }
 
+export async function fetchMacroOverview() {
+  const res = await fetch(`${BASE}/macro`, { cache: 'no-store', headers: { ...authHeaders() } });
+  if (!res.ok) throw new Error(await parseApiError(res, 'Failed to fetch macro data'));
+  return res.json();
+}
+
 export async function fetchCrypto() {
   const res = await fetch(`${BASE}/crypto`, { headers: { ...authHeaders() } });
   if (!res.ok) throw new Error(await parseApiError(res, 'Failed to fetch crypto data'));

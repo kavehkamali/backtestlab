@@ -8,6 +8,7 @@ import AuthModal from './components/AuthModal';
 import AdminPanel from './components/AdminPanel';
 import AgentPanel from './components/AgentPanel';
 import AiPicksPanel from './components/AiPicksPanel';
+import MacroPanel from './components/MacroPanel';
 import ConsentBanner from './components/ConsentBanner';
 import AccountPanel from './components/AccountPanel';
 import LearnLayout from './components/LearnLayout';
@@ -308,6 +309,9 @@ function App() {
               user={user}
               dek={agentDek}
             />
+          </div>
+          <div className={activeTab === 'macro' ? '' : 'hidden'}>
+            <MacroPanel />
           </div>
           <div className={activeTab === 'markets' ? '' : 'hidden'}>
             <DashboardPanel />
