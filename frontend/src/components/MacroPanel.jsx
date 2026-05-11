@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, AlertTriangle, Brain, Loader2, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
+import { Activity, AlertTriangle, Brain, ChevronDown, Loader2, RefreshCw, SlidersHorizontal, TrendingDown, TrendingUp } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -19,12 +19,6 @@ function fmt(value, suffix = '') {
   const n = Number(value);
   if (Math.abs(n) >= 1000) return `${n.toLocaleString('en-US', { maximumFractionDigits: 1 })}${suffix}`;
   return `${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}${suffix}`;
-}
-
-function changeClass(value) {
-  if (value > 0) return 'text-emerald-600 dark:text-emerald-400';
-  if (value < 0) return 'text-red-600 dark:text-red-400';
-  return 'text-zinc-500 dark:text-zinc-400';
 }
 
 function callToneKey(value) {
@@ -155,7 +149,7 @@ function MacroBarChart({ chart }) {
     <div className="rounded-lg border border-zinc-200/70 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/75">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{chart.title}</h3>
-        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">3M % change</span>
+        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{chart.subtitle || '3M % change'}</span>
       </div>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
@@ -227,26 +221,97 @@ function AnalysisText({ text }) {
   );
 }
 
-function AssetStrip({ assets }) {
-  const visible = (assets || []).slice(0, 10);
+const DEFAULT_CHARTS = ['risk', 'hard_assets', 'rates_jobs', 'debt_jobs', 'labor', 'momentum'];
+
+function ChartMenu({ charts, selected, onToggle, onReset }) {
+  const [open, setOpen] = useState(false);
+  const groups = useMemo(() => {
+    const bucket = {
+      Core: [],
+      Rates: [],
+      Housing: [],
+      Global: [],
+      Commodities: [],
+    };
+    for (const chart of charts || []) {
+      const title = `${chart.title || ''} ${chart.id || ''}`.toLowerCase();
+      if (title.includes('rate') || title.includes('fed') || title.includes('bond') || title.includes('yield')) bucket.Rates.push(chart);
+      else if (title.includes('estate') || title.includes('housing') || title.includes('fixed') || title.includes('variable')) bucket.Housing.push(chart);
+      else if (title.includes('gdp') || title.includes('global') || title.includes('china') || title.includes('canada') || title.includes('world')) bucket.Global.push(chart);
+      else if (title.includes('oil') || title.includes('commodity') || title.includes('gold') || title.includes('crypto') || title.includes('metal')) bucket.Commodities.push(chart);
+      else bucket.Core.push(chart);
+    }
+    return Object.entries(bucket).filter(([, items]) => items.length);
+  }, [charts]);
+
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-      {visible.map((a) => (
-        <div key={a.symbol} className="rounded-lg border border-zinc-200/70 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/75">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="truncate text-xs font-semibold text-zinc-900 dark:text-zinc-100">{a.name}</div>
-              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">{a.symbol}</div>
-            </div>
-            <div className="text-right">
-              <div className="text-xs font-mono text-zinc-700 dark:text-zinc-200">{fmt(a.price)}</div>
-              <div className={`text-[11px] font-semibold ${changeClass(a.change_3m)}`}>
-                {a.change_3m > 0 ? '+' : ''}{fmt(a.change_3m, '%')}
+    <div className="rounded-lg border border-zinc-200/70 bg-white dark:border-zinc-800 dark:bg-zinc-900/75">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+      >
+        <span className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          <SlidersHorizontal className="h-4 w-4 text-indigo-500" />
+          Macro chart menu
+          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] text-indigo-700 ring-1 ring-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-200 dark:ring-indigo-900">
+            {selected.length} selected
+          </span>
+        </span>
+        <ChevronDown className={`h-4 w-4 text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="border-t border-zinc-200/70 p-4 dark:border-zinc-800">
+          <div className="mb-3 flex flex-wrap gap-2">
+            <button type="button" onClick={onReset} className="rounded-md bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700">
+              Default
+            </button>
+            <button
+              type="button"
+              onClick={() => charts.forEach((chart) => { if (!selected.includes(chart.id)) onToggle(chart.id); })}
+              className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-200"
+            >
+              Select all
+            </button>
+            <button
+              type="button"
+              onClick={() => selected.forEach((id) => onToggle(id))}
+              className="rounded-md bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-200"
+            >
+              Clear
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {groups.map(([group, items]) => (
+              <div key={group}>
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{group}</div>
+                <div className="space-y-1.5">
+                  {items.map((chart) => {
+                    const checked = selected.includes(chart.id);
+                    return (
+                      <label key={chart.id} className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs ring-1 transition ${
+                        checked
+                          ? 'bg-indigo-50 text-indigo-800 ring-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-100 dark:ring-indigo-900'
+                          : 'bg-zinc-50 text-zinc-600 ring-zinc-100 hover:bg-zinc-100 dark:bg-zinc-950 dark:text-zinc-300 dark:ring-zinc-800 dark:hover:bg-zinc-800'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          className="h-3.5 w-3.5 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                          checked={checked}
+                          onChange={() => onToggle(chart.id)}
+                        />
+                        <span className="truncate">{chart.title}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            ))}
           </div>
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -255,6 +320,14 @@ export default function MacroPanel() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedCharts, setSelectedCharts] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('eq_macro_charts_v1') || 'null');
+      return Array.isArray(saved) && saved.length ? saved : DEFAULT_CHARTS;
+    } catch {
+      return DEFAULT_CHARTS;
+    }
+  });
 
   const load = () => {
     setLoading(true);
@@ -268,6 +341,12 @@ export default function MacroPanel() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('eq_macro_charts_v1', JSON.stringify(selectedCharts));
+    } catch {}
+  }, [selectedCharts]);
 
   if (loading) {
     return (
@@ -294,6 +373,14 @@ export default function MacroPanel() {
   }
 
   if (!data) return null;
+  const charts = data.charts || [];
+  const visibleCharts = charts.filter((chart) => selectedCharts.includes(chart.id));
+  const toggleChart = (id) => {
+    setSelectedCharts((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      return [...prev, id];
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -314,10 +401,15 @@ export default function MacroPanel() {
         {(data.signals || []).map((item) => <SignalCard key={item.asset} item={item} />)}
       </div>
 
-      <AssetStrip assets={data.assets} />
+      <ChartMenu
+        charts={charts}
+        selected={selectedCharts}
+        onToggle={toggleChart}
+        onReset={() => setSelectedCharts(DEFAULT_CHARTS)}
+      />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {(data.charts || []).map((chart) => (
+        {visibleCharts.map((chart) => (
           chart.type === 'bar' ? <MacroBarChart key={chart.id} chart={chart} /> : <MacroChart key={chart.id} chart={chart} />
         ))}
       </div>

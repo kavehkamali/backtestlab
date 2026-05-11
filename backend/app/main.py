@@ -2169,8 +2169,18 @@ MACRO_MARKETS = {
     "US 10Y Yield": "^TNX",
     "Long Treasury": "TLT",
     "Real Estate": "VNQ",
+    "Homebuilders": "XHB",
+    "Canada Real Estate": "XRE.TO",
     "China Large Cap": "FXI",
     "Canada": "EWC",
+    "TSX Composite": "^GSPTSE",
+    "USD/CAD": "CAD=X",
+    "Energy Sector": "XLE",
+    "Silver": "SI=F",
+    "Ethereum": "ETH-USD",
+    "Europe": "FEZ",
+    "Japan": "EWJ",
+    "Emerging Markets": "EEM",
 }
 
 MACRO_FRED = {
@@ -2181,6 +2191,8 @@ MACRO_FRED = {
     "ten_year": ("10Y Treasury", "DGS10"),
     "two_year": ("2Y Treasury", "DGS2"),
     "federal_deficit": ("Federal Surplus/Deficit", "FYFSD"),
+    "canada_short_rate": ("Canada Short Rate", "IR3TIB01CAM156N"),
+    "canada_long_rate": ("Canada Long Rate", "IRLTLT01CAM156N"),
 }
 
 
@@ -2281,6 +2293,43 @@ def _treasury_debt_history():
         return None
 
 
+def _worldbank_series(indicator, countries, years=12):
+    out = []
+    for label, code, color in countries:
+        try:
+            url = f"https://api.worldbank.org/v2/country/{code}/indicator/{indicator}?format=json&per_page=80"
+            payload = httpx.get(url, timeout=12.0).json()
+            rows = payload[1] if isinstance(payload, list) and len(payload) > 1 else []
+            points = []
+            for row in rows:
+                value = row.get("value")
+                year = row.get("date")
+                if value is None or not year:
+                    continue
+                points.append({"date": f"{year}-01-01", "value": round(float(value), 4)})
+            points = sorted(points, key=lambda x: x["date"])[-years:]
+            if points:
+                out.append({"key": code.lower().replace(".", "_"), "label": label, "color": color, "data": points})
+        except Exception:
+            continue
+    return out
+
+
+def _worldbank_latest_bars(indicator, countries):
+    bars = []
+    for label, code, color in countries:
+        try:
+            url = f"https://api.worldbank.org/v2/country/{code}/indicator/{indicator}?format=json&per_page=20"
+            payload = httpx.get(url, timeout=12.0).json()
+            rows = payload[1] if isinstance(payload, list) and len(payload) > 1 else []
+            latest = next((row for row in rows if row.get("value") is not None), None)
+            if latest:
+                bars.append({"label": label, "value": round(float(latest["value"]), 2), "color": color})
+        except Exception:
+            continue
+    return bars
+
+
 def _macro_signal(label, symbol, short_score, long_score, rationale):
     avg = (short_score + long_score) / 2
     if avg >= 62:
@@ -2370,49 +2419,74 @@ def _macro_snapshot_compute():
         except Exception:
             continue
 
+    countries = [
+        ("US", "USA", "#2563eb"),
+        ("China", "CHN", "#dc2626"),
+        ("Canada", "CAN", "#16a34a"),
+        ("Euro Area", "EMU", "#7c3aed"),
+        ("Japan", "JPN", "#f59e0b"),
+        ("Mexico", "MEX", "#0891b2"),
+        ("India", "IND", "#9333ea"),
+        ("Brazil", "BRA", "#84cc16"),
+    ]
+
+    def a(name, key=None, color="#2563eb", normalized=True):
+        points = assets.get(name, {}).get("history", [])
+        return {"key": key or re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_"), "label": name, "color": color, "data": _normalize_series(points) if normalized else points}
+
+    def f(key, label=None, color="#2563eb", normalized=False, abs_values=False):
+        points = fred.get(key, {}).get("history", [])
+        if abs_values:
+            data = _normalize_abs_series(points)
+        elif normalized:
+            data = _normalize_series(points)
+        else:
+            data = points
+        return {"key": key, "label": label or fred.get(key, {}).get("label") or key, "color": color, "data": data}
+
     charts = [
         {
             "id": "risk",
             "title": "Risk Assets",
             "series": [
-                {"key": "sp500", "label": "S&P 500", "color": "#2563eb", "data": _normalize_series(assets.get("S&P 500", {}).get("history", []))},
-                {"key": "nasdaq", "label": "Nasdaq", "color": "#7c3aed", "data": _normalize_series(assets.get("Nasdaq", {}).get("history", []))},
-                {"key": "bitcoin", "label": "Bitcoin", "color": "#f59e0b", "data": _normalize_series(assets.get("Bitcoin", {}).get("history", []))},
-                {"key": "usd", "label": "USD Index", "color": "#059669", "data": _normalize_series(assets.get("USD Index", {}).get("history", []))},
+                a("S&P 500", "sp500", "#2563eb"),
+                a("Nasdaq", "nasdaq", "#7c3aed"),
+                a("Bitcoin", "bitcoin", "#f59e0b"),
+                a("USD Index", "usd", "#059669"),
             ],
         },
         {
             "id": "hard_assets",
             "title": "Hard Assets & Dollar",
             "series": [
-                {"key": "gold", "label": "Gold", "color": "#ca8a04", "data": _normalize_series(assets.get("Gold", {}).get("history", []))},
-                {"key": "oil", "label": "Oil", "color": "#dc2626", "data": _normalize_series(assets.get("Oil WTI", {}).get("history", []))},
-                {"key": "usd", "label": "USD Index", "color": "#059669", "data": _normalize_series(assets.get("USD Index", {}).get("history", []))},
+                a("Gold", "gold", "#ca8a04"),
+                a("Oil WTI", "oil", "#dc2626"),
+                a("USD Index", "usd", "#059669"),
             ],
         },
         {
             "id": "rates_jobs",
             "title": "Rates & Labor",
             "series": [
-                {"key": "fed", "label": "Fed Funds", "color": "#2563eb", "data": fred.get("fed_funds", {}).get("history", [])},
-                {"key": "unemployment", "label": "Unemployment", "color": "#dc2626", "data": fred.get("unemployment", {}).get("history", [])},
-                {"key": "ten_year", "label": "10Y Treasury", "color": "#0891b2", "data": fred.get("ten_year", {}).get("history", [])},
+                f("fed_funds", "Fed Funds", "#2563eb"),
+                f("unemployment", "Unemployment", "#dc2626"),
+                f("ten_year", "10Y Treasury", "#0891b2"),
             ],
         },
         {
             "id": "debt_jobs",
             "title": "Fiscal Pressure (Indexed, Start = 100)",
             "series": [
-                {"key": "debt", "label": "US Debt", "color": "#9333ea", "data": _normalize_series(fred.get("us_debt", {}).get("history", []))},
-                {"key": "deficit", "label": "Deficit pressure", "color": "#dc2626", "data": _normalize_abs_series(fred.get("federal_deficit", {}).get("history", []))},
+                f("us_debt", "US Debt", "#9333ea", normalized=True),
+                f("federal_deficit", "Deficit pressure", "#dc2626", abs_values=True),
             ],
         },
         {
             "id": "labor",
             "title": "Labor Market (Indexed, Start = 100)",
             "series": [
-                {"key": "jobs", "label": "Job Openings", "color": "#16a34a", "data": _normalize_series(fred.get("job_openings", {}).get("history", []))},
-                {"key": "unemployment", "label": "Unemployment", "color": "#dc2626", "data": _normalize_series(fred.get("unemployment", {}).get("history", []))},
+                f("job_openings", "Job Openings", "#16a34a", normalized=True),
+                f("unemployment", "Unemployment", "#dc2626", normalized=True),
             ],
         },
         {
@@ -2430,6 +2504,28 @@ def _macro_snapshot_compute():
                 {"label": "Treasury", "value": ch("Long Treasury"), "color": "#94a3b8"},
             ],
         },
+        {"id": "us_curve", "title": "US Rates Curve", "series": [f("fed_funds", "Fed Funds", "#2563eb"), f("two_year", "2Y Treasury", "#7c3aed"), f("ten_year", "10Y Treasury", "#0891b2")]},
+        {"id": "inflation_policy", "title": "Inflation & Fed Policy (Indexed, Start = 100)", "series": [f("cpi", "CPI", "#f97316", normalized=True), f("fed_funds", "Fed Funds", "#2563eb", normalized=True)]},
+        {"id": "us_real_estate", "title": "US Real Estate & Rates (Indexed, Start = 100)", "series": [a("Real Estate", "vnq", "#16a34a"), a("Homebuilders", "xhb", "#0ea5e9"), f("ten_year", "10Y Treasury", "#dc2626", normalized=True)]},
+        {"id": "us_fixed_variable_proxy", "title": "US Fixed vs Variable Rate Proxy", "series": [f("ten_year", "Fixed proxy: 10Y", "#0891b2"), f("fed_funds", "Variable proxy: Fed Funds", "#dc2626")]},
+        {"id": "canada_rates", "title": "Canada Rates & Housing (Indexed, Start = 100)", "series": [f("canada_short_rate", "Canada short rate", "#dc2626", normalized=True), f("canada_long_rate", "Canada long rate", "#2563eb", normalized=True), a("Canada Real Estate", "xre", "#16a34a")]},
+        {"id": "canada_fixed_variable_proxy", "title": "Canada Fixed vs Variable Rate Proxy", "series": [f("canada_long_rate", "Fixed proxy: long rate", "#2563eb"), f("canada_short_rate", "Variable proxy: short rate", "#dc2626")]},
+        {"id": "canada_macro", "title": "Canada Macro & CAD (Indexed, Start = 100)", "series": [a("Canada", "ewc", "#16a34a"), a("TSX Composite", "tsx", "#2563eb"), a("USD/CAD", "usdcad", "#f59e0b")]},
+        {"id": "global_equity", "title": "Global Equity Markets (Indexed, Start = 100)", "series": [a("S&P 500", "sp500", "#2563eb"), a("Canada", "canada", "#16a34a"), a("China Large Cap", "china", "#dc2626"), a("Europe", "europe", "#7c3aed"), a("Japan", "japan", "#f59e0b"), a("Emerging Markets", "em", "#0891b2")]},
+        {"id": "commodities_demand", "title": "Commodities Demand (Indexed, Start = 100)", "series": [a("Copper", "copper", "#b45309"), a("Oil WTI", "oil", "#dc2626"), a("Gold", "gold", "#ca8a04"), a("Energy Sector", "energy", "#16a34a")]},
+        {"id": "precious_metals", "title": "Precious Metals (Indexed, Start = 100)", "series": [a("Gold", "gold", "#ca8a04"), a("Silver", "silver", "#94a3b8"), a("Copper", "copper", "#b45309")]},
+        {"id": "crypto_liquidity", "title": "Crypto & Liquidity (Indexed, Start = 100)", "series": [a("Bitcoin", "btc", "#f59e0b"), a("Ethereum", "eth", "#7c3aed"), a("USD Index", "usd", "#059669"), f("fed_funds", "Fed Funds", "#dc2626", normalized=True)]},
+        {"id": "bonds", "title": "Bonds & Yields (Indexed, Start = 100)", "series": [a("Long Treasury", "tlt", "#2563eb"), f("ten_year", "10Y Treasury", "#dc2626", normalized=True), f("two_year", "2Y Treasury", "#f59e0b", normalized=True)]},
+        {"id": "risk_volatility", "title": "Risk vs Volatility (Indexed, Start = 100)", "series": [a("S&P 500", "sp500", "#2563eb"), a("Nasdaq", "nasdaq", "#7c3aed"), a("VIX", "vix", "#dc2626")]},
+        {"id": "china_macro", "title": "China & Commodities (Indexed, Start = 100)", "series": [a("China Large Cap", "china", "#dc2626"), a("Copper", "copper", "#b45309"), a("Oil WTI", "oil", "#f97316"), a("Emerging Markets", "em", "#0891b2")]},
+        {"id": "world_gdp", "title": "World GDP (Indexed, Start = 100)", "series": [{"key": s["key"], "label": s["label"], "color": s["color"], "data": _normalize_series(s["data"])} for s in _worldbank_series("NY.GDP.MKTP.CD", countries[:6])]},
+        {"id": "gdp_growth", "title": "GDP Growth", "series": _worldbank_series("NY.GDP.MKTP.KD.ZG", countries[:6])},
+        {"id": "north_america_gdp", "title": "North America GDP Growth", "series": _worldbank_series("NY.GDP.MKTP.KD.ZG", [countries[0], countries[2], countries[5]])},
+        {"id": "oil_exposure", "type": "bar", "title": "Oil Reserves / Exposure Proxy", "subtitle": "Latest oil rents as % of GDP", "bars": _worldbank_latest_bars("NY.GDP.PETR.RT.ZS", [("US", "USA", "#2563eb"), ("Canada", "CAN", "#16a34a"), ("Saudi", "SAU", "#f59e0b"), ("UAE", "ARE", "#38bdf8"), ("Norway", "NOR", "#7c3aed"), ("Brazil", "BRA", "#84cc16"), ("Mexico", "MEX", "#0891b2")])},
+    ]
+    charts = [
+        c for c in charts
+        if (c.get("type") == "bar" and c.get("bars")) or any(s.get("data") for s in c.get("series", []))
     ]
 
     return {
@@ -2527,7 +2623,7 @@ async def _macro_agent_analysis(snapshot, ip):
 @app.get("/api/macro")
 async def macro_overview(request: Request):
     event_id, _usage = begin_usage_event(request, "macro", section="overview", action="load")
-    snapshot = get_or_compute("macro_snapshot_v3", MACRO_TTL, _macro_snapshot_compute)
+    snapshot = get_or_compute("macro_snapshot_v4", MACRO_TTL, _macro_snapshot_compute)
     analysis = await _macro_agent_analysis(snapshot, client_ip(request))
     out = {**snapshot, "analysis": analysis}
     finish_usage_event(event_id, {"signals": len(snapshot.get("signals", [])), "analysis_cached": analysis.get("cached")})
