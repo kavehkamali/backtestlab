@@ -27,6 +27,12 @@ function changeClass(value) {
   return 'text-zinc-500 dark:text-zinc-400';
 }
 
+function callToneKey(value) {
+  const v = String(value || '').toLowerCase();
+  if (v === 'buy' || v === 'sell') return v;
+  return 'hold';
+}
+
 function signalStyle(tone) {
   if (tone === 'buy') return 'border-emerald-200/90 bg-gradient-to-br from-emerald-50 to-teal-50 text-emerald-950 dark:border-emerald-900/60 dark:from-emerald-950/45 dark:to-teal-950/25 dark:text-emerald-100';
   if (tone === 'sell') return 'border-rose-200/90 bg-gradient-to-br from-rose-50 to-orange-50 text-rose-950 dark:border-rose-900/60 dark:from-rose-950/45 dark:to-orange-950/25 dark:text-rose-100';
@@ -34,16 +40,17 @@ function signalStyle(tone) {
 }
 
 function callToneClass(value) {
-  const v = String(value || '').toLowerCase();
+  const v = callToneKey(value);
   if (v === 'buy') return 'bg-emerald-100 text-emerald-800 ring-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-100 dark:ring-emerald-800';
   if (v === 'sell') return 'bg-rose-100 text-rose-800 ring-rose-200 dark:bg-rose-900/50 dark:text-rose-100 dark:ring-rose-800';
   return 'bg-amber-100 text-amber-800 ring-amber-200 dark:bg-amber-900/50 dark:text-amber-100 dark:ring-amber-800';
 }
 
 function SignalCard({ item }) {
-  const Icon = item.tone === 'sell' ? TrendingDown : item.tone === 'buy' ? TrendingUp : Activity;
+  const shortTone = callToneKey(item.short_term);
+  const Icon = shortTone === 'sell' ? TrendingDown : shortTone === 'buy' ? TrendingUp : Activity;
   return (
-    <div className={`rounded-lg border p-3 ${signalStyle(item.tone)}`}>
+    <div className={`rounded-lg border p-3 ${signalStyle(shortTone)}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] uppercase tracking-wide opacity-70">{item.symbol}</div>
