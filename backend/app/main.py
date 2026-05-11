@@ -2221,20 +2221,36 @@ def _normalize_series(points):
     return [{"date": p["date"], "value": round((float(p["value"]) / base) * 100, 2)} for p in points if p.get("value") is not None]
 
 
+def _normalize_abs_series(points):
+    if not points:
+        return []
+    base = next((abs(float(p["value"])) for p in points if p.get("value") not in (None, 0)), None)
+    if not base:
+        return points
+    return [
+        {"date": p["date"], "value": round((abs(float(p["value"])) / base) * 100, 2)}
+        for p in points
+        if p.get("value") is not None
+    ]
+
+
 def _fred_history(label, series_id, years=8):
     try:
         url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}"
         df = pd.read_csv(url)
         if df.empty or series_id not in df:
             return None
-        df["DATE"] = pd.to_datetime(df["DATE"], errors="coerce")
+        date_col = "DATE" if "DATE" in df.columns else "observation_date"
+        if date_col not in df.columns:
+            return None
+        df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
         df[series_id] = pd.to_numeric(df[series_id], errors="coerce")
         df = df.dropna().tail(years * 12)
         if df.empty:
             return None
         step = max(1, int(len(df) / 96))
         points = [
-            {"date": row["DATE"].strftime("%Y-%m-%d"), "value": round(float(row[series_id]), 4)}
+            {"date": row[date_col].strftime("%Y-%m-%d"), "value": round(float(row[series_id]), 4)}
             for _, row in df.iloc[::step].iterrows()
         ]
         return {"label": label, "series_id": series_id, "latest": points[-1]["value"] if points else None, "history": points}
@@ -2362,6 +2378,7 @@ def _macro_snapshot_compute():
                 {"key": "sp500", "label": "S&P 500", "color": "#2563eb", "data": _normalize_series(assets.get("S&P 500", {}).get("history", []))},
                 {"key": "nasdaq", "label": "Nasdaq", "color": "#7c3aed", "data": _normalize_series(assets.get("Nasdaq", {}).get("history", []))},
                 {"key": "bitcoin", "label": "Bitcoin", "color": "#f59e0b", "data": _normalize_series(assets.get("Bitcoin", {}).get("history", []))},
+                {"key": "usd", "label": "USD Index", "color": "#059669", "data": _normalize_series(assets.get("USD Index", {}).get("history", []))},
             ],
         },
         {
@@ -2384,11 +2401,33 @@ def _macro_snapshot_compute():
         },
         {
             "id": "debt_jobs",
-            "title": "Deficit, Debt & Job Openings",
+            "title": "Fiscal Pressure (Indexed, Start = 100)",
             "series": [
-                {"key": "debt", "label": "US Debt, $T", "color": "#9333ea", "data": fred.get("us_debt", {}).get("history", [])},
-                {"key": "deficit", "label": "Surplus/Deficit", "color": "#dc2626", "data": fred.get("federal_deficit", {}).get("history", [])},
-                {"key": "jobs", "label": "Job Openings", "color": "#16a34a", "data": fred.get("job_openings", {}).get("history", [])},
+                {"key": "debt", "label": "US Debt", "color": "#9333ea", "data": _normalize_series(fred.get("us_debt", {}).get("history", []))},
+                {"key": "deficit", "label": "Deficit pressure", "color": "#dc2626", "data": _normalize_abs_series(fred.get("federal_deficit", {}).get("history", []))},
+            ],
+        },
+        {
+            "id": "labor",
+            "title": "Labor Market (Indexed, Start = 100)",
+            "series": [
+                {"key": "jobs", "label": "Job Openings", "color": "#16a34a", "data": _normalize_series(fred.get("job_openings", {}).get("history", []))},
+                {"key": "unemployment", "label": "Unemployment", "color": "#dc2626", "data": _normalize_series(fred.get("unemployment", {}).get("history", []))},
+            ],
+        },
+        {
+            "id": "momentum",
+            "type": "bar",
+            "title": "3M Macro Momentum",
+            "bars": [
+                {"label": "S&P 500", "value": ch("S&P 500"), "color": "#60a5fa"},
+                {"label": "Gold", "value": ch("Gold"), "color": "#fbbf24"},
+                {"label": "Oil", "value": ch("Oil WTI"), "color": "#fb7185"},
+                {"label": "Bitcoin", "value": ch("Bitcoin"), "color": "#f59e0b"},
+                {"label": "USD", "value": ch("USD Index"), "color": "#34d399"},
+                {"label": "Real Estate", "value": ch("Real Estate"), "color": "#a78bfa"},
+                {"label": "China", "value": ch("China Large Cap"), "color": "#38bdf8"},
+                {"label": "Treasury", "value": ch("Long Treasury"), "color": "#94a3b8"},
             ],
         },
     ]
@@ -2488,7 +2527,7 @@ async def _macro_agent_analysis(snapshot, ip):
 @app.get("/api/macro")
 async def macro_overview(request: Request):
     event_id, _usage = begin_usage_event(request, "macro", section="overview", action="load")
-    snapshot = get_or_compute("macro_snapshot_v1", MACRO_TTL, _macro_snapshot_compute)
+    snapshot = get_or_compute("macro_snapshot_v3", MACRO_TTL, _macro_snapshot_compute)
     analysis = await _macro_agent_analysis(snapshot, client_ip(request))
     out = {**snapshot, "analysis": analysis}
     finish_usage_event(event_id, {"signals": len(snapshot.get("signals", [])), "analysis_cached": analysis.get("cached")})

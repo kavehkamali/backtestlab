@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, Brain, Loader2, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
+  Cell,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -25,9 +28,16 @@ function changeClass(value) {
 }
 
 function signalStyle(tone) {
-  if (tone === 'buy') return 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/35 dark:text-emerald-100';
-  if (tone === 'sell') return 'border-red-200 bg-red-50 text-red-900 dark:border-red-900/60 dark:bg-red-950/35 dark:text-red-100';
-  return 'border-zinc-200 bg-zinc-50 text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/70 dark:text-zinc-100';
+  if (tone === 'buy') return 'border-emerald-200/90 bg-gradient-to-br from-emerald-50 to-teal-50 text-emerald-950 dark:border-emerald-900/60 dark:from-emerald-950/45 dark:to-teal-950/25 dark:text-emerald-100';
+  if (tone === 'sell') return 'border-rose-200/90 bg-gradient-to-br from-rose-50 to-orange-50 text-rose-950 dark:border-rose-900/60 dark:from-rose-950/45 dark:to-orange-950/25 dark:text-rose-100';
+  return 'border-amber-200/90 bg-gradient-to-br from-amber-50 to-stone-50 text-amber-950 dark:border-amber-900/60 dark:from-amber-950/35 dark:to-zinc-900/80 dark:text-amber-100';
+}
+
+function callToneClass(value) {
+  const v = String(value || '').toLowerCase();
+  if (v === 'buy') return 'bg-emerald-100 text-emerald-800 ring-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-100 dark:ring-emerald-800';
+  if (v === 'sell') return 'bg-rose-100 text-rose-800 ring-rose-200 dark:bg-rose-900/50 dark:text-rose-100 dark:ring-rose-800';
+  return 'bg-amber-100 text-amber-800 ring-amber-200 dark:bg-amber-900/50 dark:text-amber-100 dark:ring-amber-800';
 }
 
 function SignalCard({ item }) {
@@ -44,11 +54,11 @@ function SignalCard({ item }) {
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
         <div>
           <div className="opacity-60">Short</div>
-          <div className="font-semibold">{item.short_term}</div>
+          <div className={`mt-1 inline-flex rounded-full px-2 py-0.5 font-semibold ring-1 ${callToneClass(item.short_term)}`}>{item.short_term}</div>
         </div>
         <div>
           <div className="opacity-60">Long</div>
-          <div className="font-semibold">{item.long_term}</div>
+          <div className={`mt-1 inline-flex rounded-full px-2 py-0.5 font-semibold ring-1 ${callToneClass(item.long_term)}`}>{item.long_term}</div>
         </div>
       </div>
       <div className="mt-2 text-[11px] leading-snug opacity-75">{item.rationale}</div>
@@ -75,7 +85,12 @@ function MacroChart({ chart }) {
   return (
     <div className="rounded-lg border border-zinc-200/70 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/75">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{chart.title}</h3>
+        <div>
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{chart.title}</h3>
+          {chart.title?.includes('Indexed') && (
+            <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">Each line starts at 100 so the trend is comparable.</p>
+          )}
+        </div>
         <div className="flex flex-wrap gap-3">
           {(chart.series || []).map((s) => (
             <span key={s.key} className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -126,20 +141,79 @@ function MacroChart({ chart }) {
   );
 }
 
+function MacroBarChart({ chart }) {
+  const rows = (chart.bars || []).filter((row) => row.value != null);
+  if (!rows.length) return null;
+  return (
+    <div className="rounded-lg border border-zinc-200/70 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/75">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{chart.title}</h3>
+        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">3M % change</span>
+      </div>
+      <div className="h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={rows} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" />
+            <XAxis
+              dataKey="label"
+              interval={0}
+              tick={{ fontSize: 10, fill: 'currentColor' }}
+              className="text-zinc-500 dark:text-zinc-400"
+            />
+            <YAxis
+              width={44}
+              tick={{ fontSize: 11, fill: 'currentColor' }}
+              className="text-zinc-500 dark:text-zinc-400"
+            />
+            <Tooltip
+              contentStyle={{
+                borderRadius: 8,
+                border: '1px solid rgba(113,113,122,.25)',
+                boxShadow: '0 12px 30px rgba(0,0,0,.12)',
+              }}
+              formatter={(value) => [`${Number(value).toFixed(2)}%`, '3M']}
+            />
+            <Bar dataKey="value" radius={[5, 5, 0, 0]}>
+              {rows.map((entry) => (
+                <Cell key={entry.label} fill={entry.value >= 0 ? entry.color : '#fb7185'} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function InlineText({ text }) {
+  const parts = String(text || '').split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={idx} className="font-semibold text-zinc-900 dark:text-zinc-100">{part.slice(2, -2)}</strong>;
+    }
+    return <span key={idx}>{part.replace(/\*/g, '')}</span>;
+  });
+}
+
 function AnalysisText({ text }) {
   const lines = String(text || '').split(/\n+/).map((x) => x.trim()).filter(Boolean);
   return (
     <div className="space-y-3 text-sm leading-6 text-zinc-700 dark:text-zinc-200">
       {lines.map((line, idx) => {
-        const isBullet = /^[-\u2022*]\s+/.test(line);
-        const clean = line.replace(/^[-\u2022*]\s+/, '');
+        const heading = line.replace(/^#{1,4}\s*/, '').replace(/\*\*/g, '');
+        const isHeading = /^#{1,4}\s+/.test(line) || (/^[A-Z][A-Za-z /&-]{2,}:$/.test(heading) && heading.length < 48);
+        const isBullet = /^([-+\u2022*]|\d+\.)\s+/.test(line);
+        const clean = line.replace(/^([-+\u2022*]|\d+\.)\s+/, '').replace(/^#{1,4}\s*/, '');
+        if (isHeading) {
+          return <h4 key={idx} className="pt-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{heading.replace(/:$/, '')}</h4>;
+        }
         return isBullet ? (
           <div key={idx} className="flex gap-2">
             <span className="mt-2 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-            <p>{clean}</p>
+            <p><InlineText text={clean} /></p>
           </div>
         ) : (
-          <p key={idx}>{clean}</p>
+          <p key={idx}><InlineText text={clean} /></p>
         );
       })}
     </div>
@@ -236,7 +310,9 @@ export default function MacroPanel() {
       <AssetStrip assets={data.assets} />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {(data.charts || []).map((chart) => <MacroChart key={chart.id} chart={chart} />)}
+        {(data.charts || []).map((chart) => (
+          chart.type === 'bar' ? <MacroBarChart key={chart.id} chart={chart} /> : <MacroChart key={chart.id} chart={chart} />
+        ))}
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.25fr_.75fr]">
