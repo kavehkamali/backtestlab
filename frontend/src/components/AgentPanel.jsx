@@ -1242,6 +1242,8 @@ function WorkspaceMetric({ label, value, tone = 'neutral' }) {
 }
 
 function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onNavigate }) {
+  const strictRows = useMemo(() => applyWorkspaceScreenIntent(allRows || [], intent), [allRows, intent]);
+  const isFallback = strictRows.length === 0 && (allRows?.length || 0) > 0 && (rows?.length || 0) > 0 && (intent?.chips?.length || 0) > 0;
   const rankedRows = useMemo(() => {
     return [...(rows || [])]
       .map((row) => ({ ...row, opportunity_score: screenerOpportunityScore(row) }))
@@ -1270,7 +1272,7 @@ function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onN
     .filter((row) => row.pe != null && row.momentum != null)
     .slice(0, 24);
   const universe = intent?.listLabel || 'Market';
-  const matchCount = rows?.length || 0;
+  const matchCount = isFallback ? strictRows.length : (rows?.length || 0);
   const totalCount = allRows?.length || 0;
   const medianPe = medianValue(rankedRows.map((r) => r.pe_ratio));
   const avgMomentum = avgValue(rankedRows.map((r) => r.change_20d));
@@ -1295,7 +1297,9 @@ function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onN
             <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Chat-driven screener</div>
             <h3 className="mt-1 text-lg font-semibold text-zinc-950 dark:text-zinc-100">{universe}</h3>
             <p className="mt-1 max-w-2xl text-sm leading-5 text-zinc-500 dark:text-zinc-400">
-              Ranked by signal count, momentum, valuation, RSI quality, and volatility penalty from the latest chat request.
+              {isFallback
+                ? 'No strict match passed every chat filter, so this shows the closest ranked candidates instead of an empty screen.'
+                : 'Ranked by signal count, momentum, valuation, RSI quality, and volatility penalty from the latest chat request.'}
             </p>
           </div>
           <button
@@ -1320,7 +1324,7 @@ function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onN
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <WorkspaceMetric label="Matches" value={`${matchCount}/${totalCount}`} tone={matchCount ? 'good' : 'bad'} />
+        <WorkspaceMetric label={isFallback ? 'Strict Matches' : 'Matches'} value={`${matchCount}/${totalCount}`} tone={matchCount ? 'good' : 'bad'} />
         <WorkspaceMetric label="Median P/E" value={formatPlainNumber(medianPe)} />
         <WorkspaceMetric label="Avg 1M" value={fmtPctValue(avgMomentum)} tone={numValue(avgMomentum, 0) >= 0 ? 'good' : 'bad'} />
         <WorkspaceMetric label="Median RSI" value={formatPlainNumber(medianRsi)} />
@@ -1648,7 +1652,10 @@ function AssistantWorkbench({
   const visibleScreenRows = useMemo(() => {
     const intentRows = applyWorkspaceScreenIntent(screenRows, workspaceIntent.screener);
     const hasSpecificScreen = Boolean(workspaceIntent.request && workspaceIntent.tab === 'screener');
-    return (intentRows || [])
+    const sourceRows = (hasSpecificScreen && !intentRows.length && screenRows?.length)
+      ? [...screenRows].sort((a, b) => screenerOpportunityScore(b) - screenerOpportunityScore(a))
+      : intentRows;
+    return (sourceRows || [])
       .filter((row) => hasSpecificScreen || (row.buy_count || 0) >= 3)
       .slice(0, 25);
   }, [screenRows, workspaceIntent.request, workspaceIntent.screener, workspaceIntent.tab]);
