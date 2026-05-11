@@ -1404,36 +1404,33 @@ function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onN
             ))}
           </div>
 
-          <div className="grid gap-4 2xl:grid-cols-[1.1fr_.9fr]">
+          <div className="grid gap-4 xl:grid-cols-3">
             <div className="rounded-xl bg-white p-4 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Signal Strength vs 1M Move</h3>
-                <span className="text-[11px] text-zinc-400">Top {chartRows.length}</span>
+                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Candidate Score</h3>
+                <span className="text-[11px] text-zinc-400">Agent rank</span>
               </div>
-              <div className="h-72">
+              <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={chartRows} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+                  <BarChart data={chartRows} layout="vertical" margin={{ top: 8, right: 18, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-100 dark:text-zinc-800" />
-                    <XAxis dataKey="symbol" tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
-                    <YAxis yAxisId="left" width={38} domain={[0, 100]} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
-                    <YAxis yAxisId="right" orientation="right" width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
+                    <XAxis type="number" hide domain={[0, 'dataMax']} />
+                    <YAxis type="category" dataKey="symbol" width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
                     <Tooltip />
-                    <ReferenceLine yAxisId="right" y={0} stroke="#a1a1aa" strokeDasharray="4 4" />
-                    <Bar yAxisId="left" dataKey="scorePct" name="Signals %" radius={[4, 4, 0, 0]}>
-                      {chartRows.map((row) => <Cell key={row.symbol} fill={row.momentum >= 0 ? '#10b981' : '#f43f5e'} />)}
+                    <Bar dataKey="opportunity" name="Agent score" radius={[0, 5, 5, 0]}>
+                      {chartRows.map((row) => <Cell key={row.symbol} fill={row.opportunity >= 45 ? '#10b981' : row.opportunity >= 25 ? '#6366f1' : '#f59e0b'} />)}
                     </Bar>
-                    <Line yAxisId="right" type="monotone" dataKey="momentum" name="1M %" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3 }} />
-                  </ComposedChart>
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             <div className="rounded-xl bg-white p-4 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Opportunity Map</h3>
-                <span className="text-[11px] text-zinc-400">P/E vs 1M</span>
+                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Momentum vs Value</h3>
+                <span className="text-[11px] text-zinc-400">P/E x 1M</span>
               </div>
-              <div className="h-72">
+              <div className="h-64">
                 {scatterRows.length ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <ScatterChart margin={{ top: 10, right: 12, left: 0, bottom: 8 }}>
@@ -1453,13 +1450,11 @@ function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onN
                 )}
               </div>
             </div>
-          </div>
 
-          <div className="grid gap-4 2xl:grid-cols-[.85fr_1.15fr]">
             <div className="rounded-xl bg-white p-4 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">RSI and Risk</h3>
-                <span className="text-[11px] text-zinc-400">Watch extremes</span>
+                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Risk and Timing</h3>
+                <span className="text-[11px] text-zinc-400">RSI + vol</span>
               </div>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
@@ -1477,7 +1472,9 @@ function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onN
                 </ResponsiveContainer>
               </div>
             </div>
+          </div>
 
+          <div className="grid gap-4">
             <div className="overflow-hidden rounded-xl bg-white ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
               <div className="flex items-center justify-between px-4 py-3">
                 <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Ranked Candidates</h3>
