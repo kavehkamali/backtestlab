@@ -1035,17 +1035,49 @@ function compactAgentBullets(text) {
     .replace(/^\s*#{1,6}\s+/gm, '')
     .trim();
   if (!clean) return [];
-  const lines = clean
+  const reject = (line) => {
+    const lower = line.toLowerCase();
+    return (
+      /^okay[, ]/.test(lower) ||
+      /^sure[, ]/.test(lower) ||
+      /^here('| i)s\b/.test(lower) ||
+      /^let('|’)s\b/.test(lower) ||
+      /^as equilima ai\b/.test(lower) ||
+      /^methodology\b/.test(lower) ||
+      /^criteria\b/.test(lower) ||
+      /^the following\b/.test(lower) ||
+      /^this analysis\b/.test(lower) ||
+      /^i do not\b/.test(lower) ||
+      /^i don('|’)t\b/.test(lower) ||
+      /do not have access to live/i.test(line) ||
+      /real[- ]time data feeds/i.test(line) ||
+      /historical data/i.test(line) ||
+      /not financial advice/i.test(line) ||
+      /investment decisions should/i.test(line) ||
+      /consult (a )?financial/i.test(line) ||
+      /used? to identify/i.test(line) ||
+      /criteria are applied/i.test(line)
+    );
+  };
+  const highSignal = (line) => {
+    const tickerHit = extractTickers(line).length > 0;
+    const numberHit = /[$+−-]?\d+(\.\d+)?\s?%|\$\d|\b\d+(\.\d+)?x\b|\b\d+(\.\d+)?\b/.test(line);
+    const actionHit = /\b(buy|sell|hold|avoid|watch|rank|target|upside|downside|risk|catalyst|support|resistance|breakout|oversold|overbought|valuation|margin|revenue|earnings|cash flow|debt|rsi|p\/e|pe|score)\b/i.test(line);
+    return (tickerHit && (numberHit || actionHit)) || (numberHit && actionHit);
+  };
+  const candidates = clean
     .split('\n')
+    .flatMap((line) => line.split(/(?<=[.!?])\s+(?=[A-Z$])/))
     .map((line) => line.replace(/^\s*[-*+•]\s*/, '').replace(/^\s*\d+\.\s*/, '').trim())
+    .map((line) => line.replace(/^([^:]{1,28}):\s+/, (m, label) => (/methodology|criteria|growth potential|valuation|forward guidance/i.test(label) ? '' : m)).trim())
     .filter(Boolean)
-    .filter((line) => !/^disclaimer\b/i.test(line))
-    .filter((line) => !/^not financial advice\b/i.test(line));
-  const source = lines.length >= 2 ? lines : clean.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+    .filter((line) => !reject(line));
+  const signal = candidates.filter(highSignal);
+  const source = signal.length ? signal : candidates;
   return source
-    .map((line) => line.replace(/\s+/g, ' ').slice(0, 170))
+    .map((line) => line.replace(/\s+/g, ' ').replace(/^[-:]\s*/, '').slice(0, 180))
     .filter(Boolean)
-    .slice(0, 5);
+    .slice(0, 4);
 }
 
 function AgentBriefCard({ text }) {
@@ -1782,12 +1814,6 @@ function AssistantWorkbench({
 
       {tab === 'overview' && (
         <div className="grid grid-cols-1 gap-3">
-          <WorkspaceCommandCard
-            intent={workspaceIntent}
-            tickers={discussedTickers}
-            onTickerSelect={openWorkspaceResearch}
-            onTabSelect={openWorkspaceTab}
-          />
           {workspaceIntent.tab === 'screener' && (
             <WorkspaceScreenerDashboard
               intent={workspaceIntent.screener}
