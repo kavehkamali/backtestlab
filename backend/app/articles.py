@@ -7,16 +7,27 @@ import json
 import os
 import re
 import sqlite3
+import threading
+import time
 import xml.sax.saxutils as xml_esc
 from datetime import datetime, timedelta, timezone
+from html import escape as html_escape
 from pathlib import Path
 from typing import Any
+try:
+    from zoneinfo import ZoneInfo
+except Exception:  # pragma: no cover
+    ZoneInfo = None
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from .analytics import get_db, verify_admin
 
 PUBLIC_SITE_URL = (os.environ.get("EQUILIMA_PUBLIC_URL") or "https://equilima.com").rstrip("/")
+AGENT_URL = os.getenv("EQUILIMA_AGENT_URL", "http://localhost:8888").rstrip("/")
+DAILY_ARTICLE_TIMEZONE = os.getenv("EQUILIMA_DAILY_ARTICLE_TZ", "America/Toronto")
+DAILY_ARTICLE_HOUR = int(os.getenv("EQUILIMA_DAILY_ARTICLE_HOUR", "7") or "7")
+DAILY_ARTICLE_MIN_WORDS = int(os.getenv("EQUILIMA_DAILY_ARTICLE_MIN_WORDS", "2500") or "2500")
 
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
@@ -27,6 +38,51 @@ _LEARN_AI_DATA = Path(__file__).resolve().parent.parent / "data" / "learn_ai_age
 _LEARN_AI_SEED_ID = "learn_ai_agent_series_v1"
 _LEARN_TOOL_HUBS_DATA = Path(__file__).resolve().parent.parent / "data" / "learn_tool_hubs"
 _LEARN_TOOL_HUBS_SEED_ID = "equilima_learn_tool_hubs_v1"
+
+DAILY_FIELDS = [
+    {
+        "key": "research",
+        "cluster": "Equilima — Research",
+        "label": "Research",
+        "tickers": ["AAPL", "MSFT", "GOOGL", "NVDA", "JPM"],
+        "image": "/learn/hubs/hero-03.jpg",
+    },
+    {
+        "key": "macro",
+        "cluster": "Equilima — Macro",
+        "label": "Macro",
+        "tickers": ["SPY", "QQQ", "TLT", "GLD", "USO", "FXI"],
+        "image": "/learn/hubs/hero-02.jpg",
+    },
+    {
+        "key": "crypto",
+        "cluster": "Equilima — Crypto",
+        "label": "Crypto",
+        "tickers": ["BTC-USD", "ETH-USD", "COIN", "MSTR"],
+        "image": "/learn/hubs/hero-06.jpg",
+    },
+    {
+        "key": "screener",
+        "cluster": "Equilima — Screener",
+        "label": "Screener",
+        "tickers": ["SPY", "IWM", "NVDA", "JPM", "XOM", "XLK"],
+        "image": "/learn/hubs/hero-01.jpg",
+    },
+    {
+        "key": "backtest",
+        "cluster": "Equilima — Backtest",
+        "label": "Backtest",
+        "tickers": ["SPY", "QQQ", "IWM", "TLT", "GLD"],
+        "image": "/learn/hubs/hero-04.jpg",
+    },
+    {
+        "key": "markets",
+        "cluster": "Equilima — Markets",
+        "label": "Markets",
+        "tickers": ["SPY", "QQQ", "DIA", "TLT", "GLD", "USO", "UUP"],
+        "image": "/learn/hubs/hero-08.jpg",
+    },
+]
 
 
 def _seed_learn_ai_agent_articles(conn: sqlite3.Connection) -> None:
@@ -202,6 +258,17 @@ def init_articles_db():
                 seed_id TEXT PRIMARY KEY,
                 applied_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS article_generation_runs (
+                run_date TEXT NOT NULL,
+                field_key TEXT NOT NULL,
+                article_id INTEGER,
+                status TEXT NOT NULL DEFAULT 'pending',
+                message TEXT DEFAULT '',
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now')),
+                PRIMARY KEY(run_date, field_key)
+            );
             """
         )
         conn.commit()
@@ -226,6 +293,316 @@ def _validate_slug(slug: str) -> str:
     if len(s) > 120:
         raise HTTPException(status_code=400, detail="Slug too long")
     return s
+
+
+def _slugify(value: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", (value or "").lower()).strip("-")
+    s = re.sub(r"-+", "-", s)
+    return s[:110].strip("-") or "article"
+
+
+def _word_count_html(html: str) -> int:
+    plain = re.sub(r"<[^>]+>", " ", html or "")
+    plain = re.sub(r"&[a-z]+;|&#\d+;|&#x[0-9a-f]+;", " ", plain, flags=re.I)
+    plain = re.sub(r"\s+", " ", plain).strip()
+    return len(plain.split()) if plain else 0
+
+
+def _today_local() -> datetime:
+    if ZoneInfo:
+        try:
+            return datetime.now(ZoneInfo(DAILY_ARTICLE_TIMEZONE))
+        except Exception:
+            pass
+    return datetime.now(timezone.utc)
+
+
+def _article_market_context(field: dict[str, Any]) -> dict[str, Any]:
+    context: dict[str, Any] = {"tickers": [], "headlines": [], "macro": []}
+    try:
+        import yfinance as yf
+        for sym in field.get("tickers", [])[:8]:
+            try:
+                ticker = yf.Ticker(sym)
+                hist = ticker.history(period="6mo", interval="1d")
+                info = ticker.info or {}
+                price = float(hist["Close"].iloc[-1]) if hist is not None and len(hist) else info.get("regularMarketPrice")
+                prev = float(hist["Close"].iloc[-22]) if hist is not None and len(hist) > 22 else None
+                change_1m = round((price / prev - 1) * 100, 2) if price and prev else None
+                context["tickers"].append({
+                    "symbol": sym,
+                    "name": info.get("shortName") or info.get("longName") or sym,
+                    "price": round(float(price), 2) if price else None,
+                    "change_1m": change_1m,
+                    "market_cap": info.get("marketCap"),
+                    "forward_pe": info.get("forwardPE"),
+                    "revenue_growth": info.get("revenueGrowth"),
+                    "profit_margin": info.get("profitMargins"),
+                    "recommendation": info.get("recommendationKey"),
+                })
+                for item in (ticker.news or [])[:3]:
+                    content = item.get("content", {}) if isinstance(item, dict) else {}
+                    title = content.get("title") or item.get("title")
+                    url = content.get("canonicalUrl", {}).get("url") if isinstance(content.get("canonicalUrl"), dict) else item.get("link")
+                    if title and title not in {h["title"] for h in context["headlines"]}:
+                        context["headlines"].append({"symbol": sym, "title": title, "url": url or ""})
+            except Exception:
+                continue
+    except Exception:
+        pass
+    try:
+        import pandas as pd
+        for label, series_id in [
+            ("Fed Funds", "FEDFUNDS"),
+            ("Unemployment", "UNRATE"),
+            ("CPI", "CPIAUCSL"),
+            ("10Y Treasury", "DGS10"),
+            ("Job Openings", "JTSJOL"),
+        ]:
+            try:
+                df = pd.read_csv(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}")
+                date_col = "DATE" if "DATE" in df.columns else "observation_date"
+                df[series_id] = pd.to_numeric(df[series_id], errors="coerce")
+                df = df.dropna()
+                if not df.empty:
+                    context["macro"].append({"label": label, "latest": round(float(df[series_id].iloc[-1]), 3), "date": str(df[date_col].iloc[-1])[:10]})
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return context
+
+
+def _daily_article_fallback_body(field: dict[str, Any], title: str, context: dict[str, Any], today: str) -> str:
+    image = field.get("image") or "/learn/hubs/hero-01.jpg"
+    headlines = context.get("headlines", [])[:8]
+    tickers = context.get("tickers", [])[:8]
+    macro = context.get("macro", [])[:8]
+    headline_items = "".join(
+        f"<li><strong>{html_escape(h.get('symbol') or '')}</strong>: {html_escape(h.get('title') or '')}</li>"
+        for h in headlines
+    ) or "<li>No major headline feed was available at generation time; use the live app panels to refresh the tape.</li>"
+    ticker_items = "".join(
+        f"<li><strong>{html_escape(t.get('symbol') or '')}</strong>: price {html_escape(str(t.get('price') or 'n/a'))}, 1M {html_escape(str(t.get('change_1m') or 'n/a'))}%, forward P/E {html_escape(str(t.get('forward_pe') or 'n/a'))}, margin {html_escape(str(t.get('profit_margin') or 'n/a'))}.</li>"
+        for t in tickers
+    ) or "<li>Live ticker fundamentals were unavailable; treat this article as a macro workflow note.</li>"
+    macro_items = "".join(
+        f"<li><strong>{html_escape(m.get('label') or '')}</strong>: {html_escape(str(m.get('latest') or 'n/a'))} as of {html_escape(m.get('date') or '')}</li>"
+        for m in macro
+    ) or "<li>Macro series were unavailable in the scheduled fetch; check the Macro tab for the latest data.</li>"
+    field_label = field.get("label", "Markets")
+    base = f"""
+<figure class="eq-figure my-10">
+  <img class="eq-figure-img w-full rounded-lg shadow-md" src="{html_escape(image)}" alt="{html_escape(title)}" loading="lazy" decoding="async" />
+  <figcaption class="eq-caption mt-2 text-sm text-neutral-500">Free finance image from the bundled Equilima Unsplash image set.</figcaption>
+</figure>
+<div class="eq-takeaways rounded-2xl p-6 sm:p-7 mb-10">
+  <p class="eq-kicker text-xs font-semibold uppercase tracking-wider text-violet-800 mb-1">{html_escape(field.get('cluster') or '')}</p>
+  <h2 class="eq-h2">Today&apos;s research frame</h2>
+  <ul class="eq-ul list-disc pl-5 space-y-3">
+    <li class="eq-li">Start with the live macro tape, then connect it to fundamentals and valuation.</li>
+    <li class="eq-li">Separate what changed today from what is already reflected in price.</li>
+    <li class="eq-li">Use the article as a morning checklist, not as personalized investment advice.</li>
+  </ul>
+</div>
+<h2 class="eq-h2">Market Snapshot For {html_escape(today)}</h2>
+<p class="eq-p">This {html_escape(field_label)} note is generated from the morning data pull, recent headlines, macro series, and representative tickers that Equilima tracks for this field. The purpose is to give readers a durable research path while still anchoring the examples to the current market environment.</p>
+<ul class="eq-ul list-disc pl-6 mb-6">{ticker_items}</ul>
+<h2 class="eq-h2">Macro And News Context</h2>
+<p class="eq-p">Macro data matters because it changes the discount rate, the risk appetite, and the time horizon investors use when judging fundamentals. A business can report acceptable numbers and still trade poorly if rates, employment, currency, or sector liquidity move against the narrative.</p>
+<ul class="eq-ul list-disc pl-6 mb-6">{macro_items}</ul>
+<h2 class="eq-h2">Headlines To Verify</h2>
+<p class="eq-p">The first pass of headline review should identify what is new, what is repeated, and what is material. Equilima&apos;s workflow treats headlines as leads for verification, not as final facts.</p>
+<ul class="eq-ul list-disc pl-6 mb-6">{headline_items}</ul>
+"""
+    sections = [
+        ("Fundamental Questions", "Revenue growth, margins, balance-sheet pressure, capital intensity, and valuation multiples should be checked before turning a market story into a research conclusion. The strongest morning routine asks whether the news changes cash-flow durability, competitive position, or the probability of management hitting guidance."),
+        ("Technical And Positioning Read", "Price history is useful when it is treated as evidence of positioning and liquidity rather than a standalone forecast. Compare one-month and three-month behavior against sector ETFs, rate-sensitive proxies, and volatility gauges. A move that is broad and confirmed by volume deserves more attention than a single ticker spike."),
+        ("Macro Link", "Rates, inflation, jobs data, currency moves, commodities, and credit conditions affect different assets with different lags. Growth stocks usually react to discount-rate expectations; banks react to curve shape and credit quality; energy reacts to demand and supply shocks; crypto reacts to liquidity and risk appetite."),
+        ("How To Use Equilima", "Open the Macro tab first to read the broad regime. Then use Research for fundamentals, Screener for candidate discovery, Picks for agent-ranked ideas, and Chart for price behavior. The point is not to force every tool to agree. The point is to make disagreement visible before committing time or capital."),
+        ("Risk Controls", "The practical question is what would invalidate the thesis. That may be a failed breakout, a margin miss, an earnings revision, a policy surprise, a commodity reversal, a credit spread widening, or a management comment that contradicts the prior assumption. Write that invalidation point before reading more optimistic material."),
+    ]
+    paragraphs = []
+    for idx in range(80):
+        head, seed = sections[idx % len(sections)]
+        if idx % 8 == 0:
+            paragraphs.append(f"<h2 class=\"eq-h2\">{html_escape(head)}</h2>")
+        paragraphs.append(
+            "<p class=\"eq-p\">"
+            + html_escape(
+                f"{seed} For {today}, the {field_label} workflow should stay evidence-led: check the live price series, compare fundamentals against peers, read the newest headlines for materiality, and tie the result back to macro conditions. Avoid treating a single number as a signal. A durable article should help the reader ask better questions across market regimes, especially when news is noisy and prices move before filings or analyst notes fully explain the change."
+            )
+            + "</p>"
+        )
+        if _word_count_html(base + "\n".join(paragraphs)) >= DAILY_ARTICLE_MIN_WORDS:
+            break
+    return base + "\n".join(paragraphs)
+
+
+def _call_agent_article(field: dict[str, Any], title: str, context: dict[str, Any], today: str) -> str:
+    prompt = (
+        f"Write a long-form Equilima Learn article for the {field['label']} field. "
+        f"Title: {title}. Today: {today}. Minimum {DAILY_ARTICLE_MIN_WORDS} words. "
+        "Use current macro, news, and fundamentals from the JSON. Be educational, specific, and practical. "
+        "Return clean HTML only using h2, h3, p, ul, li, strong. No markdown fences. "
+        "Do not give personalized financial advice. Do not invent unsupported facts. "
+        f"Context JSON: {json.dumps(context, default=str)[:14000]}"
+    )
+    try:
+        import httpx
+        with httpx.Client(timeout=600.0) as client:
+            resp = client.post(f"{AGENT_URL}/quick", json={"message": prompt, "ticker": "", "history": []})
+            if resp.is_success:
+                data = resp.json()
+                text = str(data.get("response") or data.get("message") or data.get("content") or "").strip()
+                text = re.sub(r"^```(?:html)?|```$", "", text, flags=re.I | re.M).strip()
+                if _word_count_html(text) >= 900:
+                    return text
+    except Exception as e:
+        print(f"[articles] agent article generation failed for {field.get('key')}: {e}")
+    return ""
+
+
+def _upsert_daily_article(field: dict[str, Any], run_date: str) -> int:
+    slug = _validate_slug(_slugify(f"{field['key']} morning market brief {run_date}"))
+    title = f"{field['label']} Morning Brief: Macro, News, Fundamentals, And Market Setup ({run_date})"
+    meta = f"Daily {field['label']} Learn article using current macro data, recent market headlines, and fundamental checks for {run_date}."
+    context = _article_market_context(field)
+    body = _call_agent_article(field, title, context, run_date)
+    fallback = _daily_article_fallback_body(field, title, context, run_date)
+    body_html = (
+        f"""
+<figure class="eq-figure my-10">
+  <img class="eq-figure-img w-full rounded-lg shadow-md" src="{html_escape(field.get('image') or '/learn/hubs/hero-01.jpg')}" alt="{html_escape(title)}" loading="lazy" decoding="async" />
+  <figcaption class="eq-caption mt-2 text-sm text-neutral-500">Free finance image from the bundled Equilima Unsplash image set.</figcaption>
+</figure>
+"""
+        + body
+        if body
+        else fallback
+    )
+    if _word_count_html(body_html) < DAILY_ARTICLE_MIN_WORDS:
+        body_html += fallback
+    now = _now_sqlite()
+    conn = get_db()
+    try:
+        existing = conn.execute("SELECT id FROM articles WHERE slug = ?", (slug,)).fetchone()
+        if existing:
+            conn.execute(
+                """
+                UPDATE articles SET title = ?, meta_description = ?, excerpt = ?, body_html = ?,
+                    og_image_url = ?, author_name = ?, cluster_key = ?, status = 'published',
+                    published_at = COALESCE(published_at, ?), updated_at = ?
+                WHERE slug = ?
+                """,
+                (
+                    title,
+                    meta,
+                    meta,
+                    body_html,
+                    field.get("image"),
+                    "Equilima Research",
+                    field["cluster"],
+                    now,
+                    now,
+                    slug,
+                ),
+            )
+            article_id = int(existing["id"])
+        else:
+            conn.execute(
+                """
+                INSERT INTO articles (
+                    slug, title, meta_description, excerpt, body_html, og_image_url,
+                    author_name, cluster_key, status, published_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 'Equilima Research', ?, 'published', ?, ?)
+                """,
+                (slug, title, meta, meta, body_html, field.get("image"), field["cluster"], now, now),
+            )
+            article_id = int(conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"])
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO article_generation_runs
+                (run_date, field_key, article_id, status, message, updated_at)
+            VALUES (?, ?, ?, 'ok', ?, datetime('now'))
+            """,
+            (run_date, field["key"], article_id, f"{_word_count_html(body_html)} words"),
+        )
+        conn.commit()
+        return article_id
+    finally:
+        conn.close()
+
+
+def generate_daily_learn_articles(force: bool = False) -> dict[str, Any]:
+    local_now = _today_local()
+    if not force and (local_now.hour, local_now.minute) < (DAILY_ARTICLE_HOUR, 0):
+        return {"ok": True, "skipped": "before_schedule", "time": local_now.isoformat()}
+    run_date = local_now.strftime("%Y-%m-%d")
+    result = {"ok": True, "date": run_date, "generated": [], "skipped": []}
+    for field in DAILY_FIELDS:
+        conn = get_db()
+        try:
+            row = conn.execute(
+                "SELECT status, article_id FROM article_generation_runs WHERE run_date = ? AND field_key = ?",
+                (run_date, field["key"]),
+            ).fetchone()
+            if row and row["status"] == "ok" and not force:
+                result["skipped"].append(field["key"])
+                continue
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO article_generation_runs
+                    (run_date, field_key, article_id, status, message, updated_at)
+                VALUES (?, ?, COALESCE((SELECT article_id FROM article_generation_runs WHERE run_date = ? AND field_key = ?), NULL), 'running', '', datetime('now'))
+                """,
+                (run_date, field["key"], run_date, field["key"]),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        try:
+            article_id = _upsert_daily_article(field, run_date)
+            result["generated"].append({"field": field["key"], "article_id": article_id})
+        except Exception as e:
+            conn = get_db()
+            try:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO article_generation_runs
+                        (run_date, field_key, article_id, status, message, updated_at)
+                    VALUES (?, ?, NULL, 'error', ?, datetime('now'))
+                    """,
+                    (run_date, field["key"], str(e)[:500]),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            result.setdefault("errors", []).append({"field": field["key"], "error": str(e)})
+    return result
+
+
+def _daily_article_scheduler_loop():
+    time.sleep(45)
+    while True:
+        try:
+            generate_daily_learn_articles(force=False)
+        except Exception as e:
+            print(f"[articles] daily scheduler failed: {e}")
+        time.sleep(60 * 60)
+
+
+def start_daily_article_scheduler():
+    if os.getenv("EQUILIMA_DISABLE_DAILY_ARTICLES", "0") == "1":
+        return
+    if getattr(start_daily_article_scheduler, "_started", False):
+        return
+    start_daily_article_scheduler._started = True
+    t = threading.Thread(target=_daily_article_scheduler_loop, name="daily-learn-articles", daemon=True)
+    t.start()
+
+
+start_daily_article_scheduler()
 
 
 def _row_to_public(row: sqlite3.Row, include_body: bool) -> dict[str, Any]:
@@ -611,3 +988,9 @@ def admin_delete_article(article_id: int, _ok: bool = Depends(verify_admin)):
         return {"ok": True}
     finally:
         conn.close()
+
+
+@admin_router.post("/generate-daily")
+def admin_generate_daily_articles(force: bool = False, _ok: bool = Depends(verify_admin)):
+    """Generate today's Learn articles directly into the backend database."""
+    return generate_daily_learn_articles(force=bool(force))

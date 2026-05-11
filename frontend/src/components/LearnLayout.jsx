@@ -89,6 +89,7 @@ const proseClass =
 /** Equilima product-topic guides first (Research emphasized in nav order), then AI agent series. */
 const CLUSTER_SECTION_ORDER = [
   'Equilima — Research',
+  'Equilima — Macro',
   'Equilima — Crypto',
   'Equilima — Screener',
   'Equilima — Backtest',
@@ -102,16 +103,18 @@ const CLUSTER_SECTION_ORDER = [
 
 const TOPIC_TO_CLUSTER = {
   research: 'Equilima — Research',
+  macro: 'Equilima — Macro',
   crypto: 'Equilima — Crypto',
   screener: 'Equilima — Screener',
   backtest: 'Equilima — Backtest',
   markets: 'Equilima — Markets',
 };
 
-const TOPIC_NAV_ORDER = ['research', 'crypto', 'screener', 'backtest', 'markets'];
+const TOPIC_NAV_ORDER = ['research', 'macro', 'crypto', 'screener', 'backtest', 'markets'];
 
 const TOPIC_LABELS = {
   research: 'Research',
+  macro: 'Macro',
   crypto: 'Crypto',
   screener: 'Screener',
   backtest: 'Backtest',
@@ -363,7 +366,7 @@ export default function LearnLayout({ route, setActiveTab }) {
                       <div className="min-w-0">
                         <h2
                           id={sectionDomId(clusterKey)}
-                          className="text-lg sm:text-xl font-bold text-zinc-900 tracking-tight dark:text-zinc-100"
+                          className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-zinc-100"
                         >
                           {clusterKey}
                         </h2>
@@ -381,7 +384,7 @@ export default function LearnLayout({ route, setActiveTab }) {
                           className="w-full text-left p-4 rounded-xl bg-white shadow-sm ring-1 ring-zinc-200/70 hover:ring-zinc-300 hover:shadow-md transition-all dark:bg-zinc-900 dark:ring-zinc-700 dark:hover:ring-zinc-500"
                         >
                           <span className="text-[10px] uppercase tracking-wider text-zinc-600 font-medium dark:text-zinc-400">{a.cluster_key || 'Article'}</span>
-                          <h3 className="text-lg font-semibold text-zinc-900 mt-1 leading-snug dark:text-zinc-100">{a.title}</h3>
+                          <h3 className="text-lg font-semibold text-zinc-900 mt-1 leading-snug [letter-spacing:0.01em] dark:text-zinc-100">{a.title}</h3>
                           <p className="text-sm text-zinc-600 mt-2 line-clamp-3 dark:text-zinc-400">{a.excerpt || a.meta_description}</p>
                           <span className="text-[11px] text-zinc-400 mt-2 block">{a.published_at?.slice(0, 10)}</span>
                         </button>
@@ -407,7 +410,7 @@ export default function LearnLayout({ route, setActiveTab }) {
                     <p className="learn-article-hero-meta text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2 dark:text-zinc-400">
                       {article.cluster_key || 'Article'}
                     </p>
-                    <h1 className="learn-article-hero-title text-[2.35rem] sm:text-[2.75rem] font-bold text-neutral-950 mb-3 leading-[1.06]">
+                    <h1 className="learn-article-hero-title text-[2.35rem] sm:text-[2.75rem] font-bold text-neutral-950 mb-3 leading-[1.1]">
                       {article.title}
                     </h1>
                     <p className="learn-article-hero-meta text-sm text-neutral-500 mb-10">
@@ -464,7 +467,7 @@ export default function LearnLayout({ route, setActiveTab }) {
                 ) : (
                   <>
                     <p className="text-xs text-zinc-600 uppercase tracking-wider mb-2 dark:text-zinc-400">{article.cluster_key || 'Article'}</p>
-                    <h1 className="text-3xl sm:text-4xl font-bold text-zinc-900 tracking-tight mb-4 dark:text-zinc-100">{article.title}</h1>
+                    <h1 className="text-3xl sm:text-4xl font-bold text-zinc-900 mb-4 [letter-spacing:0.01em] dark:text-zinc-100">{article.title}</h1>
                     <p className="text-sm text-zinc-500 mb-8 dark:text-zinc-400">
                       {article.author_name && <span>{article.author_name}</span>}
                       {article.published_at && (
