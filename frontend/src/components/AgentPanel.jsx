@@ -23,11 +23,28 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { AreaChart, Area, BarChart, Bar, LineChart, Line, YAxis, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  YAxis,
+  XAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Cell,
+  ScatterChart,
+  Scatter,
+  ZAxis,
+  ReferenceLine,
+  ComposedChart,
+} from 'recharts';
 import { fetchTerminalChart, fetchResearch, fetchAgentHistory, putAgentHistory } from '../api';
 import SnowflakeChart from './SnowflakeChart';
 import MacroPanel from './MacroPanel';
-import ScreenerPanel from './ScreenerPanel';
 import ResearchPanel from './ResearchPanel';
 import { decryptWithDek, encryptWithDek } from '../e2ee';
 
@@ -81,6 +98,41 @@ function toneClass(value) {
   if (n > 0) return 'text-emerald-600 dark:text-emerald-300';
   if (n < 0) return 'text-rose-600 dark:text-rose-300';
   return 'text-zinc-500 dark:text-zinc-400';
+}
+
+function numValue(value, fallback = null) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function medianValue(values) {
+  const nums = values.map((v) => numValue(v)).filter((v) => v != null).sort((a, b) => a - b);
+  if (!nums.length) return null;
+  const mid = Math.floor(nums.length / 2);
+  return nums.length % 2 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2;
+}
+
+function avgValue(values) {
+  const nums = values.map((v) => numValue(v)).filter((v) => v != null);
+  if (!nums.length) return null;
+  return nums.reduce((a, b) => a + b, 0) / nums.length;
+}
+
+function screenerOpportunityScore(row) {
+  const signalScore = (numValue(row?.buy_count, 0) / Math.max(1, numValue(row?.total_strategies, 7))) * 42;
+  const momentumScore = Math.max(-12, Math.min(22, numValue(row?.change_20d, 0))) * 0.9;
+  const rsi = numValue(row?.rsi, 50);
+  const rsiScore = rsi >= 35 && rsi <= 68 ? 14 : rsi < 35 ? 8 : -8;
+  const pe = numValue(row?.pe_ratio);
+  const valuationScore = pe == null ? 0 : pe <= 18 ? 14 : pe <= 30 ? 7 : pe <= 55 ? -2 : -8;
+  const riskPenalty = Math.min(18, Math.max(0, numValue(row?.volatility, 0) - 35) * 0.22);
+  return Math.round((signalScore + momentumScore + rsiScore + valuationScore - riskPenalty) * 10) / 10;
+}
+
+function formatPlainNumber(value, digits = 1) {
+  const n = numValue(value);
+  if (n == null) return '—';
+  return n.toLocaleString('en-US', { maximumFractionDigits: digits });
 }
 
 function extractSessionTickers(messages) {
@@ -1156,6 +1208,284 @@ function AssistantMiniVisuals({ chart, macro, rows, ticker }) {
   );
 }
 
+function WorkspaceSparkline({ data }) {
+  const values = (data || []).map((v) => numValue(v)).filter((v) => v != null).slice(-60);
+  if (values.length < 2) {
+    return <div className="h-9 rounded-lg bg-zinc-50 dark:bg-zinc-950" />;
+  }
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const points = values
+    .map((v, i) => `${(i / (values.length - 1)) * 120},${34 - ((v - min) / range) * 30 - 2}`)
+    .join(' ');
+  const up = values[values.length - 1] >= values[0];
+  return (
+    <svg viewBox="0 0 120 36" className="h-9 w-full">
+      <polyline fill="none" stroke={up ? '#10b981' : '#f43f5e'} strokeWidth="2" points={points} vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+function WorkspaceMetric({ label, value, tone = 'neutral' }) {
+  const toneCls = tone === 'good'
+    ? 'text-emerald-700 bg-emerald-50 ring-emerald-100 dark:bg-emerald-950/35 dark:text-emerald-200 dark:ring-emerald-900'
+    : tone === 'bad'
+      ? 'text-rose-700 bg-rose-50 ring-rose-100 dark:bg-rose-950/35 dark:text-rose-200 dark:ring-rose-900'
+      : 'text-zinc-800 bg-white ring-zinc-200/70 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-800';
+  return (
+    <div className={`rounded-xl px-3 py-2.5 ring-1 ${toneCls}`}>
+      <div className="text-[10px] font-semibold uppercase tracking-wide opacity-55">{label}</div>
+      <div className="mt-1 text-lg font-semibold leading-none">{value}</div>
+    </div>
+  );
+}
+
+function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onNavigate }) {
+  const rankedRows = useMemo(() => {
+    return [...(rows || [])]
+      .map((row) => ({ ...row, opportunity_score: screenerOpportunityScore(row) }))
+      .sort((a, b) => (b.opportunity_score || 0) - (a.opportunity_score || 0));
+  }, [rows]);
+  const topRows = rankedRows.slice(0, 8);
+  const chartRows = topRows.map((row) => ({
+    symbol: row.symbol,
+    scorePct: Math.round((numValue(row.buy_count, 0) / Math.max(1, numValue(row.total_strategies, 7))) * 100),
+    momentum: numValue(row.change_20d, 0),
+    rsi: numValue(row.rsi, 50),
+    pe: numValue(row.pe_ratio),
+    risk: numValue(row.volatility, 0),
+    opportunity: numValue(row.opportunity_score, 0),
+    marketCapB: row.market_cap ? row.market_cap / 1e9 : null,
+  }));
+  const scatterRows = rankedRows
+    .map((row) => ({
+      symbol: row.symbol,
+      pe: numValue(row.pe_ratio) == null ? null : Math.max(0, Math.min(80, numValue(row.pe_ratio))),
+      momentum: numValue(row.change_20d),
+      rsi: numValue(row.rsi, 50),
+      opportunity: numValue(row.opportunity_score, 0),
+      marketCapB: row.market_cap ? row.market_cap / 1e9 : 1,
+    }))
+    .filter((row) => row.pe != null && row.momentum != null)
+    .slice(0, 24);
+  const universe = intent?.listLabel || 'Market';
+  const matchCount = rows?.length || 0;
+  const totalCount = allRows?.length || 0;
+  const medianPe = medianValue(rankedRows.map((r) => r.pe_ratio));
+  const avgMomentum = avgValue(rankedRows.map((r) => r.change_20d));
+  const medianRsi = medianValue(rankedRows.map((r) => r.rsi));
+  const chips = intent?.chips || [];
+
+  if (!totalCount) {
+    return (
+      <div className="rounded-xl bg-white p-5 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+        <div className="flex min-h-56 items-center justify-center rounded-xl bg-zinc-50 text-sm text-zinc-500 dark:bg-zinc-950">
+          Loading the screen for this chat...
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl bg-white p-4 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Chat-driven screener</div>
+            <h3 className="mt-1 text-lg font-semibold text-zinc-950 dark:text-zinc-100">{universe}</h3>
+            <p className="mt-1 max-w-2xl text-sm leading-5 text-zinc-500 dark:text-zinc-400">
+              Ranked by signal count, momentum, valuation, RSI quality, and volatility penalty from the latest chat request.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate?.('screener')}
+            className="rounded-full bg-zinc-50 px-3 py-1.5 text-[11px] font-semibold text-zinc-600 ring-1 ring-zinc-200/70 hover:bg-zinc-100 hover:text-zinc-950 dark:bg-zinc-950 dark:text-zinc-300 dark:ring-zinc-800 dark:hover:bg-zinc-800"
+          >
+            Full screener
+          </button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {chips.length ? chips.map((chip) => (
+            <span key={chip} className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-200 dark:ring-indigo-900">
+              {chip}
+            </span>
+          )) : (
+            <span className="rounded-full bg-zinc-50 px-2.5 py-1 text-[11px] font-semibold text-zinc-500 ring-1 ring-zinc-200/70 dark:bg-zinc-950 dark:text-zinc-400 dark:ring-zinc-800">
+              Agent default screen
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <WorkspaceMetric label="Matches" value={`${matchCount}/${totalCount}`} tone={matchCount ? 'good' : 'bad'} />
+        <WorkspaceMetric label="Median P/E" value={formatPlainNumber(medianPe)} />
+        <WorkspaceMetric label="Avg 1M" value={fmtPctValue(avgMomentum)} tone={numValue(avgMomentum, 0) >= 0 ? 'good' : 'bad'} />
+        <WorkspaceMetric label="Median RSI" value={formatPlainNumber(medianRsi)} />
+      </div>
+
+      {!rankedRows.length ? (
+        <div className="rounded-xl bg-white p-5 text-sm text-zinc-500 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-800">
+          No names passed the chat filters. Try asking for a wider universe or fewer constraints.
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-3 xl:grid-cols-4">
+            {rankedRows.slice(0, 4).map((row) => (
+              <button
+                key={row.symbol}
+                type="button"
+                onClick={() => onTickerSelect?.(row.symbol)}
+                className="rounded-xl bg-white p-3 text-left ring-1 ring-zinc-200/70 transition hover:-translate-y-0.5 hover:ring-indigo-200 dark:bg-zinc-900 dark:ring-zinc-800 dark:hover:ring-indigo-800"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-base font-semibold text-zinc-950 dark:text-zinc-100">{row.symbol}</div>
+                    <div className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">{row.name || row.sector || 'Candidate'}</div>
+                  </div>
+                  <div className="rounded-lg bg-indigo-50 px-2 py-1 text-xs font-bold text-indigo-700 dark:bg-indigo-950/45 dark:text-indigo-200">
+                    {formatPlainNumber(row.opportunity_score, 0)}
+                  </div>
+                </div>
+                <div className="mt-2"><WorkspaceSparkline data={row.sparkline} /></div>
+                <div className="mt-2 grid grid-cols-3 gap-1.5 text-[11px]">
+                  <div className="rounded-lg bg-zinc-50 px-2 py-1 dark:bg-zinc-950">
+                    <div className="text-zinc-400">1M</div>
+                    <div className={`font-semibold ${toneClass(row.change_20d)}`}>{fmtPctValue(row.change_20d)}</div>
+                  </div>
+                  <div className="rounded-lg bg-zinc-50 px-2 py-1 dark:bg-zinc-950">
+                    <div className="text-zinc-400">P/E</div>
+                    <div className="font-semibold text-zinc-800 dark:text-zinc-100">{formatPlainNumber(row.pe_ratio)}</div>
+                  </div>
+                  <div className="rounded-lg bg-zinc-50 px-2 py-1 dark:bg-zinc-950">
+                    <div className="text-zinc-400">RSI</div>
+                    <div className="font-semibold text-zinc-800 dark:text-zinc-100">{formatPlainNumber(row.rsi)}</div>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div className="grid gap-4 2xl:grid-cols-[1.1fr_.9fr]">
+            <div className="rounded-xl bg-white p-4 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Signal Strength vs 1M Move</h3>
+                <span className="text-[11px] text-zinc-400">Top {chartRows.length}</span>
+              </div>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={chartRows} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-100 dark:text-zinc-800" />
+                    <XAxis dataKey="symbol" tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
+                    <YAxis yAxisId="left" width={38} domain={[0, 100]} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
+                    <YAxis yAxisId="right" orientation="right" width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
+                    <Tooltip />
+                    <ReferenceLine yAxisId="right" y={0} stroke="#a1a1aa" strokeDasharray="4 4" />
+                    <Bar yAxisId="left" dataKey="scorePct" name="Signals %" radius={[4, 4, 0, 0]}>
+                      {chartRows.map((row) => <Cell key={row.symbol} fill={row.momentum >= 0 ? '#10b981' : '#f43f5e'} />)}
+                    </Bar>
+                    <Line yAxisId="right" type="monotone" dataKey="momentum" name="1M %" stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3 }} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-white p-4 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Opportunity Map</h3>
+                <span className="text-[11px] text-zinc-400">P/E vs 1M</span>
+              </div>
+              <div className="h-72">
+                {scatterRows.length ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ScatterChart margin={{ top: 10, right: 12, left: 0, bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-100 dark:text-zinc-800" />
+                      <XAxis type="number" dataKey="pe" name="P/E" domain={[0, 80]} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
+                      <YAxis type="number" dataKey="momentum" name="1M %" width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
+                      <ZAxis type="number" dataKey="opportunity" range={[45, 280]} />
+                      <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+                      <ReferenceLine y={0} stroke="#a1a1aa" strokeDasharray="4 4" />
+                      <Scatter data={scatterRows} name="Candidates" fill="#6366f1">
+                        {scatterRows.map((row) => <Cell key={row.symbol} fill={row.opportunity >= 45 ? '#10b981' : row.opportunity >= 25 ? '#6366f1' : '#f59e0b'} />)}
+                      </Scatter>
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center rounded-xl bg-zinc-50 text-xs text-zinc-500 dark:bg-zinc-950">Need P/E and price data for map.</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 2xl:grid-cols-[.85fr_1.15fr]">
+            <div className="rounded-xl bg-white p-4 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">RSI and Risk</h3>
+                <span className="text-[11px] text-zinc-400">Watch extremes</span>
+              </div>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={chartRows} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-100 dark:text-zinc-800" />
+                    <XAxis dataKey="symbol" tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
+                    <YAxis yAxisId="left" width={38} domain={[0, 100]} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
+                    <YAxis yAxisId="right" orientation="right" width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
+                    <Tooltip />
+                    <ReferenceLine yAxisId="left" y={70} stroke="#f59e0b" strokeDasharray="4 4" />
+                    <ReferenceLine yAxisId="left" y={30} stroke="#10b981" strokeDasharray="4 4" />
+                    <Bar yAxisId="left" dataKey="rsi" name="RSI" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+                    <Line yAxisId="right" type="monotone" dataKey="risk" name="Volatility" stroke="#f43f5e" strokeWidth={2.2} dot={false} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-xl bg-white ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+              <div className="flex items-center justify-between px-4 py-3">
+                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Ranked Candidates</h3>
+                <span className="text-[11px] text-zinc-400">Click ticker for research</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-zinc-50 text-[10px] uppercase tracking-wide text-zinc-400 dark:bg-zinc-950">
+                    <tr>
+                      <th className="px-4 py-2">Ticker</th>
+                      <th className="px-3 py-2 text-right">Agent</th>
+                      <th className="px-3 py-2 text-right">Signals</th>
+                      <th className="px-3 py-2 text-right">1M</th>
+                      <th className="px-3 py-2 text-right">P/E</th>
+                      <th className="px-3 py-2 text-right">RSI</th>
+                      <th className="px-3 py-2 text-right">MCap</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                    {rankedRows.slice(0, 12).map((row) => (
+                      <tr key={row.symbol} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-950/70">
+                        <td className="px-4 py-2">
+                          <button type="button" onClick={() => onTickerSelect?.(row.symbol)} className="font-semibold text-indigo-700 hover:underline dark:text-indigo-300">{row.symbol}</button>
+                          <div className="max-w-40 truncate text-[10px] text-zinc-400">{row.name || row.sector}</div>
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold text-zinc-900 dark:text-zinc-100">{formatPlainNumber(row.opportunity_score, 0)}</td>
+                        <td className="px-3 py-2 text-right">{row.buy_count}/{row.total_strategies || 7}</td>
+                        <td className={`px-3 py-2 text-right font-semibold ${toneClass(row.change_20d)}`}>{fmtPctValue(row.change_20d)}</td>
+                        <td className="px-3 py-2 text-right">{formatPlainNumber(row.pe_ratio)}</td>
+                        <td className="px-3 py-2 text-right">{formatPlainNumber(row.rsi)}</td>
+                        <td className="px-3 py-2 text-right">{fmtCompact(row.market_cap)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function MacroMiniPanel({ macro }) {
   const chart = (macro?.charts || []).find((c) => c.id === 'rates_jobs') || (macro?.charts || [])[0];
   const rows = mergeMacroSeries(chart).slice(-180);
@@ -1451,6 +1781,15 @@ function AssistantWorkbench({
             onTickerSelect={openWorkspaceResearch}
             onTabSelect={openWorkspaceTab}
           />
+          {workspaceIntent.tab === 'screener' && (
+            <WorkspaceScreenerDashboard
+              intent={workspaceIntent.screener}
+              rows={visibleScreenRows}
+              allRows={screenRows}
+              onTickerSelect={openWorkspaceResearch}
+              onNavigate={onNavigate}
+            />
+          )}
           <div className="grid gap-3 xl:grid-cols-[.95fr_1.05fr]">
             <AgentBriefCard text={latestAssistant} />
             <AssistantMiniVisuals chart={chart} macro={macro} rows={visibleScreenRows} ticker={focusTicker} />
@@ -1474,6 +1813,9 @@ function AssistantWorkbench({
       {tab === 'research' && (
         <div>
           <WorkspaceChatContext text={latestAssistant} tickers={discussedTickers} intent={workspaceIntent} onTickerSelect={openWorkspaceResearch} onTabSelect={openWorkspaceTab} />
+          <div className="mb-4">
+            <ResearchSnapshot ticker={focusTicker} research={research} chart={chart} loading={researchLoading} onNavigate={onNavigate} />
+          </div>
           <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
             <ResearchPanel
               strategies={strategies}
@@ -1488,15 +1830,22 @@ function AssistantWorkbench({
       {tab === 'screener' && (
         <div>
           <WorkspaceChatContext text={latestAssistant} tickers={discussedTickers} intent={workspaceIntent} onTickerSelect={openWorkspaceResearch} onTabSelect={openWorkspaceTab} />
-          <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-            <ScreenerPanel onOpenResearch={openWorkspaceResearch} agentIntent={workspaceIntent.screener} />
-          </div>
+          <WorkspaceScreenerDashboard
+            intent={workspaceIntent.screener}
+            rows={visibleScreenRows}
+            allRows={screenRows}
+            onTickerSelect={openWorkspaceResearch}
+            onNavigate={onNavigate}
+          />
         </div>
       )}
 
       {tab === 'macro' && (
         <div>
           <WorkspaceChatContext text={latestAssistant} tickers={discussedTickers} intent={workspaceIntent} onTickerSelect={openWorkspaceResearch} onTabSelect={openWorkspaceTab} />
+          <div className="mb-4">
+            <MacroMiniPanel macro={macro} />
+          </div>
           <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
             <MacroPanel />
           </div>
