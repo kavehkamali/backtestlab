@@ -445,6 +445,8 @@ def _daily_article_fallback_body(field: dict[str, Any], title: str, context: dic
 
 
 def _call_agent_article(field: dict[str, Any], title: str, context: dict[str, Any], today: str) -> str:
+    if os.getenv("EQUILIMA_DAILY_ARTICLE_USE_AGENT", "1") == "0":
+        return ""
     prompt = (
         f"Write a long-form Equilima Learn article for the {field['label']} field with an eye-catching storytelling style. "
         f"Title: {title}. Today: {today}. Minimum {DAILY_ARTICLE_MIN_WORDS} words. "
