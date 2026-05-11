@@ -9,8 +9,6 @@ import {
   FileText,
   Shield,
   BookOpen,
-  LayoutDashboard,
-  MessageSquare,
 } from 'lucide-react';
 
 const TABS = [
@@ -32,39 +30,6 @@ const TAB_PATHS = {
 };
 
 const SUPPORT_EMAIL = 'info@equilima.com';
-
-function AgentModeSwitch({ layoutMode, setLayoutMode }) {
-  if (!setLayoutMode) return null;
-  const active = layoutMode === 'chat' ? 'chat' : 'assistant';
-  return (
-    <div className="ml-1 hidden items-center gap-0.5 rounded-lg bg-zinc-100/80 p-1 dark:bg-zinc-900/80 lg:flex">
-      <button
-        type="button"
-        onClick={() => setLayoutMode('assistant')}
-        className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-all ${
-          active === 'assistant'
-            ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200/60 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-600'
-            : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
-        }`}
-      >
-        <LayoutDashboard className="h-3.5 w-3.5" />
-        Assistant
-      </button>
-      <button
-        type="button"
-        onClick={() => setLayoutMode('chat')}
-        className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-all ${
-          active === 'chat'
-            ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200/60 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-600'
-            : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
-        }`}
-      >
-        <MessageSquare className="h-3.5 w-3.5" />
-        Chat
-      </button>
-    </div>
-  );
-}
 
 function UserMenu({ user, setActiveTab, onSignOut }) {
   const [open, setOpen] = useState(false);
@@ -203,8 +168,6 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
 export default function Header({
   activeTab,
   setActiveTab,
-  agentLayoutMode,
-  setAgentLayoutMode,
   user,
   onSignIn,
   onSignUp,
@@ -259,9 +222,6 @@ export default function Header({
               </button>
             ))}
           </div>
-          {activeTab === 'agent' && (
-            <AgentModeSwitch layoutMode={agentLayoutMode} setLayoutMode={setAgentLayoutMode} />
-          )}
           {onOpenLearn && (
             <button
               type="button"

@@ -460,6 +460,38 @@ function Message({ msg, onNavigate, tickerDisplay = 'cards' }) {
   );
 }
 
+function AssistantLayoutSwitch({ layoutMode, setLayoutMode, assistantAvailable }) {
+  if (!setLayoutMode) return null;
+  const active = assistantAvailable && layoutMode !== 'chat' ? 'assistant' : 'chat';
+  return (
+    <div className="flex items-center gap-0.5 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-900">
+      <button
+        type="button"
+        onClick={() => assistantAvailable && setLayoutMode('assistant')}
+        disabled={!assistantAvailable}
+        className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition ${
+          active === 'assistant'
+            ? 'bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700'
+            : 'text-zinc-500 hover:text-zinc-900 disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-100'
+        }`}
+      >
+        <LayoutDashboard className="h-3.5 w-3.5" /> Assistant
+      </button>
+      <button
+        type="button"
+        onClick={() => setLayoutMode('chat')}
+        className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition ${
+          active === 'chat'
+            ? 'bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700'
+            : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
+        }`}
+      >
+        <MessageSquare className="h-3.5 w-3.5" /> Chat
+      </button>
+    </div>
+  );
+}
+
 function AssistantChatColumn({
   activeSession,
   messages,
@@ -469,8 +501,9 @@ function AssistantChatColumn({
   setInput,
   handleSend,
   mode,
-  modeToggle,
-  lastRun,
+  layoutMode,
+  setLayoutMode,
+  assistantAvailable,
   onNavigate,
   scrollRef,
   suggestions,
@@ -480,63 +513,55 @@ function AssistantChatColumn({
   const hasThread = messages.length > 0 || loading;
   const [historyExpanded, setHistoryExpanded] = useState(false);
   return (
-    <section className="flex h-full min-h-0 w-[420px] min-w-[380px] max-w-[500px] shrink-0 flex-col overflow-hidden border-r border-zinc-200/70 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+    <section className="flex h-full min-h-0 w-[410px] min-w-[370px] max-w-[480px] shrink-0 flex-col overflow-hidden border-r border-zinc-200/70 bg-white dark:border-zinc-800 dark:bg-zinc-950">
       <div className="shrink-0 border-b border-zinc-200/70 px-4 py-3 dark:border-zinc-800">
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold text-zinc-950 dark:text-zinc-100">AI chat</div>
-            <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-              {mode === 'full' ? 'Deep agent run' : 'Fast agent run'}{lastRun ? ` · ${(lastRun.elapsedMs / 1000).toFixed(1)}s` : ''}
-            </div>
-          </div>
+          <AssistantLayoutSwitch
+            layoutMode={layoutMode}
+            setLayoutMode={setLayoutMode}
+            assistantAvailable={assistantAvailable}
+          />
           <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={createNewChat}
-              className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-600 hover:bg-zinc-200 hover:text-zinc-950 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-950 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+              title="New chat"
+              aria-label="New chat"
             >
-              <SquarePen className="h-3.5 w-3.5" /> New
+              <SquarePen className="h-3.5 w-3.5" />
             </button>
             <button
               type="button"
               onClick={() => setHistoryExpanded((v) => !v)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-600 hover:bg-zinc-200 hover:text-zinc-950 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
+              className="inline-flex h-8 items-center gap-1 rounded-lg bg-zinc-100 px-2 text-[11px] font-semibold text-zinc-500 hover:bg-zinc-200 hover:text-zinc-950 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
             >
-              <MessageSquare className="h-3.5 w-3.5" /> History
+              <MessageSquare className="h-3.5 w-3.5" />
               <ChevronDown className={`h-3.5 w-3.5 transition-transform ${historyExpanded ? 'rotate-180' : ''}`} />
             </button>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="min-w-0 truncate text-[10px] text-zinc-400 dark:text-zinc-500">
-            {activeSession?.title && activeSession.title !== 'New chat' ? activeSession.title : 'Current conversation'}
-          </div>
-          <div className="flex items-center gap-2">
-            {modeToggle}
-          </div>
-        </div>
       </div>
-      <div className="shrink-0 border-b border-zinc-200/70 bg-white/95 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950/95">
+      <div className="shrink-0 border-b border-zinc-200/70 bg-zinc-50/80 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
         <div className="flex items-stretch gap-2">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder="Ask the agent, then adjust charts and screeners…"
+            placeholder="Ask the agent..."
             disabled={loading}
-            className="min-w-0 flex-1 rounded-2xl bg-zinc-50 px-4 py-3 text-sm text-zinc-900 shadow-sm ring-1 ring-zinc-200/70 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-300/80 disabled:opacity-50 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700"
+            className="min-w-0 flex-1 rounded-xl bg-white px-3.5 py-2.5 text-sm text-zinc-900 shadow-sm ring-1 ring-zinc-200/70 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-300/80 disabled:opacity-50 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700"
           />
           <button
             type="button"
             onClick={handleSend}
             disabled={loading || !input.trim()}
-            className="shrink-0 rounded-2xl bg-zinc-900 px-4 py-3 text-white shadow-sm transition hover:bg-zinc-800 disabled:opacity-30 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            className="shrink-0 rounded-xl bg-zinc-900 px-3.5 py-2.5 text-white shadow-sm transition hover:bg-zinc-800 disabled:opacity-30 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
             <Send className="h-4 w-4" />
           </button>
         </div>
-        <p className="mt-2 text-center text-[9px] text-zinc-400 dark:text-zinc-500">Research workspace · Not financial advice</p>
       </div>
       {historyExpanded && (
         <div className="flex max-h-52 shrink-0 overflow-hidden border-b border-zinc-200/70 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/70">
@@ -550,15 +575,15 @@ function AssistantChatColumn({
         <div ref={scrollRef} className="h-full overflow-y-auto px-4 py-4">
           {!hasThread && (
             <div className="flex min-h-full flex-col justify-center">
-              <h2 className="text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">Ask, then work the data.</h2>
-              <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">The workspace updates from tickers and themes mentioned by the agent.</p>
+              <h2 className="text-xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">Ask, then work the data.</h2>
+              <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Mention a ticker or market theme and the workspace updates beside the chat.</p>
               <div className="mt-5 grid gap-2">
-                {suggestions.slice(0, 4).map((s) => (
+                {suggestions.slice(0, 3).map((s) => (
                   <button
                     type="button"
                     key={s}
                     onClick={() => setInput(s)}
-                    className="rounded-xl bg-zinc-50 px-3 py-2.5 text-left text-xs text-zinc-600 ring-1 ring-zinc-200/70 hover:bg-zinc-100 hover:text-zinc-950 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-800 dark:hover:bg-zinc-800"
+                    className="rounded-xl bg-white px-3 py-2.5 text-left text-xs text-zinc-600 ring-1 ring-zinc-200/70 hover:bg-zinc-50 hover:text-zinc-950 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-800 dark:hover:bg-zinc-800"
                   >
                     {s}
                   </button>
@@ -883,15 +908,15 @@ function AssistantWorkbench({
   };
 
   return (
-    <section className="min-w-0 flex-1 overflow-y-auto bg-zinc-50 p-4 dark:bg-zinc-950">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <section className="min-w-0 flex-1 overflow-y-auto bg-zinc-50 p-3 dark:bg-zinc-950">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">Assistant workspace</h2>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">Work with research, screener, macro, and news without leaving the agent.</p>
+          <h2 className="text-lg font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">Workspace</h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">Research, screen, and monitor macro beside the conversation.</p>
         </div>
       </div>
 
-      <div className="mb-4 flex gap-1 overflow-x-auto rounded-xl bg-white p-1 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+      <div className="mb-3 flex gap-1 overflow-x-auto rounded-xl bg-white p-1 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
         {WORKSPACE_TABS.map((item) => {
           const Icon = item.icon;
           return (
@@ -901,7 +926,7 @@ function AssistantWorkbench({
               onClick={() => setTab(item.id)}
               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${
                 tab === item.id
-                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
+                  ? 'bg-zinc-900 text-white shadow-sm dark:bg-zinc-100 dark:text-zinc-900'
                   : 'text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100'
               }`}
             >
@@ -912,7 +937,7 @@ function AssistantWorkbench({
       </div>
 
       {discussedTickers.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-2">
+        <div className="mb-3 flex flex-wrap gap-2">
           {discussedTickers.map((ticker) => (
             <button
               type="button"
@@ -1016,8 +1041,9 @@ function AssistantMode({
   setInput,
   handleSend,
   mode,
-  modeToggle,
-  lastRun,
+  layoutMode,
+  setLayoutMode,
+  assistantAvailable,
   onNavigate,
   scrollRef,
   suggestions,
@@ -1036,7 +1062,7 @@ function AssistantMode({
   }, [discussedTickers.join('|')]);
 
   return (
-    <div className="grid h-[calc(100dvh-57px)] max-h-[calc(100dvh-57px)] min-h-0 w-full grid-cols-[420px_minmax(0,1fr)] overflow-hidden bg-zinc-50 dark:bg-zinc-950">
+    <div className="grid h-[calc(100dvh-57px)] max-h-[calc(100dvh-57px)] min-h-0 w-full grid-cols-[410px_minmax(0,1fr)] overflow-hidden bg-zinc-50 dark:bg-zinc-950">
       <AssistantChatColumn
         activeSession={activeSession}
         messages={messages}
@@ -1046,8 +1072,9 @@ function AssistantMode({
         setInput={setInput}
         handleSend={handleSend}
         mode={mode}
-        modeToggle={modeToggle}
-        lastRun={lastRun}
+        layoutMode={layoutMode}
+        setLayoutMode={setLayoutMode}
+        assistantAvailable={assistantAvailable}
         onNavigate={onNavigate}
         scrollRef={scrollRef}
         suggestions={suggestions}
@@ -1175,6 +1202,7 @@ export default function AgentPanel({
   user,
   dek,
   layoutMode = 'assistant',
+  setLayoutMode,
   strategies = [],
   onCompare,
   compareResults = null,
@@ -1454,7 +1482,6 @@ export default function AgentPanel({
   const suggestions = [
     "Analyze NVDA — is it a good buy right now?",
     "What's the outlook for the S&P 500 this quarter?",
-    "Compare AAPL vs MSFT for long-term investment",
     "Which tech stocks are oversold right now?",
     "Give me a risk assessment for TSLA",
     "What sectors are showing strength this week?",
@@ -1557,8 +1584,9 @@ export default function AgentPanel({
         setInput={setInput}
         handleSend={handleSend}
         mode={mode}
-        modeToggle={modeToggle}
-        lastRun={lastRun}
+        layoutMode={activeLayoutMode}
+        setLayoutMode={setLayoutMode}
+        assistantAvailable={assistantAvailable}
         onNavigate={onNavigate}
         scrollRef={scrollRef}
         suggestions={suggestions}
@@ -1614,6 +1642,11 @@ export default function AgentPanel({
 
       <div className="shrink-0 flex items-center justify-between px-3 sm:px-5 py-2.5">
         <div className="flex items-center gap-2">
+          <AssistantLayoutSwitch
+            layoutMode={activeLayoutMode}
+            setLayoutMode={setLayoutMode}
+            assistantAvailable={assistantAvailable}
+          />
           <button
             type="button"
             onClick={() => setHistoryOpen(true)}

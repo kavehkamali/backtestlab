@@ -293,8 +293,6 @@ function App() {
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        agentLayoutMode={agentLayoutMode}
-        setAgentLayoutMode={setAgentLayoutMode}
         user={user}
         onSignIn={() => { setAuthMode('signin'); setAuthMessage(''); setShowAuth(true); }}
         onSignUp={() => { setAuthMode('signup'); setAuthMessage(''); setShowAuth(true); }}
@@ -366,6 +364,7 @@ function App() {
               user={user}
               dek={agentDek}
               layoutMode={agentLayoutMode}
+              setLayoutMode={setAgentLayoutMode}
               strategies={strategies}
               onCompare={handleCompare}
               compareResults={compareResults}
