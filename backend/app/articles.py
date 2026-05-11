@@ -413,6 +413,30 @@ def _daily_article_fallback_body(field: dict[str, Any], title: str, context: dic
             f"<li class=\"eq-li\"><strong>{html_escape(h.get('symbol') or '')}</strong>: {html_escape(h.get('title') or '')}</li>"
         )
     brief_html = "".join(brief_items) or "<li class=\"eq-li\"><strong>Watchlist</strong>: price, rates, and fundamentals are the signal stack for this session.</li>"
+    oil_ticker = next((t for t in tickers if t.get("symbol") in ("USO", "CL=F", "XLE", "XOM", "CVX")), None)
+    risk_ticker = next((t for t in tickers if t.get("symbol") in ("SPY", "QQQ", "IWM", "BTC-USD", "ETH-USD")), None) or lead_ticker
+    action_items = []
+    if oil_ticker:
+        oil_change = oil_ticker.get("change_1m")
+        oil_bias = "bullish" if oil_change is not None and float(oil_change) >= 0 else "early, not confirmed"
+        action_items.append(
+            f"<li><strong>Oil / energy:</strong> {html_escape(str(oil_ticker.get('symbol')))} looks {oil_bias} with a 1M move of {html_escape(str(oil_change if oil_change is not None else 'n/a'))}%. A tactical long setup improves if crude/energy closes above the prior week&apos;s high and China/global demand headlines stop deteriorating. Step back if the dollar spikes or oil gives back the breakout.</li>"
+        )
+    if risk_ticker:
+        rc = risk_ticker.get("change_1m")
+        action_items.append(
+            f"<li><strong>Risk assets:</strong> {html_escape(str(risk_ticker.get('symbol') or lead_symbol))} is the temperature check at {html_escape(str(risk_ticker.get('price') or 'latest price'))}, 1M {html_escape(str(rc if rc is not None else 'n/a'))}%. Buy-the-dip behavior is more credible if yields stop rising and the index holds its 20-day trend; failed bounces argue for cash or smaller size.</li>"
+        )
+    if rate or ten_year:
+        action_items.append(
+            f"<li><strong>Rates trade:</strong> with Fed Funds near {html_escape(str(rate.get('latest') or 'n/a'))} and the 10Y near {html_escape(str(ten_year.get('latest') or 'n/a'))}, long-duration equities need lower yields to keep expanding multiples. If the 10Y pushes higher, favor cash-flow names over long-story names.</li>"
+        )
+    if top_mover:
+        tm = top_mover.get("symbol") or lead_symbol
+        action_items.append(
+            f"<li><strong>{html_escape(str(tm))} trigger:</strong> keep it on the active list only if price strength is confirmed by fundamentals or fresh headlines. A big 1M move without better margins, guidance, or demand usually becomes a chase-risk setup.</li>"
+        )
+    action_html = "".join(action_items)
     headline_items = "".join(
         f"<li><strong>{html_escape(h.get('symbol') or '')}</strong>: {html_escape(h.get('title') or '')}</li>"
         for h in headlines
@@ -441,6 +465,9 @@ def _daily_article_fallback_body(field: dict[str, Any], title: str, context: dic
 <p class="eq-p">The screen does not open with a thesis. It opens with pressure. {html_escape(str(lead_symbol))} sits near {html_escape(str(lead_price or 'its latest print'))}{f', after a one-month move of {html_escape(str(lead_change))}%' if lead_change is not None else ''}, and that single line already asks the question every serious reader has to answer: is this strength, exhaustion, or just a crowded trade looking for a reason to keep moving?</p>
 <p class="eq-p">You do not need a dramatic forecast to read the morning well. You need a clean sequence. First, see where money is flowing. Then test whether earnings power, balance-sheet quality, valuation, and macro conditions support that flow. If the story is good but the numbers are not, be patient. If the numbers are strong but the tape is breaking, respect the market&apos;s warning.</p>
 <ul class="eq-ul list-disc pl-6 mb-6">{ticker_items}</ul>
+<h2 class="eq-h2">The Trade Setup To Watch</h2>
+<p class="eq-p">Here is the part that matters before the market narrative gets too polished: the setup only becomes attractive when price, news, and macro pressure point in the same direction. A headline can make oil look like a buy for one session; a sustained move needs demand, inventory, currency, and energy-equity confirmation.</p>
+<ul class="eq-ul list-disc pl-6 mb-6">{action_html}</ul>
 <h2 class="eq-h2">The Macro Weather</h2>
 <p class="eq-p">Rates are the weather system above the whole market. They decide how much investors pay for distant growth, how forgiving they are toward leverage, and how quickly they rotate when a company misses. A business can sound healthy and still trade poorly when the macro backdrop raises the cost of waiting.</p>
 <ul class="eq-ul list-disc pl-6 mb-6">{macro_items}</ul>
@@ -449,11 +476,11 @@ def _daily_article_fallback_body(field: dict[str, Any], title: str, context: dic
 <ul class="eq-ul list-disc pl-6 mb-6">{headline_items}</ul>
 """
     sections = [
-        ("The Fundamentals Under The Story", "Price can make a weak story look persuasive for a while, but fundamentals decide whether the story can survive the next earnings call. Revenue growth, gross margin, operating leverage, debt load, and free cash flow are the places where excitement becomes evidence or falls apart."),
-        ("The Tape Beneath The Headline", "A chart is not a prophecy. It is a record of what buyers and sellers have already accepted. When price rises on broad participation and holds above prior resistance, the market is giving the story room. When price jumps and fades, the market is telling you the story still has doubters."),
-        ("The Macro Pressure Point", "Every field has a macro pressure point. Growth needs liquidity. Banks need credit quality and a usable curve. Energy needs demand. Crypto needs risk appetite. Real estate needs financing relief. The right question is not whether macro matters, but which macro variable matters first."),
-        ("The Practical Move", "A good reader does not chase every green candle or flee every red one. The practical move is to build a watchlist, define the trigger, define the invalidation point, and wait for the market to confirm or reject the setup. That discipline matters more than sounding early."),
-        ("The Risk That Would Change The Story", "Every strong market story has a fracture line. It may be a rate shock, a margin miss, an earnings revision, a regulatory surprise, a failed breakout, or a liquidity squeeze. If you cannot name the fracture line, the thesis is not finished."),
+        ("The Bull Case", f"The bullish path is simple: {lead_symbol} holds recent strength, headlines keep improving, and the macro tape stops fighting the move. In that version, a pullback toward support is more interesting than a chase at the highs because the risk/reward is easier to define."),
+        ("The Bear Case", f"The bearish path starts when {lead_symbol} cannot hold gains after good news. That kind of failure says positioning may already be crowded. If rates rise, the dollar strengthens, or earnings quality weakens, the setup turns from opportunity into trap."),
+        ("The Trigger", "A useful trigger is visible before the story feels comfortable. Look for a close above the prior week&apos;s high, improving volume, and at least one confirming fundamental or macro datapoint. Without confirmation, the cleaner trade is to wait."),
+        ("The Invalidation", "The invalidation point should be blunt. If the asset loses support, if the headline is reversed, if guidance weakens, or if the macro driver flips, the setup no longer deserves the same attention. A good thesis is allowed to die quickly."),
+        ("The Positioning Read", "The most interesting trades usually sit between fear and confirmation. If everybody already agrees, the price may have moved too far. If nobody agrees but the numbers are quietly improving, that is where the watchlist earns its keep."),
     ]
     paragraphs = []
     for idx in range(80):
@@ -463,7 +490,7 @@ def _daily_article_fallback_body(field: dict[str, Any], title: str, context: dic
         paragraphs.append(
             "<p class=\"eq-p\">"
             + html_escape(
-                f"{seed} On {today}, the {field_label} read is strongest when you treat each data point as part of a scene rather than a verdict. Look at what moved, ask who benefits, test the numbers, then decide what would prove the market wrong. The goal is not to predict every tick. The goal is to avoid being pulled into a story before the evidence is strong enough to deserve your attention."
+                f"{seed} On {today}, the {field_label} read should feel practical: bullish if price confirms and the news improves; cautious if the move depends on one headline; bearish if macro pressure gets worse while the chart loses support. The strongest setup is not the loudest story. It is the one where the ticker, the numbers, and the macro backdrop all point in the same direction."
             )
             + "</p>"
         )
