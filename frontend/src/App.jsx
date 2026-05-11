@@ -18,6 +18,8 @@ import { applyDocumentTheme, syncSiteThemeUserMeta } from './siteTheme';
 import { bootstrapAgentE2EE, fetchAgentE2EEMeta, rewrapAgentE2EE } from './api';
 import { createAndWrapDek, unwrapDek, wrapExistingDek } from './e2ee';
 
+const AGENT_LAYOUT_STORAGE_KEY = 'eq_agent_layout_mode_v1';
+
 const APP_PATH_TO_TAB = {
   '/': 'agent',
   '/agent': 'agent',
@@ -48,6 +50,13 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(window.location.hash === '#admin');
   const [learnRoute, setLearnRoute] = useState(() => getLearnRoute());
   const [activeTab, setActiveTab] = useState(() => getTabFromPath());
+  const [agentLayoutMode, setAgentLayoutModeState] = useState(() => {
+    try {
+      return localStorage.getItem(AGENT_LAYOUT_STORAGE_KEY) || 'assistant';
+    } catch {
+      return 'assistant';
+    }
+  });
 
   // Listen for hash changes
   useEffect(() => {
@@ -224,6 +233,14 @@ function App() {
     }
   };
 
+  const setAgentLayoutMode = useCallback((next) => {
+    const value = next === 'chat' ? 'chat' : 'assistant';
+    setAgentLayoutModeState(value);
+    try {
+      localStorage.setItem(AGENT_LAYOUT_STORAGE_KEY, value);
+    } catch {}
+  }, []);
+
   // Learn hub (/learn, /learn/:slug, or #/learn …) — SEO articles
   if (learnRoute && !isAdmin) {
     return (
@@ -276,6 +293,8 @@ function App() {
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        agentLayoutMode={agentLayoutMode}
+        setAgentLayoutMode={setAgentLayoutMode}
         user={user}
         onSignIn={() => { setAuthMode('signin'); setAuthMessage(''); setShowAuth(true); }}
         onSignUp={() => { setAuthMode('signup'); setAuthMessage(''); setShowAuth(true); }}
@@ -289,7 +308,7 @@ function App() {
       <main
         className={
           activeTab === 'agent'
-            ? 'w-full max-w-none px-0 pb-0 mt-2 sm:mt-4 min-h-0'
+            ? 'w-full max-w-none px-0 pb-0 mt-0 min-h-0'
             : 'max-w-7xl mx-auto px-3 sm:px-6 pb-8 sm:pb-12 mt-2 sm:mt-4'
         }
       >
@@ -308,7 +327,7 @@ function App() {
           <div
             className={
               activeTab === 'agent'
-                ? 'block w-full h-[calc(100vh-52px)] sm:h-[calc(100vh-60px)] min-h-0'
+                ? 'block w-full h-[calc(100dvh-57px)] min-h-0'
                 : 'hidden'
             }
           >
@@ -346,6 +365,11 @@ function App() {
               }}
               user={user}
               dek={agentDek}
+              layoutMode={agentLayoutMode}
+              strategies={strategies}
+              onCompare={handleCompare}
+              compareResults={compareResults}
+              compareLoading={loading}
             />
           </div>
           <div className={activeTab === 'macro' ? '' : 'hidden'}>

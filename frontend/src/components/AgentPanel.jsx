@@ -24,10 +24,12 @@ import {
 import { AreaChart, Area, BarChart, Bar, LineChart, Line, YAxis, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { fetchTerminalChart, fetchResearch, fetchAgentHistory, putAgentHistory } from '../api';
 import SnowflakeChart from './SnowflakeChart';
+import MacroPanel from './MacroPanel';
+import ScreenerPanel from './ScreenerPanel';
+import ResearchPanel from './ResearchPanel';
 import { decryptWithDek, encryptWithDek } from '../e2ee';
 
 const CHAT_STORAGE_KEY = 'eq_agent_chat_sessions_v1';
-const AGENT_LAYOUT_STORAGE_KEY = 'eq_agent_layout_mode_v1';
 const AGENT_ASSISTANT_STRATEGIES = ['sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands', 'mean_reversion', 'momentum'];
 const WORKSPACE_TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -127,10 +129,6 @@ function assistantFetchNews(symbols) {
   return silentApiJson(`/api/news?symbols=${encodeURIComponent(symbols || '')}`);
 }
 
-function assistantFetchScreenerLists() {
-  return silentApiJson('/api/screener/lists');
-}
-
 function assistantRunScreener(body) {
   return silentApiJson('/api/screener', {
     method: 'POST',
@@ -167,7 +165,7 @@ function inlineFormat(text) {
     .replace(/__([^_]+)__/g, '<strong class="text-zinc-900 font-semibold">$1</strong>')
     .replace(/(?<![<\w])\*([^*]+)\*(?![>\w])/g, '<em class="text-zinc-600">$1</em>')
     .replace(/(?<![<\w])_([^_]+)_(?![>\w])/g, '<em class="text-zinc-600">$1</em>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline">$1</a>');
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="break-all text-indigo-600 hover:underline">$1</a>');
 }
 
 function parseTable(lines, startIdx) {
@@ -206,7 +204,7 @@ function RenderMarkdown({ text }) {
       const table = parseTable(lines, i);
       if (table && table.headers.length > 0) {
         elements.push(
-          <div key={i} className="overflow-x-auto my-3 rounded-xl bg-zinc-50 ring-1 ring-zinc-200/60">
+          <div key={i} className="my-3 overflow-x-auto rounded-xl bg-zinc-50 ring-1 ring-zinc-200/60 dark:bg-zinc-900 dark:ring-zinc-800">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-zinc-200/80 bg-white">
@@ -249,9 +247,9 @@ function RenderMarkdown({ text }) {
     // Unordered list
     if (/^[-*+]\s/.test(trimmed)) {
       elements.push(
-        <div key={i} className="flex gap-2 text-sm text-zinc-600 ml-2 my-1 leading-relaxed">
+          <div key={i} className="ml-2 my-1 flex min-w-0 gap-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
           <span className="text-indigo-500 mt-0.5 shrink-0">•</span>
-          <span dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.replace(/^[-*+]\s/, '')) }} />
+          <span className="min-w-0 break-words" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.replace(/^[-*+]\s/, '')) }} />
         </div>
       );
       i++; continue;
@@ -260,9 +258,9 @@ function RenderMarkdown({ text }) {
     if (/^\d+\.\s/.test(trimmed)) {
       const num = trimmed.match(/^(\d+)\./)[1];
       elements.push(
-        <div key={i} className="flex gap-2 text-sm text-zinc-600 ml-2 my-1 leading-relaxed">
+        <div key={i} className="ml-2 my-1 flex min-w-0 gap-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
           <span className="text-indigo-500 mt-0.5 shrink-0 w-4 text-right">{num}.</span>
-          <span dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.replace(/^\d+\.\s/, '')) }} />
+          <span className="min-w-0 break-words" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.replace(/^\d+\.\s/, '')) }} />
         </div>
       );
       i++; continue;
@@ -275,11 +273,11 @@ function RenderMarkdown({ text }) {
     // Empty line
     if (trimmed === '') { elements.push(<div key={i} className="h-2" />); i++; continue; }
     // Regular paragraph
-    elements.push(<p key={i} className="text-sm text-zinc-600 leading-relaxed my-1.5" dangerouslySetInnerHTML={{ __html: inlineFormat(line) }} />);
+    elements.push(<p key={i} className="my-1.5 min-w-0 break-words text-sm leading-relaxed text-zinc-600 dark:text-zinc-300" dangerouslySetInnerHTML={{ __html: inlineFormat(line) }} />);
     i++;
   }
 
-  return <div>{elements}</div>;
+  return <div className="min-w-0 break-words" style={{ overflowWrap: 'anywhere' }}>{elements}</div>;
 }
 
 // ─── Ticker insight card with charts ───
@@ -406,7 +404,7 @@ function TickerInsightCard({ ticker, onNavigate }) {
 }
 
 // ─── Chat message ───
-function Message({ msg, onNavigate }) {
+function Message({ msg, onNavigate, tickerDisplay = 'cards' }) {
   const isUser = msg.role === 'user';
   const tickers = !isUser
     ? [...new Set([
@@ -416,20 +414,40 @@ function Message({ msg, onNavigate }) {
       ])].filter(Boolean).slice(0, 12)
     : [];
 
+  const tickerLinks = tickers.length > 0 && tickerDisplay === 'links' && (
+    <div className="mt-3 flex flex-wrap gap-1.5 border-t border-zinc-200/70 pt-2 dark:border-zinc-800">
+      {tickers.map((ticker) => (
+        <button
+          type="button"
+          key={ticker}
+          onClick={() => onNavigate?.('research', ticker)}
+          className="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-100 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-200 dark:ring-indigo-900"
+        >
+          {ticker} research
+        </button>
+      ))}
+    </div>
+  );
+
   return (
-    <div className={`flex gap-3 ${isUser ? 'justify-end' : ''}`}>
+    <div className={`flex min-w-0 gap-3 ${isUser ? 'justify-end' : ''}`}>
       {!isUser && (
         <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
           <Bot className="w-4 h-4 text-indigo-600" />
         </div>
       )}
-      <div className={`max-w-[92%] sm:max-w-[88%] ${isUser ? 'bg-indigo-600 text-white dark:bg-zinc-700 dark:text-zinc-100' : 'bg-white ring-1 ring-zinc-200/70 shadow-sm dark:bg-zinc-900 dark:ring-zinc-700'} rounded-2xl px-4 py-3`}>
+      <div
+        className={`min-w-0 max-w-[92%] overflow-hidden rounded-2xl px-4 py-3 sm:max-w-[88%] ${isUser ? 'bg-indigo-600 text-white dark:bg-zinc-700 dark:text-zinc-100' : 'bg-white shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-700'}`}
+        style={{ overflowWrap: 'anywhere' }}
+      >
         {isUser ? (
-          <p className="text-sm">{msg.content}</p>
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{msg.content}</p>
         ) : (
           <>
             <RenderMarkdown text={msg.content} />
-            {tickers.map(t => <TickerInsightCard key={t} ticker={t} onNavigate={onNavigate} />)}
+            {tickerDisplay === 'cards'
+              ? tickers.map(t => <TickerInsightCard key={t} ticker={t} onNavigate={onNavigate} />)
+              : tickerLinks}
           </>
         )}
       </div>
@@ -438,36 +456,6 @@ function Message({ msg, onNavigate }) {
           <User className="w-4 h-4 text-zinc-600" />
         </div>
       )}
-    </div>
-  );
-}
-
-function AgentLayoutToggle({ layoutMode, setLayoutMode, assistantAvailable }) {
-  return (
-    <div className="hidden items-center gap-0.5 rounded-full bg-zinc-100 p-0.5 dark:bg-zinc-800/80 lg:flex">
-      <button
-        type="button"
-        onClick={() => assistantAvailable && setLayoutMode('assistant')}
-        disabled={!assistantAvailable}
-        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
-          layoutMode === 'assistant' && assistantAvailable
-            ? 'bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-700 dark:text-zinc-100 dark:ring-zinc-600'
-            : 'text-zinc-500 hover:text-zinc-900 disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-100'
-        }`}
-      >
-        <LayoutDashboard className="h-3.5 w-3.5" /> Assistant
-      </button>
-      <button
-        type="button"
-        onClick={() => setLayoutMode('chat')}
-        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
-          layoutMode === 'chat' || !assistantAvailable
-            ? 'bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-700 dark:text-zinc-100 dark:ring-zinc-600'
-            : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
-        }`}
-      >
-        <MessageSquare className="h-3.5 w-3.5" /> Chat
-      </button>
     </div>
   );
 }
@@ -483,7 +471,6 @@ function AssistantChatColumn({
   mode,
   modeToggle,
   lastRun,
-  layoutToggle,
   onNavigate,
   scrollRef,
   suggestions,
@@ -493,7 +480,7 @@ function AssistantChatColumn({
   const hasThread = messages.length > 0 || loading;
   const [historyExpanded, setHistoryExpanded] = useState(false);
   return (
-    <section className="flex w-[420px] min-w-[380px] max-w-[500px] shrink-0 flex-col border-r border-zinc-200/70 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+    <section className="flex h-full min-h-0 w-[420px] min-w-[380px] max-w-[500px] shrink-0 flex-col overflow-hidden border-r border-zinc-200/70 bg-white dark:border-zinc-800 dark:bg-zinc-950">
       <div className="shrink-0 border-b border-zinc-200/70 px-4 py-3 dark:border-zinc-800">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -525,18 +512,39 @@ function AssistantChatColumn({
             {activeSession?.title && activeSession.title !== 'New chat' ? activeSession.title : 'Current conversation'}
           </div>
           <div className="flex items-center gap-2">
-            {layoutToggle}
             {modeToggle}
           </div>
         </div>
       </div>
+      <div className="shrink-0 border-b border-zinc-200/70 bg-white/95 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950/95">
+        <div className="flex items-stretch gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+            placeholder="Ask the agent, then adjust charts and screeners…"
+            disabled={loading}
+            className="min-w-0 flex-1 rounded-2xl bg-zinc-50 px-4 py-3 text-sm text-zinc-900 shadow-sm ring-1 ring-zinc-200/70 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-300/80 disabled:opacity-50 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700"
+          />
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={loading || !input.trim()}
+            className="shrink-0 rounded-2xl bg-zinc-900 px-4 py-3 text-white shadow-sm transition hover:bg-zinc-800 disabled:opacity-30 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mt-2 text-center text-[9px] text-zinc-400 dark:text-zinc-500">Research workspace · Not financial advice</p>
+      </div>
       {historyExpanded && (
-        <div className="max-h-72 shrink-0 overflow-hidden border-b border-zinc-200/70 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/70">
+        <div className="flex max-h-52 shrink-0 overflow-hidden border-b border-zinc-200/70 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/70">
           {historyList}
         </div>
       )}
 
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         <div className="pointer-events-none absolute left-0 right-0 top-0 z-10 h-10 bg-gradient-to-b from-white to-transparent dark:from-zinc-950" />
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-10 h-14 bg-gradient-to-t from-white to-transparent dark:from-zinc-950" />
         <div ref={scrollRef} className="h-full overflow-y-auto px-4 py-4">
@@ -562,14 +570,14 @@ function AssistantChatColumn({
           {hasThread && (
             <div className="space-y-4 pb-4">
               {messages.map((msg, i) => (
-                <Message key={i} msg={msg} onNavigate={onNavigate} />
+                <Message key={i} msg={msg} onNavigate={onNavigate} tickerDisplay="links" />
               ))}
               {loading && streamingText && (
                 <div className="flex gap-3">
                   <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-200 dark:bg-zinc-800">
                     <Bot className="h-4 w-4 text-zinc-600 dark:text-zinc-300" />
                   </div>
-                  <div className="max-w-[92%] rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-700">
+                  <div className="min-w-0 max-w-[92%] overflow-hidden rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-700" style={{ overflowWrap: 'anywhere' }}>
                     <RenderMarkdown text={streamingText} />
                     <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-zinc-400 dark:bg-zinc-500" />
                   </div>
@@ -592,29 +600,6 @@ function AssistantChatColumn({
           )}
         </div>
       </div>
-
-      <div className="shrink-0 border-t border-zinc-200/70 bg-white/95 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950/95">
-        <div className="flex items-stretch gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder="Ask the agent, then adjust charts and screeners…"
-            disabled={loading}
-            className="min-w-0 flex-1 rounded-2xl bg-zinc-50 px-4 py-3 text-sm text-zinc-900 shadow-sm ring-1 ring-zinc-200/70 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-300/80 disabled:opacity-50 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700"
-          />
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={loading || !input.trim()}
-            className="shrink-0 rounded-2xl bg-zinc-900 px-4 py-3 text-white shadow-sm transition hover:bg-zinc-800 disabled:opacity-30 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-          >
-            <Send className="h-4 w-4" />
-          </button>
-        </div>
-        <p className="mt-2 text-center text-[9px] text-zinc-400 dark:text-zinc-500">Research workspace · Not financial advice</p>
-      </div>
     </section>
   );
 }
@@ -633,6 +618,20 @@ function mergeMacroSeries(chart) {
 }
 
 function ResearchSnapshot({ ticker, research, chart, loading, onNavigate }) {
+  if (!ticker) {
+    return (
+      <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+        <div className="flex h-full min-h-[320px] flex-col items-center justify-center rounded-xl bg-zinc-50 px-6 text-center ring-1 ring-zinc-100 dark:bg-zinc-950 dark:ring-zinc-800">
+          <FileText className="mb-3 h-6 w-6 text-zinc-300 dark:text-zinc-600" />
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Research context</h3>
+          <p className="mt-1 max-w-sm text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+            Mention a ticker in the chat, or choose one from the screener shortlist, and the workspace will load the matching research view.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const summary = research?.summary || {};
   const first = chart?.[0]?.close;
   const last = chart?.[chart.length - 1]?.close;
@@ -644,7 +643,7 @@ function ResearchSnapshot({ ticker, research, chart, loading, onNavigate }) {
     <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[11px] uppercase tracking-wide text-zinc-400">Focus ticker</div>
+          <div className="text-[11px] uppercase tracking-wide text-zinc-400">Research context</div>
           <h3 className="mt-0.5 text-xl font-semibold text-zinc-950 dark:text-zinc-100">{ticker}</h3>
           <p className="mt-0.5 max-w-md truncate text-xs text-zinc-500 dark:text-zinc-400">{summary.name || 'Research snapshot'}</p>
         </div>
@@ -793,7 +792,17 @@ function MacroMiniPanel({ macro }) {
   );
 }
 
-function AssistantWorkbench({ messages, streamingText, focusTicker, setFocusTicker, onNavigate }) {
+function AssistantWorkbench({
+  messages,
+  streamingText,
+  focusTicker,
+  setFocusTicker,
+  onNavigate,
+  strategies,
+  onCompare,
+  compareResults,
+  compareLoading,
+}) {
   const discussedTickers = useMemo(() => extractSessionTickers(messages), [messages]);
   const latestAssistant = useMemo(() => {
     const found = [...(messages || [])].reverse().find((m) => m.role === 'assistant' && String(m.content || '').trim());
@@ -801,22 +810,12 @@ function AssistantWorkbench({ messages, streamingText, focusTicker, setFocusTick
   }, [messages, streamingText]);
 
   const [tab, setTab] = useState('overview');
-  const [tickerInput, setTickerInput] = useState(focusTicker || 'AAPL');
   const [research, setResearch] = useState(null);
   const [chart, setChart] = useState([]);
   const [researchLoading, setResearchLoading] = useState(false);
   const [news, setNews] = useState(null);
   const [macro, setMacro] = useState(null);
-  const [lists, setLists] = useState([]);
-  const [screenList, setScreenList] = useState('sp500');
   const [screenRows, setScreenRows] = useState([]);
-  const [screenLoading, setScreenLoading] = useState(false);
-  const [screenSearch, setScreenSearch] = useState('');
-  const [minSignals, setMinSignals] = useState(3);
-
-  useEffect(() => {
-    setTickerInput(focusTicker || 'AAPL');
-  }, [focusTicker]);
 
   useEffect(() => {
     if (!focusTicker) return;
@@ -838,24 +837,19 @@ function AssistantWorkbench({ messages, streamingText, focusTicker, setFocusTick
 
   useEffect(() => {
     assistantFetchMacroOverview().then(setMacro).catch(() => {});
-    assistantFetchScreenerLists().then((d) => setLists(d?.lists || [])).catch(() => {});
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-    setScreenLoading(true);
-    assistantRunScreener({ list_id: screenList, strategies: AGENT_ASSISTANT_STRATEGIES })
+    assistantRunScreener({ list_id: 'sp500', strategies: AGENT_ASSISTANT_STRATEGIES })
       .then((d) => {
         if (!cancelled) setScreenRows(d?.results || []);
       })
       .catch(() => {
         if (!cancelled) setScreenRows([]);
-      })
-      .finally(() => {
-        if (!cancelled) setScreenLoading(false);
       });
     return () => { cancelled = true; };
-  }, [screenList]);
+  }, []);
 
   useEffect(() => {
     if (!discussedTickers.length) return;
@@ -864,20 +858,28 @@ function AssistantWorkbench({ messages, streamingText, focusTicker, setFocusTick
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [discussedTickers.join('|')]);
 
+  useEffect(() => {
+    if (tab !== 'research' || !focusTicker) return;
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', {
+        detail: { tab: 'research', ticker: focusTicker },
+      }));
+      window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: 'fundamentals' } }));
+    }, 0);
+  }, [tab, focusTicker]);
+
   const visibleScreenRows = useMemo(() => {
-    const q = screenSearch.trim().toUpperCase();
     return (screenRows || [])
-      .filter((row) => (row.buy_count || 0) >= minSignals)
-      .filter((row) => !q || row.symbol.includes(q) || String(row.name || '').toUpperCase().includes(q))
+      .filter((row) => (row.buy_count || 0) >= 3)
       .sort((a, b) => (b.buy_count || 0) - (a.buy_count || 0) || (b.change_20d || 0) - (a.change_20d || 0))
       .slice(0, 25);
-  }, [screenRows, minSignals, screenSearch]);
+  }, [screenRows]);
 
-  const submitTicker = (e) => {
-    e.preventDefault();
-    const ticker = tickerInput.trim().toUpperCase();
-    if (!ticker) return;
-    setFocusTicker(ticker);
+  const openWorkspaceResearch = (ticker) => {
+    const symbol = ticker ? String(ticker).trim().toUpperCase() : '';
+    if (!symbol) return;
+    setFocusTicker(symbol);
+    setTab('research');
   };
 
   return (
@@ -885,18 +887,8 @@ function AssistantWorkbench({ messages, streamingText, focusTicker, setFocusTick
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">Assistant workspace</h2>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">Research, charts, macro, news, and screener controls stay beside the chat.</p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">Work with research, screener, macro, and news without leaving the agent.</p>
         </div>
-        <form onSubmit={submitTicker} className="flex items-center gap-2 rounded-xl bg-white p-1.5 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-          <Search className="ml-2 h-3.5 w-3.5 text-zinc-400" />
-          <input
-            value={tickerInput}
-            onChange={(e) => setTickerInput(e.target.value)}
-            className="w-28 bg-transparent text-sm font-semibold uppercase text-zinc-900 outline-none dark:text-zinc-100"
-            placeholder="Ticker"
-          />
-          <button type="submit" className="rounded-lg bg-zinc-900 px-2.5 py-1.5 text-[11px] font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">Load</button>
-        </form>
       </div>
 
       <div className="mb-4 flex gap-1 overflow-x-auto rounded-xl bg-white p-1 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
@@ -925,7 +917,7 @@ function AssistantWorkbench({ messages, streamingText, focusTicker, setFocusTick
             <button
               type="button"
               key={ticker}
-              onClick={() => setFocusTicker(ticker)}
+              onClick={() => openWorkspaceResearch(ticker)}
               className={`rounded-full px-3 py-1.5 text-[11px] font-semibold ring-1 ${
                 focusTicker === ticker
                   ? 'bg-indigo-50 text-indigo-700 ring-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-200 dark:ring-indigo-900'
@@ -961,83 +953,31 @@ function AssistantWorkbench({ messages, streamingText, focusTicker, setFocusTick
               <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Screener shortlist</h3>
               <span className="text-[11px] text-zinc-400">{visibleScreenRows.length} matches</span>
             </div>
-            <ScreenerMiniTable rows={visibleScreenRows.slice(0, 8)} onTickerSelect={setFocusTicker} onNavigate={onNavigate} />
+            <ScreenerMiniTable rows={visibleScreenRows.slice(0, 8)} onTickerSelect={openWorkspaceResearch} onNavigate={onNavigate} />
           </div>
         </div>
       )}
 
       {tab === 'research' && (
-        <div className="space-y-4">
-          <ResearchSnapshot ticker={focusTicker} research={research} chart={chart} loading={researchLoading} onNavigate={onNavigate} />
-          {research?.snowflake && (
-            <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-              <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Quality snowflake</h3>
-              <div className="flex flex-wrap items-center gap-6">
-                <SnowflakeChart data={research.snowflake} size={160} />
-                <div className="grid flex-1 grid-cols-2 gap-2 md:grid-cols-3">
-                  {Object.entries(research.snowflake || {}).slice(0, 6).map(([key, value]) => (
-                    <div key={key} className="rounded-lg bg-zinc-50 px-3 py-2 ring-1 ring-zinc-100 dark:bg-zinc-950 dark:ring-zinc-800">
-                      <div className="text-[10px] capitalize text-zinc-400">{key.replaceAll('_', ' ')}</div>
-                      <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{value}/6</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+        <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+          <ResearchPanel
+            strategies={strategies}
+            onCompare={onCompare}
+            compareResults={compareResults}
+            compareLoading={compareLoading}
+          />
         </div>
       )}
 
       {tab === 'screener' && (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2 rounded-xl bg-white p-3 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-            <select
-              value={screenList}
-              onChange={(e) => setScreenList(e.target.value)}
-              className="rounded-lg bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-800 ring-1 ring-zinc-200/70 outline-none dark:bg-zinc-950 dark:text-zinc-100 dark:ring-zinc-800"
-            >
-              {(lists.length ? lists : [{ id: 'sp500', name: 'S&P 500' }]).map((list) => (
-                <option key={list.id} value={list.id}>{list.name}</option>
-              ))}
-            </select>
-            <div className="flex items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 ring-1 ring-zinc-200/70 dark:bg-zinc-950 dark:ring-zinc-800">
-              <span className="text-[11px] text-zinc-500">Min signals</span>
-              {[0, 2, 3, 4, 5].map((n) => (
-                <button
-                  type="button"
-                  key={n}
-                  onClick={() => setMinSignals(n)}
-                  className={`h-6 w-6 rounded-md text-[11px] font-semibold ${minSignals === n ? 'bg-indigo-600 text-white' : 'bg-white text-zinc-500 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800'}`}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-            <div className="relative min-w-[180px] flex-1">
-              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
-              <input
-                value={screenSearch}
-                onChange={(e) => setScreenSearch(e.target.value)}
-                placeholder="Filter ticker or company…"
-                className="w-full rounded-lg bg-zinc-50 py-2 pl-9 pr-3 text-xs text-zinc-900 ring-1 ring-zinc-200/70 outline-none dark:bg-zinc-950 dark:text-zinc-100 dark:ring-zinc-800"
-              />
-            </div>
-          </div>
-          {screenLoading ? (
-            <div className="flex h-48 items-center justify-center text-sm text-zinc-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Scanning…</div>
-          ) : (
-            <ScreenerMiniTable rows={visibleScreenRows} onTickerSelect={setFocusTicker} onNavigate={onNavigate} />
-          )}
+        <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+          <ScreenerPanel onOpenResearch={openWorkspaceResearch} />
         </div>
       )}
 
       {tab === 'macro' && (
-        <div className="space-y-4">
-          <MacroMiniPanel macro={macro} />
-          <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-            <h3 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Agent macro analysis</h3>
-            {macro?.analysis?.text ? <RenderMarkdown text={macro.analysis.text} /> : <p className="text-sm text-zinc-500">Loading macro analysis…</p>}
-          </div>
+        <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+          <MacroPanel />
         </div>
       )}
 
@@ -1078,22 +1018,25 @@ function AssistantMode({
   mode,
   modeToggle,
   lastRun,
-  layoutToggle,
   onNavigate,
   scrollRef,
   suggestions,
   historyList,
   createNewChat,
+  strategies,
+  onCompare,
+  compareResults,
+  compareLoading,
 }) {
   const discussedTickers = useMemo(() => extractSessionTickers(messages), [messages]);
-  const [focusTicker, setFocusTicker] = useState(discussedTickers[0] || 'AAPL');
+  const [focusTicker, setFocusTicker] = useState(discussedTickers[0] || '');
 
   useEffect(() => {
     if (discussedTickers[0]) setFocusTicker(discussedTickers[0]);
   }, [discussedTickers.join('|')]);
 
   return (
-    <div className="grid h-full min-h-0 w-full grid-cols-[420px_minmax(0,1fr)] overflow-hidden bg-zinc-50 dark:bg-zinc-950">
+    <div className="grid h-[calc(100dvh-57px)] max-h-[calc(100dvh-57px)] min-h-0 w-full grid-cols-[420px_minmax(0,1fr)] overflow-hidden bg-zinc-50 dark:bg-zinc-950">
       <AssistantChatColumn
         activeSession={activeSession}
         messages={messages}
@@ -1105,7 +1048,6 @@ function AssistantMode({
         mode={mode}
         modeToggle={modeToggle}
         lastRun={lastRun}
-        layoutToggle={layoutToggle}
         onNavigate={onNavigate}
         scrollRef={scrollRef}
         suggestions={suggestions}
@@ -1118,6 +1060,10 @@ function AssistantMode({
         focusTicker={focusTicker}
         setFocusTicker={setFocusTicker}
         onNavigate={onNavigate}
+        strategies={strategies}
+        onCompare={onCompare}
+        compareResults={compareResults}
+        compareLoading={compareLoading}
       />
     </div>
   );
@@ -1224,18 +1170,20 @@ function newSession(title = 'New chat') {
 }
 
 // ─── Main ───
-export default function AgentPanel({ onNavigate, user, dek }) {
+export default function AgentPanel({
+  onNavigate,
+  user,
+  dek,
+  layoutMode = 'assistant',
+  strategies = [],
+  onCompare,
+  compareResults = null,
+  compareLoading = false,
+}) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('quick');
   const assistantAvailable = useDesktopAssistantAvailable();
-  const [layoutMode, setLayoutModeState] = useState(() => {
-    try {
-      return localStorage.getItem(AGENT_LAYOUT_STORAGE_KEY) || 'assistant';
-    } catch {
-      return 'assistant';
-    }
-  });
   const [streamingText, setStreamingText] = useState('');
   const [lastRun, setLastRun] = useState(null); // { mode, url, elapsedMs }
   const scrollRef = useRef(null);
@@ -1255,14 +1203,6 @@ export default function AgentPanel({ onNavigate, user, dek }) {
 
   const messages = activeSession?.messages || [];
   const activeLayoutMode = assistantAvailable ? layoutMode : 'chat';
-
-  const setLayoutMode = useCallback((next) => {
-    const value = next === 'chat' ? 'chat' : 'assistant';
-    setLayoutModeState(value);
-    try {
-      localStorage.setItem(AGENT_LAYOUT_STORAGE_KEY, value);
-    } catch {}
-  }, []);
 
   // Load: guest = localStorage; signed-in + dek = server E2EE; signed-in + no dek = user-scoped local plaintext (still usable)
   useEffect(() => {
@@ -1551,14 +1491,6 @@ export default function AgentPanel({ onNavigate, user, dek }) {
     </div>
   );
 
-  const layoutToggle = (
-    <AgentLayoutToggle
-      layoutMode={activeLayoutMode}
-      setLayoutMode={setLayoutMode}
-      assistantAvailable={assistantAvailable}
-    />
-  );
-
   const historyList = (
     <div className="flex-1 overflow-y-auto p-2 space-y-1 min-h-0">
       {sessions.map((s) => {
@@ -1627,12 +1559,15 @@ export default function AgentPanel({ onNavigate, user, dek }) {
         mode={mode}
         modeToggle={modeToggle}
         lastRun={lastRun}
-        layoutToggle={layoutToggle}
         onNavigate={onNavigate}
         scrollRef={scrollRef}
         suggestions={suggestions}
         historyList={historyList}
         createNewChat={createNewChat}
+        strategies={strategies}
+        onCompare={onCompare}
+        compareResults={compareResults}
+        compareLoading={compareLoading}
       />
     );
   }
@@ -1688,7 +1623,6 @@ export default function AgentPanel({ onNavigate, user, dek }) {
             <PanelLeft className="w-4 h-4 text-zinc-500" />
             Chats
           </button>
-          {layoutToggle}
         </div>
         {hasThread && (
           <button
