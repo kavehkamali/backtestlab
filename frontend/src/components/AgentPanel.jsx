@@ -559,7 +559,9 @@ function AssistantChatColumn({
             type="button"
             onClick={handleSend}
             disabled={loading || !input.trim()}
-            className="shrink-0 rounded-xl bg-zinc-900 px-3.5 py-2.5 text-white shadow-sm transition hover:bg-zinc-800 disabled:opacity-30 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+            className="shrink-0 px-2.5 text-zinc-500 transition hover:text-zinc-950 disabled:opacity-30 dark:text-zinc-400 dark:hover:text-zinc-100"
+            title="Send"
+            aria-label="Send"
           >
             <Send className="h-4 w-4" />
           </button>
@@ -770,6 +772,151 @@ function ScreenerMiniTable({ rows, onTickerSelect, onNavigate }) {
   );
 }
 
+function compactAgentBullets(text) {
+  const clean = String(text || '')
+    .replace(/<think>[\s\S]*?<\/think>/g, '')
+    .replace(/\*\*/g, '')
+    .replace(/^\s*#{1,6}\s+/gm, '')
+    .trim();
+  if (!clean) return [];
+  const lines = clean
+    .split('\n')
+    .map((line) => line.replace(/^\s*[-*+•]\s*/, '').replace(/^\s*\d+\.\s*/, '').trim())
+    .filter(Boolean)
+    .filter((line) => !/^disclaimer\b/i.test(line))
+    .filter((line) => !/^not financial advice\b/i.test(line));
+  const source = lines.length >= 2 ? lines : clean.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+  return source
+    .map((line) => line.replace(/\s+/g, ' ').slice(0, 170))
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
+function AgentBriefCard({ text }) {
+  const bullets = useMemo(() => compactAgentBullets(text), [text]);
+  return (
+    <div className="rounded-xl bg-white p-4 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+        <Bot className="h-4 w-4 text-indigo-500" /> Latest agent result
+      </div>
+      {bullets.length ? (
+        <div className="grid gap-1.5">
+          {bullets.map((item, idx) => (
+            <div key={`${item}-${idx}`} className="flex min-w-0 gap-2 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500/70" />
+              <span className="min-w-0 break-words">{item}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">Ask the agent. Tickers and themes will populate this workspace.</p>
+      )}
+    </div>
+  );
+}
+
+function WorkspaceChatContext({ text, tickers, onTickerSelect }) {
+  const hasContext = Boolean(String(text || '').trim()) || tickers.length > 0;
+  if (!hasContext) return null;
+  return (
+    <div className="mb-3 grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto]">
+      <AgentBriefCard text={text} />
+      {tickers.length > 0 && (
+        <div className="rounded-xl bg-white p-3 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800 xl:w-56">
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Chat tickers</div>
+          <div className="flex flex-wrap gap-1.5">
+            {tickers.slice(0, 8).map((ticker) => (
+              <button
+                type="button"
+                key={ticker}
+                onClick={() => onTickerSelect?.(ticker)}
+                className="rounded-full bg-zinc-50 px-2 py-1 text-[11px] font-semibold text-zinc-600 ring-1 ring-zinc-200/70 hover:bg-indigo-50 hover:text-indigo-700 hover:ring-indigo-100 dark:bg-zinc-950 dark:text-zinc-300 dark:ring-zinc-800 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-200"
+              >
+                {ticker}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AssistantMiniVisuals({ chart, macro, rows, ticker }) {
+  const macroChart = (macro?.charts || []).find((c) => c.id === 'rates_jobs') || (macro?.charts || [])[0];
+  const macroRows = mergeMacroSeries(macroChart).slice(-80);
+  const topRows = (rows || []).slice(0, 5);
+  const chartDateKey = chart?.[0]?.time ? 'time' : 'date';
+  const up = chart?.length ? Number(chart[chart.length - 1]?.close || 0) >= Number(chart[0]?.close || 0) : true;
+  return (
+    <div className="grid gap-3 lg:grid-cols-3">
+      <div className="rounded-xl bg-white p-3 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="truncate text-xs font-semibold text-zinc-800 dark:text-zinc-100">{ticker || 'Focus chart'}</div>
+          <BarChart3 className="h-3.5 w-3.5 text-zinc-400" />
+        </div>
+        <div className="h-24">
+          {chart?.length ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chart.slice(-90)} margin={{ top: 4, right: 2, left: 2, bottom: 0 }}>
+                <YAxis domain={['auto', 'auto']} hide />
+                <XAxis dataKey={chartDateKey} hide />
+                <Area type="monotone" dataKey="close" stroke={up ? '#10b981' : '#f43f5e'} fill={up ? '#10b98122' : '#f43f5e22'} strokeWidth={2} dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-full items-center justify-center rounded-lg bg-zinc-50 text-[11px] text-zinc-400 dark:bg-zinc-950">No ticker yet</div>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-xl bg-white p-3 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="truncate text-xs font-semibold text-zinc-800 dark:text-zinc-100">Macro pulse</div>
+          <Activity className="h-3.5 w-3.5 text-zinc-400" />
+        </div>
+        <div className="h-24">
+          {macroRows.length && macroChart ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={macroRows} margin={{ top: 4, right: 2, left: 2, bottom: 0 }}>
+                <YAxis hide />
+                <XAxis dataKey="date" hide />
+                {(macroChart.series || []).slice(0, 2).map((s) => (
+                  <Line key={s.key} type="monotone" dataKey={s.key} stroke={s.color} strokeWidth={2} dot={false} connectNulls />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-full items-center justify-center rounded-lg bg-zinc-50 text-[11px] text-zinc-400 dark:bg-zinc-950">Loading macro</div>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-xl bg-white p-3 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="truncate text-xs font-semibold text-zinc-800 dark:text-zinc-100">Top screen</div>
+          <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-400" />
+        </div>
+        <div className="h-24">
+          {topRows.length ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={topRows} margin={{ top: 4, right: 2, left: 2, bottom: 0 }}>
+                <XAxis dataKey="symbol" tick={{ fontSize: 9, fill: 'currentColor' }} className="text-zinc-400" />
+                <YAxis hide domain={[0, 'dataMax']} />
+                <Bar dataKey="buy_count" radius={[3, 3, 0, 0]}>
+                  {topRows.map((row) => <Cell key={row.symbol} fill={(row.change_20d || 0) >= 0 ? '#10b981' : '#f43f5e'} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-full items-center justify-center rounded-lg bg-zinc-50 text-[11px] text-zinc-400 dark:bg-zinc-950">Scanning</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MacroMiniPanel({ macro }) {
   const chart = (macro?.charts || []).find((c) => c.id === 'rates_jobs') || (macro?.charts || [])[0];
   const rows = mergeMacroSeries(chart).slice(-180);
@@ -854,7 +1001,7 @@ function AssistantWorkbench({
     setResearchLoading(true);
     Promise.all([
       assistantFetchResearch(focusTicker).catch(() => null),
-      assistantFetchNews(focusTicker).catch(() => null),
+      assistantFetchNews(discussedTickers.length ? discussedTickers.join(',') : focusTicker).catch(() => null),
     ]).then(([r, n]) => {
       if (cancelled) return;
       setResearch(r);
@@ -864,7 +1011,7 @@ function AssistantWorkbench({
       if (!cancelled) setResearchLoading(false);
     });
     return () => { cancelled = true; };
-  }, [focusTicker]);
+  }, [discussedTickers, focusTicker]);
 
   useEffect(() => {
     assistantFetchMacroOverview().then(setMacro).catch(() => {});
@@ -896,6 +1043,15 @@ function AssistantWorkbench({
         detail: { tab: 'research', ticker: focusTicker },
       }));
       window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: 'fundamentals' } }));
+    }, 0);
+  }, [tab, focusTicker]);
+
+  useEffect(() => {
+    if (tab !== 'screener' || !focusTicker) return;
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', {
+        detail: { tab: 'screener', ticker: focusTicker },
+      }));
     }, 0);
   }, [tab, focusTicker]);
 
@@ -947,7 +1103,7 @@ function AssistantWorkbench({
             type="button"
             onClick={() => goWorkspaceHistory(-1)}
             disabled={workspaceNav.index <= 0}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 ring-1 ring-zinc-200/70 transition hover:bg-white hover:text-zinc-950 disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-zinc-500 dark:text-zinc-400 dark:ring-zinc-800 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+            className="inline-flex h-8 w-7 items-center justify-center text-zinc-400 transition hover:text-zinc-950 disabled:cursor-default disabled:opacity-30 disabled:hover:text-zinc-400 dark:text-zinc-500 dark:hover:text-zinc-100"
             title="Previous workspace view"
             aria-label="Previous workspace view"
           >
@@ -957,7 +1113,7 @@ function AssistantWorkbench({
             type="button"
             onClick={() => goWorkspaceHistory(1)}
             disabled={workspaceNav.index >= workspaceNav.entries.length - 1}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 ring-1 ring-zinc-200/70 transition hover:bg-white hover:text-zinc-950 disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-zinc-500 dark:text-zinc-400 dark:ring-zinc-800 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+            className="inline-flex h-8 w-7 items-center justify-center text-zinc-400 transition hover:text-zinc-950 disabled:cursor-default disabled:opacity-30 disabled:hover:text-zinc-400 dark:text-zinc-500 dark:hover:text-zinc-100"
             title="Next workspace view"
             aria-label="Next workspace view"
           >
@@ -1006,21 +1162,14 @@ function AssistantWorkbench({
       )}
 
       {tab === 'overview' && (
-        <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[1.1fr_.9fr]">
+        <div className="grid grid-cols-1 gap-3">
+          <div className="grid gap-3 xl:grid-cols-[.95fr_1.05fr]">
+            <AgentBriefCard text={latestAssistant} />
+            <AssistantMiniVisuals chart={chart} macro={macro} rows={visibleScreenRows} ticker={focusTicker} />
+          </div>
+          <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[1.1fr_.9fr]">
           <ResearchSnapshot ticker={focusTicker} research={research} chart={chart} loading={researchLoading} onNavigate={onNavigate} />
           <div className="space-y-4">
-            <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                <Bot className="h-4 w-4 text-indigo-500" /> Latest agent result
-              </div>
-              {latestAssistant ? (
-                <div className="max-h-72 overflow-y-auto pr-1">
-                  <RenderMarkdown text={latestAssistant} />
-                </div>
-              ) : (
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">Ask the agent. Tickers and themes will populate this workspace.</p>
-              )}
-            </div>
             <MacroMiniPanel macro={macro} />
           </div>
           <div className="2xl:col-span-2">
@@ -1030,51 +1179,68 @@ function AssistantWorkbench({
             </div>
             <ScreenerMiniTable rows={visibleScreenRows.slice(0, 8)} onTickerSelect={openWorkspaceResearch} onNavigate={onNavigate} />
           </div>
+          </div>
         </div>
       )}
 
       {tab === 'research' && (
-        <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-          <ResearchPanel
-            strategies={strategies}
-            onCompare={onCompare}
-            compareResults={compareResults}
-            compareLoading={compareLoading}
-          />
+        <div>
+          <WorkspaceChatContext text={latestAssistant} tickers={discussedTickers} onTickerSelect={openWorkspaceResearch} />
+          <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+            <ResearchPanel
+              strategies={strategies}
+              onCompare={onCompare}
+              compareResults={compareResults}
+              compareLoading={compareLoading}
+            />
+          </div>
         </div>
       )}
 
       {tab === 'screener' && (
-        <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-          <ScreenerPanel onOpenResearch={openWorkspaceResearch} />
+        <div>
+          <WorkspaceChatContext text={latestAssistant} tickers={discussedTickers} onTickerSelect={openWorkspaceResearch} />
+          <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+            <ScreenerPanel onOpenResearch={openWorkspaceResearch} />
+          </div>
         </div>
       )}
 
       {tab === 'macro' && (
-        <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-          <MacroPanel />
+        <div>
+          <WorkspaceChatContext text={latestAssistant} tickers={discussedTickers} onTickerSelect={openWorkspaceResearch} />
+          <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+            <MacroPanel />
+          </div>
         </div>
       )}
 
       {tab === 'news' && (
-        <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">News for {focusTicker}</h3>
-            <button type="button" onClick={() => onNavigate?.('research', focusTicker)} className="text-[11px] font-semibold text-indigo-700 hover:underline dark:text-indigo-300">Research page</button>
-          </div>
-          <div className="grid gap-3 lg:grid-cols-2">
-            {((news?.articles || news?.news || news || [])).slice?.(0, 12)?.map((item, idx) => (
-              <a
-                key={`${item.title}-${idx}`}
-                href={item.url || undefined}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-xl bg-zinc-50 p-3 ring-1 ring-zinc-100 hover:bg-zinc-100 dark:bg-zinc-950 dark:ring-zinc-800 dark:hover:bg-zinc-800"
-              >
-                <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{item.source || item.publisher || item.symbol || focusTicker}</div>
-                <div className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-zinc-900 dark:text-zinc-100">{item.title}</div>
-              </a>
-            )) || <p className="text-sm text-zinc-500">No news loaded.</p>}
+        <div>
+          <WorkspaceChatContext text={latestAssistant} tickers={discussedTickers} onTickerSelect={openWorkspaceResearch} />
+          <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                News for {discussedTickers.length ? discussedTickers.slice(0, 4).join(', ') : (focusTicker || 'chat context')}
+              </h3>
+              {focusTicker && (
+                <button type="button" onClick={() => onNavigate?.('research', focusTicker)} className="text-[11px] font-semibold text-indigo-700 hover:underline dark:text-indigo-300">Research page</button>
+              )}
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              {((news?.articles || news?.news || news || [])).slice?.(0, 12)?.map((item, idx) => (
+                <a
+                  key={`${item.title}-${idx}`}
+                  href={item.url || undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-xl bg-zinc-50 p-3 ring-1 ring-zinc-100 hover:bg-zinc-100 dark:bg-zinc-950 dark:ring-zinc-800 dark:hover:bg-zinc-800"
+                >
+                  <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{item.source || item.publisher || item.symbol || focusTicker}</div>
+                  <div className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-zinc-900 dark:text-zinc-100">{item.title}</div>
+                </a>
+              )) || <p className="text-sm text-zinc-500">No news loaded.</p>}
+            </div>
           </div>
         </div>
       )}
