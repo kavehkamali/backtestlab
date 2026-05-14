@@ -675,14 +675,22 @@ function Message({ msg, onNavigate, tickerDisplay = 'cards' }) {
   const tickerLinks = tickers.length > 0 && tickerDisplay === 'links' && (
     <div className="mt-3 flex flex-wrap gap-1.5 border-t border-zinc-200/70 pt-2 dark:border-zinc-800">
       {tickers.map((ticker) => (
-        <button
-          type="button"
-          key={ticker}
-          onClick={() => onNavigate?.('research', ticker)}
-          className="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-100 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-200 dark:ring-indigo-900"
-        >
-          {ticker} research
-        </button>
+        <span key={ticker} className="inline-flex overflow-hidden rounded-full ring-1 ring-indigo-100 dark:ring-indigo-900">
+          <button
+            type="button"
+            onClick={() => onNavigate?.('research', ticker)}
+            className="bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-200"
+          >
+            {ticker} research
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate?.('terminal', ticker)}
+            className="border-l border-indigo-100 bg-white px-2 py-1 text-[10px] font-semibold text-zinc-500 hover:text-indigo-700 dark:border-indigo-900 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:text-indigo-200"
+          >
+            chart
+          </button>
+        </span>
       ))}
     </div>
   );
@@ -2057,6 +2065,7 @@ export default function AgentPanel({
   const streamTickerRef = useRef('');
   const [hydrated, setHydrated] = useState(false);
   const resizeRef = useRef({ startX: 0, startWidth: panelWidth });
+  const [resultCursor, setResultCursor] = useState(-1);
 
   /** Chat history drawer — default closed for a minimal, Google-like landing. */
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -2265,6 +2274,7 @@ export default function AgentPanel({
     setInput('');
     setStreamingText('');
     setLastRun(null);
+    setResultCursor(-1);
   };
 
   const removeSession = (sessionId) => {
@@ -2307,6 +2317,44 @@ export default function AgentPanel({
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, streamingText]);
+
+  const discussedTickers = useMemo(() => extractSessionTickers(messages).slice(0, 12), [messages]);
+  const assistantResults = useMemo(() => (
+    messages
+      .map((msg, index) => ({ msg, index, tickers: msg.role === 'assistant' ? [...new Set([
+        ...extractTickers(msg.content),
+        ...(Array.isArray(msg.tickers) ? msg.tickers.map(t => String(t).trim().toUpperCase()) : []),
+        ...(msg.ticker ? [String(msg.ticker).trim().toUpperCase()] : []),
+      ])].filter(Boolean) : [] }))
+      .filter((item) => item.msg.role === 'assistant' && (item.msg.content || item.tickers.length))
+  ), [messages]);
+
+  useEffect(() => {
+    if (!embedded || context !== 'research' || !discussedTickers.length) return;
+    window.dispatchEvent(new CustomEvent('eq-research-assistant-tickers', { detail: { tickers: discussedTickers } }));
+  }, [context, discussedTickers, embedded]);
+
+  useEffect(() => {
+    if (!assistantResults.length) {
+      setResultCursor(-1);
+      return;
+    }
+    setResultCursor(assistantResults.length - 1);
+  }, [assistantResults.length]);
+
+  const openAssistantResult = (delta) => {
+    if (!assistantResults.length) return;
+    const base = resultCursor >= 0 ? resultCursor : assistantResults.length - 1;
+    const nextCursor = (base + delta + assistantResults.length) % assistantResults.length;
+    setResultCursor(nextCursor);
+    const item = assistantResults[nextCursor];
+    const ticker = item?.tickers?.[0];
+    if (ticker && context === 'research') onNavigate?.('research', ticker);
+    window.setTimeout(() => {
+      const node = document.getElementById(`agent-message-${item.index}`);
+      node?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    }, 0);
+  };
 
   const handleSend = async () => {
     const msg = input.trim();
@@ -2504,6 +2552,28 @@ export default function AgentPanel({
               <div className="text-[10px] text-zinc-500 truncate dark:text-zinc-400">Context-aware research help</div>
             </div>
             <div className="flex items-center gap-1">
+              {assistantResults.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openAssistantResult(-1)}
+                    className="p-2 rounded-full text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                    title="Previous result"
+                    aria-label="Previous assistant result"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openAssistantResult(1)}
+                    className="p-2 rounded-full text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                    title="Next result"
+                    aria-label="Next assistant result"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 onClick={() => setHistoryOpen(true)}
@@ -2554,7 +2624,9 @@ export default function AgentPanel({
             )}
 
             {messages.map((msg, i) => (
-              <Message key={i} msg={msg} onNavigate={onNavigate} compact />
+              <div key={i} id={`agent-message-${i}`}>
+                <Message msg={msg} onNavigate={onNavigate} compact tickerDisplay="links" />
+              </div>
             ))}
             {loading && streamingText && (
               <div className="flex gap-2">

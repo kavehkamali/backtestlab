@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Loader2, Search, ExternalLink, Clock, TrendingUp, TrendingDown } from 'lucide-react';
+import { Loader2, Search, ExternalLink, Clock, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, ComposedChart, Line, PieChart, Pie } from 'recharts';
 import { fetchResearch } from '../api';
 import SnowflakeChart from './SnowflakeChart';
@@ -1106,6 +1106,7 @@ function ResearchFundamentals({
   const [tab, setTab] = useState(view === 'backtest' ? 'backtest' : 'summary');
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [recentSymbols, setRecentSymbols] = useState(getResearchRecents);
+  const [assistantSymbols, setAssistantSymbols] = useState([]);
   const symbolRef = useRef(symbol);
 
   useEffect(() => {
@@ -1158,6 +1159,18 @@ function ResearchFundamentals({
     window.addEventListener('eq-research-assistant-query', onAssistantQuery);
     return () => window.removeEventListener('eq-research-assistant-query', onAssistantQuery);
   }, [loadSymbol]);
+
+  useEffect(() => {
+    const onAssistantTickers = (e) => {
+      const next = [...new Set((e.detail?.tickers || [])
+        .map((s) => String(s || '').trim().toUpperCase())
+        .filter(Boolean))]
+        .slice(0, 12);
+      if (next.length) setAssistantSymbols(next);
+    };
+    window.addEventListener('eq-research-assistant-tickers', onAssistantTickers);
+    return () => window.removeEventListener('eq-research-assistant-tickers', onAssistantTickers);
+  }, []);
 
   useEffect(() => {
     const onSub = (e) => {
@@ -1219,7 +1232,17 @@ function ResearchFundamentals({
     loadSymbol(resolved);
   };
 
-  const shortcutSymbols = recentSymbols.length ? recentSymbols : DEFAULT_RESEARCH_SHORTCUTS;
+  const shortcutSymbols = assistantSymbols.length ? assistantSymbols : (recentSymbols.length ? recentSymbols : DEFAULT_RESEARCH_SHORTCUTS);
+  const activeShortcutIndex = Math.max(0, shortcutSymbols.indexOf(symbol));
+  const openShortcutOffset = (delta) => {
+    if (!shortcutSymbols.length) return;
+    const base = shortcutSymbols.includes(symbol) ? shortcutSymbols.indexOf(symbol) : activeShortcutIndex;
+    const next = shortcutSymbols[(base + delta + shortcutSymbols.length) % shortcutSymbols.length];
+    if (next) {
+      setSymbolInput(next);
+      loadSymbol(next);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -1257,13 +1280,25 @@ function ResearchFundamentals({
             </div>
           )}
         </form>
-        <div className="flex gap-1 overflow-x-auto no-scrollbar">
-          {shortcutSymbols.map(s => (
-            <button key={s} onClick={() => { setSymbolInput(s); loadSymbol(s); }}
-              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all ${
-                symbol === s ? 'bg-indigo-100 text-indigo-800 ring-1 ring-indigo-200' : 'bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200/60 hover:text-zinc-900'
-              }`}>{s}</button>
-          ))}
+        <div className="flex items-center gap-1">
+          {assistantSymbols.length > 1 && (
+            <button type="button" onClick={() => openShortcutOffset(-1)} className="shrink-0 p-1 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100" aria-label="Previous assistant ticker">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          )}
+          <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto no-scrollbar">
+            {shortcutSymbols.map(s => (
+              <button key={s} onClick={() => { setSymbolInput(s); loadSymbol(s); }}
+                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all ${
+                  symbol === s ? 'bg-indigo-100 text-indigo-800 ring-1 ring-indigo-200' : 'bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200/60 hover:text-zinc-900'
+                }`}>{s}</button>
+            ))}
+          </div>
+          {assistantSymbols.length > 1 && (
+            <button type="button" onClick={() => openShortcutOffset(1)} className="shrink-0 p-1 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100" aria-label="Next assistant ticker">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
