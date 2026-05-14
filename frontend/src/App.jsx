@@ -9,7 +9,7 @@ import AgentPanel from './components/AgentPanel';
 import ConsentBanner from './components/ConsentBanner';
 import AccountPanel from './components/AccountPanel';
 import LearnLayout from './components/LearnLayout';
-import ThemeToggle from './components/ThemeToggle';
+import SiteFooter from './components/SiteFooter';
 import { getLearnRoute } from './learnNavigation';
 import { applyDocumentTheme, syncSiteThemeUserMeta } from './siteTheme';
 import { bootstrapAgentE2EE, fetchAgentE2EEMeta, rewrapAgentE2EE } from './api';
@@ -280,7 +280,7 @@ function App() {
             onAuth={handleAuth}
           />
         )}
-        <ThemeToggle />
+        <SiteFooter />
         <ConsentBanner />
       </div>
     );
@@ -396,6 +396,8 @@ function App() {
           </div>
         </main>
 
+      <SiteFooter />
+
       {/* Auth modal */}
       {showAuth && (
         <AuthModal
@@ -407,7 +409,6 @@ function App() {
         />
       )}
 
-      <ThemeToggle />
       <ConsentBanner />
     </div>
   );

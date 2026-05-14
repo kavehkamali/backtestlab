@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { getStoredSiteMode, setStoredSiteMode } from '../siteTheme';
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ inline = false }) {
   const [dark, setDark] = useState(() => getStoredSiteMode() === 'dark');
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export default function ThemeToggle() {
   }, [dark]);
 
   return (
-    <div className="fixed bottom-4 right-4 z-[45] pointer-events-auto" aria-live="polite">
+    <div className={inline ? 'pointer-events-auto' : 'fixed bottom-4 right-4 z-[45] pointer-events-auto'} aria-live="polite">
       <button
         type="button"
         role="switch"
