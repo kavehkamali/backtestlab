@@ -2335,6 +2335,11 @@ export default function AgentPanel({
   }, [context, discussedTickers, embedded]);
 
   useEffect(() => {
+    if (!embedded || context !== 'screener' || !discussedTickers.length) return;
+    window.dispatchEvent(new CustomEvent('eq-screener-assistant-tickers', { detail: { tickers: discussedTickers } }));
+  }, [context, discussedTickers, embedded]);
+
+  useEffect(() => {
     if (!assistantResults.length) {
       setResultCursor(-1);
       return;
@@ -2350,6 +2355,7 @@ export default function AgentPanel({
     const item = assistantResults[nextCursor];
     const ticker = item?.tickers?.[0];
     if (ticker && context === 'research') onNavigate?.('research', ticker);
+    if (ticker && context === 'screener') onNavigate?.('screener', ticker);
     window.setTimeout(() => {
       const node = document.getElementById(`agent-message-${item.index}`);
       node?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });

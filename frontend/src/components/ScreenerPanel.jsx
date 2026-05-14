@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Loader2, X, ChevronDown, ChevronRight, ArrowUpDown, SlidersHorizontal, Columns3, ExternalLink } from 'lucide-react';
+import { Search, Loader2, X, ChevronDown, ChevronLeft, ChevronRight, ArrowUpDown, SlidersHorizontal, Columns3, ExternalLink } from 'lucide-react';
 import { runScreener, fetchScreenerLists, fetchStockDetail } from '../api';
 import StockDetail from './StockDetail';
 import InteractiveSnowflake from './InteractiveSnowflake';
@@ -176,6 +176,13 @@ function deriveScreenerAssistantIntent(message) {
   const text = String(message || '').toLowerCase();
   const filters = {};
   const chips = [];
+  const snowflake = {
+    enable: { quality: false, fund: false, tech: false, mom: false },
+    quality: { value: 3, future: 3, past: 3, health: 3, dividend: 3 },
+    fund: { valuation: 3, growth: 3, profitability: 3, balance: 3, income: 3 },
+    tech: { rsi_score: 3, macd_score: 3, volume_score: 3, trend_score: 3, bb_score: 3 },
+    mom: { mom_1d: 3, mom_5d: 3, mom_20d: 3, mom_60d: 3, mom_52w: 3 },
+  };
   let listId = 'sp500';
   let listLabel = 'S&P 500';
   let sortKey = 'buy_count';
@@ -197,6 +204,10 @@ function deriveScreenerAssistantIntent(message) {
     filters.profit_margin_min = 8;
     sortKey = 'profit_margin';
     chips.push('Profitable');
+    snowflake.enable.quality = true;
+    snowflake.enable.fund = true;
+    snowflake.quality = { value: 3, future: 4, past: 4, health: 4, dividend: 2 };
+    snowflake.fund = { valuation: 2.5, growth: 3.5, profitability: 4, balance: 3.5, income: 2 };
   }
   if (/(cheap|value|reasonable valuation|low p\/?e|undervalued)/.test(text)) {
     filters.pe_min = 1;
@@ -204,16 +215,26 @@ function deriveScreenerAssistantIntent(message) {
     sortKey = 'pe_ratio';
     sortAsc = true;
     chips.push('Value');
+    snowflake.enable.fund = true;
+    snowflake.fund = { ...snowflake.fund, valuation: 4.5, profitability: Math.max(snowflake.fund.profitability, 3), balance: Math.max(snowflake.fund.balance, 3) };
   }
   if (/(dividend|income|yield)/.test(text)) {
     filters.dividend_yield_min = 2;
     sortKey = 'dividend_yield';
     chips.push('Dividend');
+    snowflake.enable.quality = true;
+    snowflake.enable.fund = true;
+    snowflake.quality = { ...snowflake.quality, dividend: 4, health: Math.max(snowflake.quality.health, 3) };
+    snowflake.fund = { ...snowflake.fund, income: 4, balance: Math.max(snowflake.fund.balance, 3) };
   }
   if (/(low beta|defensive|lower risk|stable)/.test(text)) {
     filters.beta_min = 0;
     filters.beta_max = 1.2;
     chips.push('Lower beta');
+    snowflake.enable.quality = true;
+    snowflake.enable.fund = true;
+    snowflake.quality = { ...snowflake.quality, health: 4, value: Math.max(snowflake.quality.value, 3) };
+    snowflake.fund = { ...snowflake.fund, balance: 4, profitability: Math.max(snowflake.fund.profitability, 3) };
   }
   if (/(oversold|dip|pullback)/.test(text)) {
     filters.rsi_min = 0;
@@ -223,6 +244,8 @@ function deriveScreenerAssistantIntent(message) {
     sortKey = 'rsi';
     sortAsc = true;
     chips.push('Oversold');
+    snowflake.enable.tech = true;
+    snowflake.tech = { rsi_score: 1.5, macd_score: 2, volume_score: 2, trend_score: 1.5, bb_score: 1.5 };
   }
   if (/(momentum|breakout|trend|strength|strong)/.test(text)) {
     filters.change_20d_min = 2;
@@ -232,6 +255,10 @@ function deriveScreenerAssistantIntent(message) {
     sortKey = 'buy_count';
     sortAsc = false;
     chips.push('Momentum');
+    snowflake.enable.tech = true;
+    snowflake.enable.mom = true;
+    snowflake.tech = { rsi_score: 3.5, macd_score: 4, volume_score: 3.5, trend_score: 4.5, bb_score: 3 };
+    snowflake.mom = { mom_1d: 3, mom_5d: 3.5, mom_20d: 4, mom_60d: 4, mom_52w: 3.5 };
   }
   if (/(short squeeze|high short|short interest)/.test(text)) {
     filters.short_pct_min = 12;
@@ -240,6 +267,12 @@ function deriveScreenerAssistantIntent(message) {
   }
   if (/(tech|software|semiconductor|ai\b)/.test(text)) {
     chips.push('Tech focus');
+    listId = 'sector_technology';
+    listLabel = 'Technology';
+  }
+  if (!snowflake.enable.quality && !snowflake.enable.fund && !snowflake.enable.tech && !snowflake.enable.mom) {
+    snowflake.enable.fund = true;
+    snowflake.enable.tech = true;
   }
 
   return {
@@ -249,6 +282,7 @@ function deriveScreenerAssistantIntent(message) {
     sortKey,
     sortAsc,
     chips: chips.length ? chips : ['Assistant filter setup'],
+    snowflake,
   };
 }
 
@@ -267,6 +301,7 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
   const [stockDetail, setStockDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [assistantIntent, setAssistantIntent] = useState(null);
+  const [assistantSymbols, setAssistantSymbols] = useState([]);
   const appliedAgentIntentRef = useRef('');
 
   // Panels
@@ -422,6 +457,7 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
       filters: intent.filters,
       sortKey: intent.sortKey,
       sortAsc: intent.sortAsc,
+      snowflake: intent.snowflake,
     });
     if (appliedAgentIntentRef.current === signature) return;
     appliedAgentIntentRef.current = signature;
@@ -429,6 +465,17 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
     setFilters({ ...DEFAULT_FILTERS, ...(intent.filters || {}) });
     if (intent.sortKey) setSortKey(intent.sortKey);
     setSortAsc(Boolean(intent.sortAsc));
+    if (intent.snowflake) {
+      const sf = intent.snowflake;
+      setSfQualityEnabled(Boolean(sf.enable?.quality));
+      setSfFundEnabled(Boolean(sf.enable?.fund));
+      setSfTechEnabled(Boolean(sf.enable?.tech));
+      setSfMomEnabled(Boolean(sf.enable?.mom));
+      if (sf.quality) setSfQuality((prev) => ({ ...prev, ...sf.quality }));
+      if (sf.fund) setSfFund((prev) => ({ ...prev, ...sf.fund }));
+      if (sf.tech) setSfTech((prev) => ({ ...prev, ...sf.tech }));
+      if (sf.mom) setSfMom((prev) => ({ ...prev, ...sf.mom }));
+    }
     setFiltersOpen(false);
     setColumnsOpen(false);
     const nextListId = intent.listId && (validListIds.size === 0 || validListIds.has(intent.listId))
@@ -482,6 +529,18 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
     };
     window.addEventListener('eq-screener-assistant-query', onAssistantQuery);
     return () => window.removeEventListener('eq-screener-assistant-query', onAssistantQuery);
+  }, []);
+
+  useEffect(() => {
+    const onAssistantTickers = (e) => {
+      const next = [...new Set((e.detail?.tickers || [])
+        .map((s) => String(s || '').trim().toUpperCase())
+        .filter(Boolean))]
+        .slice(0, 12);
+      if (next.length) setAssistantSymbols(next);
+    };
+    window.addEventListener('eq-screener-assistant-tickers', onAssistantTickers);
+    return () => window.removeEventListener('eq-screener-assistant-tickers', onAssistantTickers);
   }, []);
 
   const handleSort = (key) => {
@@ -580,6 +639,15 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
   // Visible column keys in order
   const visCols = Object.keys(COLUMNS).filter(k => visibleCols[k]);
   const visibleAgentIntent = agentIntent || assistantIntent;
+  const activeAssistantSymbolIndex = Math.max(0, assistantSymbols.indexOf(selectedStock));
+  const openAssistantSymbolOffset = (delta) => {
+    if (!assistantSymbols.length) return;
+    const base = selectedStock && assistantSymbols.includes(selectedStock)
+      ? assistantSymbols.indexOf(selectedStock)
+      : activeAssistantSymbolIndex;
+    const next = assistantSymbols[(base + delta + assistantSymbols.length) % assistantSymbols.length];
+    if (next) handleStockClick(next);
+  };
 
   // Render a cell
   const renderCell = (r, colKey) => {
@@ -629,6 +697,34 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
               {chip}
             </span>
           ))}
+        </div>
+      )}
+      {assistantSymbols.length > 0 && (
+        <div className="flex items-center gap-1 rounded-xl bg-white px-2 py-1.5 ring-1 ring-zinc-200/70">
+          {assistantSymbols.length > 1 && (
+            <button type="button" onClick={() => openAssistantSymbolOffset(-1)} className="shrink-0 p-1 text-zinc-400 hover:text-zinc-900" aria-label="Previous assistant ticker">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          )}
+          <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto no-scrollbar">
+            {assistantSymbols.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => handleStockClick(s)}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap transition-all ${
+                  selectedStock === s ? 'bg-indigo-100 text-indigo-800 ring-1 ring-indigo-200' : 'bg-zinc-100 text-zinc-600 hover:text-zinc-900'
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          {assistantSymbols.length > 1 && (
+            <button type="button" onClick={() => openAssistantSymbolOffset(1)} className="shrink-0 p-1 text-zinc-400 hover:text-zinc-900" aria-label="Next assistant ticker">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
         </div>
       )}
       {/* ─── Top bar ─── */}
