@@ -2037,6 +2037,8 @@ export default function AgentPanel({
   contextTitle = 'Assistant',
   contextInstruction = '',
   onUserMessage,
+  panelWidth = 390,
+  onPanelWidthChange,
   layoutMode = 'assistant',
   setLayoutMode,
   strategies = [],
@@ -2054,6 +2056,7 @@ export default function AgentPanel({
   const streamTextRef = useRef('');
   const streamTickerRef = useRef('');
   const [hydrated, setHydrated] = useState(false);
+  const resizeRef = useRef({ startX: 0, startWidth: panelWidth });
 
   /** Chat history drawer — default closed for a minimal, Google-like landing. */
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -2273,6 +2276,34 @@ export default function AgentPanel({
     }
   };
 
+  const startPanelResize = useCallback((event) => {
+    if (!embedded || !onPanelWidthChange) return;
+    const pointer = event.touches?.[0] || event;
+    resizeRef.current = { startX: pointer.clientX, startWidth: Number(panelWidth) || 390 };
+
+    const onMove = (moveEvent) => {
+      const movePointer = moveEvent.touches?.[0] || moveEvent;
+      const delta = resizeRef.current.startX - movePointer.clientX;
+      onPanelWidthChange(resizeRef.current.startWidth + delta);
+    };
+    const onEnd = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onEnd);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
+    event.preventDefault?.();
+  }, [embedded, onPanelWidthChange, panelWidth]);
+
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, streamingText]);
@@ -2436,7 +2467,19 @@ export default function AgentPanel({
 
   if (embedded) {
     return (
-      <aside className="flex flex-col min-h-[520px] xl:sticky xl:top-[74px] xl:h-[calc(100dvh-92px)] rounded-2xl bg-white/95 ring-1 ring-zinc-200/80 shadow-sm overflow-hidden dark:bg-zinc-900/90 dark:ring-zinc-700/80">
+      <aside className="relative flex flex-col min-h-[520px] xl:sticky xl:top-[74px] xl:h-[calc(100dvh-92px)] rounded-2xl bg-white/95 ring-1 ring-zinc-200/80 shadow-sm overflow-hidden dark:bg-zinc-900/90 dark:ring-zinc-700/80">
+        {onPanelWidthChange && (
+          <button
+            type="button"
+            onMouseDown={startPanelResize}
+            onTouchStart={startPanelResize}
+            className="hidden xl:block absolute left-0 top-0 bottom-0 z-20 w-2 cursor-col-resize group"
+            aria-label="Resize assistant panel"
+            title="Drag to resize assistant"
+          >
+            <span className="absolute left-0 top-1/2 h-16 w-1 -translate-y-1/2 rounded-full bg-zinc-300/0 transition-colors group-hover:bg-indigo-400/80 dark:group-hover:bg-indigo-500/80" />
+          </button>
+        )}
         {historyOpen && (
           <div className="absolute inset-0 z-30 bg-white dark:bg-zinc-900 flex flex-col">
             <div className="flex items-center justify-between px-3 py-3 border-b border-zinc-100 dark:border-zinc-800">

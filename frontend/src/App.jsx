@@ -28,6 +28,9 @@ const APP_PATH_TO_TAB = {
   '/backtest': 'backtest',
 };
 
+const ASSISTANT_WIDTH_STORAGE_KEY = 'eq_assistant_panel_width_v1';
+const clampAssistantWidth = (value) => Math.max(340, Math.min(620, Number(value) || 390));
+
 function getTabFromPath() {
   const path = (window.location.pathname || '/').replace(/\/$/, '') || '/';
   return APP_PATH_TO_TAB[path] || 'research';
@@ -45,6 +48,13 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(window.location.hash === '#admin');
   const [learnRoute, setLearnRoute] = useState(() => getLearnRoute());
   const [activeTab, setActiveTab] = useState(() => getTabFromPath());
+  const [assistantWidth, setAssistantWidthState] = useState(() => {
+    try {
+      return clampAssistantWidth(localStorage.getItem(ASSISTANT_WIDTH_STORAGE_KEY) || 390);
+    } catch {
+      return 390;
+    }
+  });
 
   // Listen for hash changes
   useEffect(() => {
@@ -228,6 +238,14 @@ function App() {
     }
   };
 
+  const setAssistantWidth = useCallback((next) => {
+    const width = clampAssistantWidth(next);
+    setAssistantWidthState(width);
+    try {
+      localStorage.setItem(ASSISTANT_WIDTH_STORAGE_KEY, String(width));
+    } catch {}
+  }, []);
+
   const handleAgentNavigate = useCallback((tab, ticker) => {
     const target = String(tab || 'research').toLowerCase();
     const t = ticker ? String(ticker).trim().toUpperCase() : '';
@@ -341,7 +359,10 @@ function App() {
             </div>
           )}
           <div className={activeTab === 'screener' ? '' : 'hidden'}>
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+            <div
+              className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_var(--assistant-width)]"
+              style={{ '--assistant-width': `${assistantWidth}px` }}
+            >
               <ScreenerPanel
                 onOpenResearch={(ticker) => {
                   const t = ticker ? String(ticker).trim().toUpperCase() : '';
@@ -363,17 +384,24 @@ function App() {
                 onNavigate={handleAgentNavigate}
                 user={user}
                 dek={agentDek}
+                panelWidth={assistantWidth}
+                onPanelWidthChange={setAssistantWidth}
               />
             </div>
           </div>
           <div className={activeTab === 'research' || activeTab === 'backtest' ? '' : 'hidden'}>
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+            <div
+              className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_var(--assistant-width)]"
+              style={{ '--assistant-width': `${assistantWidth}px` }}
+            >
               <ResearchPanel
                 view={activeTab === 'backtest' ? 'backtest' : 'research'}
                 strategies={strategies}
                 onCompare={handleCompare}
                 compareResults={compareResults}
                 compareLoading={loading}
+                panelWidth={assistantWidth}
+                onPanelWidthChange={setAssistantWidth}
               />
               <AgentPanel
                 embedded
