@@ -1240,12 +1240,12 @@ function ResearchFundamentals({
       {loading && <div className="flex items-center justify-center h-48 text-zinc-500"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...</div>}
       {error && <div className="p-4 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80">{error}</div>}
 
-      {data && !loading && (
+      {(data || tab === 'backtest') && !loading && (
         <>
-          {tab === 'summary' && <SummaryTab data={data} />}
-          {tab === 'financials' && <FinancialsTab data={data} />}
-          {tab === 'ownership' && <OwnershipTab data={data} />}
-          {tab === 'news' && <NewsTab data={data} />}
+          {tab === 'summary' && data && <SummaryTab data={data} />}
+          {tab === 'financials' && data && <FinancialsTab data={data} />}
+          {tab === 'ownership' && data && <OwnershipTab data={data} />}
+          {tab === 'news' && data && <NewsTab data={data} />}
           {tab === 'terminal' && (
             <div className="overflow-hidden rounded-xl ring-1 ring-zinc-200/70 dark:ring-zinc-800">
               <TerminalPanel embedded symbol={symbol} />

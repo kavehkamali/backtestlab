@@ -172,6 +172,86 @@ function ToggleRow({ label, value, onChange, options }) {
   );
 }
 
+function deriveScreenerAssistantIntent(message) {
+  const text = String(message || '').toLowerCase();
+  const filters = {};
+  const chips = [];
+  let listId = 'sp500';
+  let listLabel = 'S&P 500';
+  let sortKey = 'buy_count';
+  let sortAsc = false;
+
+  if (/(small|low cap|micro)/.test(text)) {
+    filters.market_cap_min = 0;
+    filters.market_cap_max = /micro/.test(text) ? 0.35 : 2;
+    listId = 'russell2000';
+    listLabel = 'Russell 2000';
+    chips.push(/micro/.test(text) ? 'Micro/small cap' : 'Small cap');
+  } else if (/(large|mega|blue chip|quality)/.test(text)) {
+    filters.market_cap_min = 20;
+    listId = 'sp500';
+    chips.push('Large cap');
+  }
+
+  if (/(profitable|profit|margin|quality)/.test(text)) {
+    filters.profit_margin_min = 8;
+    sortKey = 'profit_margin';
+    chips.push('Profitable');
+  }
+  if (/(cheap|value|reasonable valuation|low p\/?e|undervalued)/.test(text)) {
+    filters.pe_min = 1;
+    filters.pe_max = 25;
+    sortKey = 'pe_ratio';
+    sortAsc = true;
+    chips.push('Value');
+  }
+  if (/(dividend|income|yield)/.test(text)) {
+    filters.dividend_yield_min = 2;
+    sortKey = 'dividend_yield';
+    chips.push('Dividend');
+  }
+  if (/(low beta|defensive|lower risk|stable)/.test(text)) {
+    filters.beta_min = 0;
+    filters.beta_max = 1.2;
+    chips.push('Lower beta');
+  }
+  if (/(oversold|dip|pullback)/.test(text)) {
+    filters.rsi_min = 0;
+    filters.rsi_max = 40;
+    filters.pct_from_52w_high_min = -45;
+    filters.pct_from_52w_high_max = -5;
+    sortKey = 'rsi';
+    sortAsc = true;
+    chips.push('Oversold');
+  }
+  if (/(momentum|breakout|trend|strength|strong)/.test(text)) {
+    filters.change_20d_min = 2;
+    filters.above_sma20 = 'yes';
+    filters.above_sma50 = 'yes';
+    filters.min_buy_signals = Math.max(filters.min_buy_signals || 0, 3);
+    sortKey = 'buy_count';
+    sortAsc = false;
+    chips.push('Momentum');
+  }
+  if (/(short squeeze|high short|short interest)/.test(text)) {
+    filters.short_pct_min = 12;
+    sortKey = 'short_pct_float';
+    chips.push('High short interest');
+  }
+  if (/(tech|software|semiconductor|ai\b)/.test(text)) {
+    chips.push('Tech focus');
+  }
+
+  return {
+    listId,
+    listLabel,
+    filters,
+    sortKey,
+    sortAsc,
+    chips: chips.length ? chips : ['Assistant filter setup'],
+  };
+}
+
 // ─── Main ───
 export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
   const [lists, setLists] = useState([]);
@@ -186,6 +266,7 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
   const [selectedStock, setSelectedStock] = useState(null);
   const [stockDetail, setStockDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [assistantIntent, setAssistantIntent] = useState(null);
   const appliedAgentIntentRef = useRef('');
 
   // Panels
@@ -333,26 +414,27 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
   };
 
   useEffect(() => {
-    if (!agentIntent) return;
+    const intent = agentIntent || assistantIntent;
+    if (!intent) return;
     const signature = JSON.stringify({
-      listId: agentIntent.listId,
-      filters: agentIntent.filters,
-      sortKey: agentIntent.sortKey,
-      sortAsc: agentIntent.sortAsc,
+      listId: intent.listId,
+      filters: intent.filters,
+      sortKey: intent.sortKey,
+      sortAsc: intent.sortAsc,
     });
     if (appliedAgentIntentRef.current === signature) return;
     appliedAgentIntentRef.current = signature;
 
-    setFilters({ ...DEFAULT_FILTERS, ...(agentIntent.filters || {}) });
-    if (agentIntent.sortKey) setSortKey(agentIntent.sortKey);
-    setSortAsc(Boolean(agentIntent.sortAsc));
+    setFilters({ ...DEFAULT_FILTERS, ...(intent.filters || {}) });
+    if (intent.sortKey) setSortKey(intent.sortKey);
+    setSortAsc(Boolean(intent.sortAsc));
     setFiltersOpen(false);
     setColumnsOpen(false);
-    if (agentIntent.listId && agentIntent.listId !== activeList) {
-      handleScan(agentIntent.listId);
+    if (intent.listId && intent.listId !== activeList) {
+      handleScan(intent.listId);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentIntent]);
+  }, [agentIntent, assistantIntent]);
 
   const handleStockClick = async (symbol) => {
     setSelectedStock(symbol);
@@ -386,6 +468,16 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
     };
     window.addEventListener('eq-agent-open-ticker', onAgentTicker);
     return () => window.removeEventListener('eq-agent-open-ticker', onAgentTicker);
+  }, []);
+
+  useEffect(() => {
+    const onAssistantQuery = (e) => {
+      const message = e.detail?.message;
+      if (!message) return;
+      setAssistantIntent(deriveScreenerAssistantIntent(message));
+    };
+    window.addEventListener('eq-screener-assistant-query', onAssistantQuery);
+    return () => window.removeEventListener('eq-screener-assistant-query', onAssistantQuery);
   }, []);
 
   const handleSort = (key) => {
@@ -483,6 +575,7 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
 
   // Visible column keys in order
   const visCols = Object.keys(COLUMNS).filter(k => visibleCols[k]);
+  const visibleAgentIntent = agentIntent || assistantIntent;
 
   // Render a cell
   const renderCell = (r, colKey) => {
@@ -522,12 +615,12 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
 
   return (
     <div className="space-y-3">
-      {agentIntent?.chips?.length > 0 && (
+      {visibleAgentIntent?.chips?.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl bg-indigo-50/70 px-3 py-2 text-xs text-indigo-900 ring-1 ring-indigo-100">
-          <span className="font-semibold">Agent screen</span>
+          <span className="font-semibold">Assistant screen</span>
           <span className="text-indigo-500">·</span>
-          <span>{agentIntent.listLabel || 'Market list'}</span>
-          {agentIntent.chips.slice(0, 6).map((chip) => (
+          <span>{visibleAgentIntent.listLabel || 'Market list'}</span>
+          {visibleAgentIntent.chips.slice(0, 6).map((chip) => (
             <span key={chip} className="rounded-full bg-white/75 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-100">
               {chip}
             </span>

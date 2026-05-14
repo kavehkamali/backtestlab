@@ -1,14 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchStrategies, compareStrategies, getStoredUser, signout, checkInteraction, trackPageView } from './api';
-import DashboardPanel from './components/DashboardPanel';
 import ScreenerPanel from './components/ScreenerPanel';
 import ResearchPanel from './components/ResearchPanel';
 import Header from './components/Header';
 import AuthModal from './components/AuthModal';
 import AdminPanel from './components/AdminPanel';
 import AgentPanel from './components/AgentPanel';
-import AiPicksPanel from './components/AiPicksPanel';
-import MacroPanel from './components/MacroPanel';
 import ConsentBanner from './components/ConsentBanner';
 import AccountPanel from './components/AccountPanel';
 import LearnLayout from './components/LearnLayout';
@@ -18,24 +15,22 @@ import { applyDocumentTheme, syncSiteThemeUserMeta } from './siteTheme';
 import { bootstrapAgentE2EE, fetchAgentE2EEMeta, rewrapAgentE2EE } from './api';
 import { createAndWrapDek, unwrapDek, wrapExistingDek } from './e2ee';
 
-const AGENT_LAYOUT_STORAGE_KEY = 'eq_agent_layout_mode_v1';
-
 const APP_PATH_TO_TAB = {
-  '/': 'agent',
-  '/agent': 'agent',
-  '/macro': 'macro',
-  '/picks': 'picks',
+  '/': 'research',
+  '/agent': 'research',
+  '/macro': 'research',
+  '/picks': 'research',
   '/research': 'research',
-  '/markets': 'markets',
+  '/markets': 'research',
   '/screener': 'screener',
   '/chart': 'research',
   '/terminal': 'research',
-  '/backtest': 'research',
+  '/backtest': 'backtest',
 };
 
 function getTabFromPath() {
   const path = (window.location.pathname || '/').replace(/\/$/, '') || '/';
-  return APP_PATH_TO_TAB[path] || 'agent';
+  return APP_PATH_TO_TAB[path] || 'research';
 }
 
 function getResearchSubtabFromPath() {
@@ -50,13 +45,6 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(window.location.hash === '#admin');
   const [learnRoute, setLearnRoute] = useState(() => getLearnRoute());
   const [activeTab, setActiveTab] = useState(() => getTabFromPath());
-  const [agentLayoutMode, setAgentLayoutModeState] = useState(() => {
-    try {
-      return localStorage.getItem(AGENT_LAYOUT_STORAGE_KEY) || 'assistant';
-    } catch {
-      return 'assistant';
-    }
-  });
 
   // Listen for hash changes
   useEffect(() => {
@@ -159,6 +147,13 @@ function App() {
     trackPageView(activeTab);
   }, [activeTab]);
 
+  useEffect(() => {
+    if (activeTab !== 'backtest') return;
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: 'backtest' } }));
+    }, 0);
+  }, [activeTab]);
+
   // Only track auth interactions after user interacts (not on first page load)
   const hasInteracted = useRef(false);
   useEffect(() => {
@@ -233,12 +228,42 @@ function App() {
     }
   };
 
-  const setAgentLayoutMode = useCallback((next) => {
-    const value = next === 'chat' ? 'chat' : 'assistant';
-    setAgentLayoutModeState(value);
-    try {
-      localStorage.setItem(AGENT_LAYOUT_STORAGE_KEY, value);
-    } catch {}
+  const handleAgentNavigate = useCallback((tab, ticker) => {
+    const target = String(tab || 'research').toLowerCase();
+    const t = ticker ? String(ticker).trim().toUpperCase() : '';
+
+    if (target === 'screener') {
+      setActiveTab('screener');
+      window.history.pushState({}, '', '/screener');
+      if (t) {
+        window.setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab: 'screener', ticker: t } }));
+        }, 0);
+      }
+      return;
+    }
+
+    if (target === 'backtest') {
+      setActiveTab('backtest');
+      window.history.pushState({}, '', '/backtest');
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: 'backtest' } }));
+        if (t) {
+          window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab: 'research', ticker: t } }));
+        }
+      }, 0);
+      return;
+    }
+
+    const sub = target === 'terminal' || target === 'chart' ? 'terminal' : 'fundamentals';
+    setActiveTab('research');
+    window.history.pushState({}, '', sub === 'terminal' ? '/chart' : '/');
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub } }));
+      if (t) {
+        window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab: 'research', ticker: t } }));
+      }
+    }, 0);
   }, []);
 
   // Learn hub (/learn, /learn/:slug, or #/learn …) — SEO articles
@@ -304,114 +329,67 @@ function App() {
       />
 
       <main
-        className={
-          activeTab === 'agent'
-            ? 'w-full max-w-none px-0 pb-0 mt-0 min-h-0'
-            : 'max-w-7xl mx-auto px-3 sm:px-6 pb-8 sm:pb-12 mt-2 sm:mt-4'
-        }
+        className="max-w-[1680px] mx-auto px-3 sm:px-6 pb-8 sm:pb-12 mt-2 sm:mt-4"
       >
           {error && (
             <div
               className={
-                activeTab === 'agent'
-                  ? 'max-w-7xl mx-auto px-3 sm:px-6 mb-4 p-3 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80 dark:bg-red-950/40 dark:text-red-200 dark:ring-red-900/50'
-                  : 'mb-4 p-3 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80 dark:bg-red-950/40 dark:text-red-200 dark:ring-red-900/50'
+                'mb-4 p-3 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80 dark:bg-red-950/40 dark:text-red-200 dark:ring-red-900/50'
               }
             >
               {error}
             </div>
           )}
-          {/* Agent: full-width ChatGPT-style shell; other tabs stay in max-w-7xl */}
-          <div
-            className={
-              activeTab === 'agent'
-                ? 'block w-full h-[calc(100dvh-57px)] min-h-0'
-                : 'hidden'
-            }
-          >
-            <AgentPanel
-              onNavigate={(tab, ticker) => {
-                const t = ticker ? String(ticker).trim().toUpperCase() : '';
-                if (tab === 'terminal' || tab === 'backtest') {
-                  setActiveTab('research');
-                  window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: tab } }));
-                  if (t) {
-                    window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab, ticker: t } }));
-                  }
-                  return;
-                }
-                if (tab === 'research') {
-                  setActiveTab('research');
-                  window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: 'fundamentals' } }));
-                  if (t) {
-                    window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab: 'research', ticker: t } }));
-                  }
-                  return;
-                }
-                if (tab === 'crypto') {
-                  setActiveTab('markets');
-                  window.dispatchEvent(new CustomEvent('eq-market-arena', { detail: { arena: 'crypto' } }));
-                  if (t) {
-                    window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab: 'crypto', ticker: t } }));
-                  }
-                  return;
-                }
-                setActiveTab(tab);
-                if (t) {
-                  window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab, ticker: t } }));
-                }
-              }}
-              user={user}
-              dek={agentDek}
-              layoutMode={agentLayoutMode}
-              setLayoutMode={setAgentLayoutMode}
-              strategies={strategies}
-              onCompare={handleCompare}
-              compareResults={compareResults}
-              compareLoading={loading}
-            />
-          </div>
-          <div className={activeTab === 'macro' ? '' : 'hidden'}>
-            <MacroPanel />
-          </div>
-          <div className={activeTab === 'markets' ? '' : 'hidden'}>
-            <DashboardPanel />
-          </div>
-          <div className={activeTab === 'picks' ? '' : 'hidden'}>
-            <AiPicksPanel
-              onOpenTicker={(ticker) => {
-                const t = ticker ? String(ticker).trim().toUpperCase() : '';
-                setActiveTab('research');
-                window.setTimeout(() => {
-                  window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: 'fundamentals' } }));
-                  if (t) {
-                    window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab: 'research', ticker: t } }));
-                  }
-                }, 0);
-              }}
-            />
-          </div>
           <div className={activeTab === 'screener' ? '' : 'hidden'}>
-            <ScreenerPanel
-              onOpenResearch={(ticker) => {
-                const t = ticker ? String(ticker).trim().toUpperCase() : '';
-                setActiveTab('research');
-                window.setTimeout(() => {
-                  window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: 'fundamentals' } }));
-                  if (t) {
-                    window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab: 'research', ticker: t } }));
-                  }
-                }, 0);
-              }}
-            />
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+              <ScreenerPanel
+                onOpenResearch={(ticker) => {
+                  const t = ticker ? String(ticker).trim().toUpperCase() : '';
+                  setActiveTab('research');
+                  window.setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: 'fundamentals' } }));
+                    if (t) {
+                      window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab: 'research', ticker: t } }));
+                    }
+                  }, 0);
+                }}
+              />
+              <AgentPanel
+                embedded
+                context="screener"
+                contextTitle="Screener Assistant"
+                contextInstruction="You are embedded in the Screener tab. Help the user translate requests into practical screen filters, universes, ranking criteria, and next research actions. If they ask for macro or market context, answer briefly and connect it back to screening."
+                onUserMessage={(message) => window.dispatchEvent(new CustomEvent('eq-screener-assistant-query', { detail: { message } }))}
+                onNavigate={handleAgentNavigate}
+                user={user}
+                dek={agentDek}
+              />
+            </div>
           </div>
-          <div className={activeTab === 'research' ? '' : 'hidden'}>
-            <ResearchPanel
-              strategies={strategies}
-              onCompare={handleCompare}
-              compareResults={compareResults}
-              compareLoading={loading}
-            />
+          <div className={activeTab === 'research' || activeTab === 'backtest' ? '' : 'hidden'}>
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+              <ResearchPanel
+                strategies={strategies}
+                onCompare={handleCompare}
+                compareResults={compareResults}
+                compareLoading={loading}
+              />
+              <AgentPanel
+                embedded
+                context={activeTab === 'backtest' ? 'backtest' : 'research'}
+                contextTitle={activeTab === 'backtest' ? 'Backtesting Assistant' : 'Research Assistant'}
+                contextInstruction={activeTab === 'backtest'
+                  ? 'You are embedded in the Backtesting workflow. Help the user choose strategies, time windows, tickers, risk controls, and interpret backtest results. If they ask for macro or market data, connect it to backtest assumptions.'
+                  : 'You are embedded in the Research tab. Help with ticker research, fundamentals, valuation, technicals, news, macro and market context when asked. Be concise, specific, and practical.'}
+                onNavigate={handleAgentNavigate}
+                user={user}
+                dek={agentDek}
+                strategies={strategies}
+                onCompare={handleCompare}
+                compareResults={compareResults}
+                compareLoading={loading}
+              />
+            </div>
           </div>
           <div className={activeTab === 'account' ? '' : 'hidden'}>
             {user && <AccountPanel onSignedOut={handleSignout} onPasswordChanged={handlePasswordChanged} />}

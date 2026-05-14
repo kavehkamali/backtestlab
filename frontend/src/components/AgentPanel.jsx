@@ -2032,6 +2032,11 @@ export default function AgentPanel({
   onNavigate,
   user,
   dek,
+  embedded = false,
+  context = 'research',
+  contextTitle = 'Assistant',
+  contextInstruction = '',
+  onUserMessage,
   layoutMode = 'assistant',
   setLayoutMode,
   strategies = [],
@@ -2061,7 +2066,7 @@ export default function AgentPanel({
   }, [sessions, activeSessionId]);
 
   const messages = activeSession?.messages || [];
-  const activeLayoutMode = assistantAvailable ? layoutMode : 'chat';
+  const activeLayoutMode = embedded ? 'chat' : (assistantAvailable ? layoutMode : 'chat');
 
   // Load: guest = localStorage; signed-in + dek = server E2EE; signed-in + no dek = user-scoped local plaintext (still usable)
   useEffect(() => {
@@ -2275,6 +2280,10 @@ export default function AgentPanel({
   const handleSend = async () => {
     const msg = input.trim();
     if (!msg || loading) return;
+    const effectiveMode = embedded ? 'quick' : mode;
+    const agentMsg = embedded && contextInstruction
+      ? `${contextInstruction}\n\nCurrent user request: ${msg}`
+      : msg;
     setInput('');
     setLoading(true);
     setStreamingText('');
@@ -2285,11 +2294,13 @@ export default function AgentPanel({
       messages: [...messages, { role: 'user', content: msg }],
       title: activeSession.title === 'New chat' ? msg.slice(0, 40) : activeSession.title,
     });
+    onUserMessage?.(msg);
 
     try {
-      const url = mode === 'full' ? '/api/agent/chat' : '/api/agent/quick';
+      const url = effectiveMode === 'full' ? '/api/agent/chat' : '/api/agent/quick';
       const body = {
-        ...packAgentRequestBody(messages, msg, mode),
+        ...packAgentRequestBody(messages, agentMsg, effectiveMode),
+        ui_context: context,
         conversation_id: activeSession.id,
         is_new_chat: messages.length === 0,
       };
@@ -2298,12 +2309,12 @@ export default function AgentPanel({
         streamTickerRef.current = ticker;
         setStreamingText(text);
       });
-      setLastRun({ mode, url, elapsedMs });
+      setLastRun({ mode: effectiveMode, url, elapsedMs });
       const nextMessages = [...messages, { role: 'user', content: msg }, { role: 'assistant', content: streamTextRef.current, ticker: streamTickerRef.current, tickers: data.tickers || [] }];
-      updateActiveSession({ messages: nextMessages, lastRun: { mode, url, elapsedMs }, mode });
+      updateActiveSession({ messages: nextMessages, lastRun: { mode: effectiveMode, url, elapsedMs }, mode: effectiveMode });
     } catch (e) {
       const nextMessages = [...messages, { role: 'user', content: msg }, { role: 'assistant', content: `**Error:** ${e.message}` }];
-      updateActiveSession({ messages: nextMessages, mode });
+      updateActiveSession({ messages: nextMessages, mode: effectiveMode });
     } finally {
       setLoading(false);
       setStreamingText('');
@@ -2317,6 +2328,25 @@ export default function AgentPanel({
     "Give me a risk assessment for TSLA",
     "What sectors are showing strength this week?",
   ];
+
+  const embeddedSuggestions = {
+    research: [
+      'Analyze NVDA valuation, news, and key risks',
+      'What macro data matters for banks this week?',
+      'Compare AAPL and MSFT for a 12-month hold',
+    ],
+    screener: [
+      'Find profitable small caps with reasonable valuation',
+      'Screen dividend stocks with low beta and strong balance sheets',
+      'Show oversold tech names with improving momentum',
+    ],
+    backtest: [
+      'Backtest RSI mean reversion on SPY for the last 5 years',
+      'Compare MACD and SMA crossover for NVDA',
+      'Find a lower drawdown strategy for QQQ',
+    ],
+  };
+  const activeSuggestions = embedded ? (embeddedSuggestions[context] || embeddedSuggestions.research) : suggestions;
 
   const hasThread = messages.length > 0 || loading;
 
@@ -2403,6 +2433,141 @@ export default function AgentPanel({
       })}
     </div>
   );
+
+  if (embedded) {
+    return (
+      <aside className="flex flex-col min-h-[520px] xl:sticky xl:top-[74px] xl:h-[calc(100dvh-92px)] rounded-2xl bg-white/95 ring-1 ring-zinc-200/80 shadow-sm overflow-hidden dark:bg-zinc-900/90 dark:ring-zinc-700/80">
+        {historyOpen && (
+          <div className="absolute inset-0 z-30 bg-white dark:bg-zinc-900 flex flex-col">
+            <div className="flex items-center justify-between px-3 py-3 border-b border-zinc-100 dark:border-zinc-800">
+              <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Chats</span>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(false)}
+                className="p-2 rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {historyList}
+          </div>
+        )}
+
+        <div className="shrink-0 px-3.5 py-3 border-b border-zinc-100/90 dark:border-zinc-800/90">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-xs font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{contextTitle}</div>
+              <div className="text-[10px] text-zinc-500 truncate dark:text-zinc-400">Context-aware research help</div>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(true)}
+                className="p-2 rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                title="Chat history"
+              >
+                <PanelLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={createNewChat}
+                className="p-2 rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                title="New chat"
+              >
+                <SquarePen className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 min-h-0 relative">
+          <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white/95 to-transparent z-10 pointer-events-none dark:from-zinc-900/95" />
+          <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white/95 to-transparent z-10 pointer-events-none dark:from-zinc-900/95" />
+          <div ref={scrollRef} className="h-full overflow-y-auto px-3.5 py-3 space-y-3">
+            {!hasThread && (
+              <div className="pt-2 space-y-3">
+                <div className="rounded-xl bg-zinc-50 ring-1 ring-zinc-200/70 p-3 dark:bg-zinc-950/60 dark:ring-zinc-800">
+                  <div className="flex items-start gap-2">
+                    <Bot className="w-4 h-4 mt-0.5 text-zinc-500 dark:text-zinc-400" />
+                    <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                      Ask for analysis, filters, macro context, or backtest setup. I will keep the answer practical for this tab.
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  {activeSuggestions.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setInput(s)}
+                      className="w-full text-left px-3 py-2.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-[11px] leading-snug text-zinc-600 transition-colors ring-1 ring-zinc-200/60 dark:bg-zinc-950/40 dark:hover:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-800"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {messages.map((msg, i) => (
+              <Message key={i} msg={msg} onNavigate={onNavigate} compact />
+            ))}
+            {loading && streamingText && (
+              <div className="flex gap-2">
+                <div className="w-7 h-7 rounded-lg bg-zinc-100 flex items-center justify-center shrink-0 mt-0.5 dark:bg-zinc-800">
+                  <Bot className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
+                </div>
+                <div className="min-w-0 max-w-[92%] bg-zinc-50 ring-1 ring-zinc-200/70 rounded-2xl px-3 py-2.5 dark:bg-zinc-950/70 dark:ring-zinc-800">
+                  <RenderMarkdown text={streamingText} />
+                </div>
+              </div>
+            )}
+            {loading && !streamingText && (
+              <div className="flex items-center gap-2 text-xs text-zinc-500 px-2 py-3 dark:text-zinc-400">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Thinking...
+              </div>
+            )}
+            <div className="h-4" />
+          </div>
+        </div>
+
+        <div className="shrink-0 p-3 border-t border-zinc-100/90 bg-white/95 dark:border-zinc-800/90 dark:bg-zinc-900/95">
+          <div className="flex items-end gap-2 rounded-2xl bg-zinc-50 ring-1 ring-zinc-200/80 p-1.5 dark:bg-zinc-950/70 dark:ring-zinc-800">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              rows={1}
+              placeholder={`Ask ${contextTitle.toLowerCase()}...`}
+              disabled={loading}
+              className="flex-1 min-w-0 max-h-28 resize-none bg-transparent px-2 py-2 text-sm leading-5 text-zinc-900 focus:outline-none disabled:opacity-50 placeholder:text-zinc-400 dark:text-zinc-100"
+            />
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={loading || !input.trim()}
+              className="shrink-0 p-2.5 rounded-full bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-30 transition-colors dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+              aria-label="Send"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+          {lastRun && !loading && (
+            <div className="pt-1.5 text-center text-[9px] text-zinc-400 dark:text-zinc-500">
+              {(lastRun.elapsedMs / 1000).toFixed(1)}s · Not financial advice
+            </div>
+          )}
+        </div>
+      </aside>
+    );
+  }
 
   if (activeLayoutMode === 'assistant') {
     return (

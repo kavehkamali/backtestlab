@@ -12,21 +12,15 @@ import {
 } from 'lucide-react';
 
 const TABS = [
-  { id: 'agent', label: 'AI Agent', short: 'AI' },
-  { id: 'macro', label: 'Macro', short: 'Macro' },
-  { id: 'picks', label: 'Picks', short: 'Picks' },
   { id: 'research', label: 'Research', short: 'Research' },
-  { id: 'markets', label: 'Markets', short: 'Markets' },
   { id: 'screener', label: 'Screener', short: 'Screen' },
+  { id: 'backtest', label: 'Backtesting', short: 'Backtest' },
 ];
 
 const TAB_PATHS = {
-  agent: '/',
-  macro: '/macro',
-  picks: '/picks',
-  research: '/research',
-  markets: '/markets',
+  research: '/',
   screener: '/screener',
+  backtest: '/backtest',
 };
 
 const SUPPORT_EMAIL = 'info@equilima.com';
@@ -191,9 +185,9 @@ export default function Header({
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 flex items-center justify-between gap-2">
         <button
           type="button"
-          onClick={() => handleTab('agent')}
+          onClick={() => handleTab('research')}
           className="flex shrink-0 items-center gap-2 rounded-md px-1 py-0.5 text-left transition hover:bg-zinc-100/80 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 dark:hover:bg-zinc-800/70"
-          aria-label="Go to AI Agent"
+          aria-label="Go to Research"
         >
           <img
             src="/logo-mark.svg"
