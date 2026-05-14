@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Play, Loader2, Plus, X } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -23,6 +23,58 @@ function CustomTooltip({ active, payload, label }) {
 
 const inputClass = 'w-full bg-zinc-50 rounded-lg px-3 py-2 text-zinc-900 text-sm ring-1 ring-zinc-200/80 focus:outline-none focus:ring-2 focus:ring-indigo-200';
 const cardClass = 'bg-white rounded-xl p-4 shadow-sm ring-1 ring-zinc-200/70';
+const BACKTEST_SYMBOL_HINTS = new Set([
+  'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'NVDA', 'TSLA', 'META', 'JPM', 'V', 'WMT', 'UNH', 'XOM',
+  'AMD', 'NFLX', 'CRM', 'ADBE', 'ORCL', 'QCOM', 'INTC', 'MU', 'PLTR', 'SHOP', 'COIN', 'SOFI',
+  'SPY', 'QQQ', 'IWM', 'DIA', 'TLT', 'GLD', 'SLV', 'USO', 'RY.TO', 'TD.TO', 'SHOP.TO',
+]);
+const BACKTEST_COMMAND_WORDS = new Set(['BACKTEST', 'COMPARE', 'RUN', 'TEST', 'SIMULATE', 'RSI', 'SMA', 'EMA', 'MACD']);
+
+function parseBacktestCommand(message, strategies) {
+  const text = String(message || '');
+  const lower = text.toLowerCase();
+  const upper = text.toUpperCase();
+  const onSymbol = (upper.match(/\b(?:ON|FOR|WITH)\s+([A-Z][A-Z0-9.-]{0,9}(?:\.TO)?)\b/) || [])[1];
+  const tickerMatches = upper.match(/\b[A-Z][A-Z0-9.-]{0,9}(?:\.TO)?\b/g) || [];
+  const symbol = (onSymbol && !BACKTEST_COMMAND_WORDS.has(onSymbol) ? onSymbol : null)
+    || tickerMatches.find((token) => BACKTEST_SYMBOL_HINTS.has(token))
+    || null;
+  const ids = new Set(['buy_and_hold']);
+  const addIf = (needle, id) => {
+    if (lower.includes(needle)) ids.add(id);
+  };
+  addIf('sma', 'sma_crossover');
+  addIf('moving average', 'sma_crossover');
+  addIf('ema', 'ema_crossover');
+  addIf('rsi', 'rsi');
+  addIf('macd', 'macd');
+  addIf('bollinger', 'bollinger_bands');
+  addIf('mean reversion', 'mean_reversion');
+  addIf('momentum', 'momentum');
+
+  const available = new Set((strategies || []).map((s) => s.id));
+  const selected = [...ids].filter((id) => id === 'buy_and_hold' || available.has(id));
+  if (selected.length < 2) selected.push(available.has('sma_crossover') ? 'sma_crossover' : (strategies?.[0]?.id || 'sma_crossover'));
+
+  let period = null;
+  if (/\b1\s*y(?:ear)?\b/.test(lower)) period = '1y';
+  else if (/\b2\s*y(?:ear)?s?\b/.test(lower)) period = '2y';
+  else if (/\b5\s*y(?:ear)?s?\b/.test(lower)) period = '5y';
+  else if (/\b10\s*y(?:ear)?s?\b/.test(lower)) period = '10y';
+  else if (/\bmax\b|all history|full history/.test(lower)) period = 'max';
+
+  const capitalMatch = lower.match(/\$?\s*([0-9][0-9,]{3,})(?:\s*(?:usd|dollars?))?/);
+  const capital = capitalMatch ? Number(capitalMatch[1].replace(/,/g, '')) : null;
+  const shouldRun = /\b(backtest|compare|run|test strategy|simulate)\b/.test(lower);
+
+  return {
+    symbol,
+    selected: [...new Set(selected)].slice(0, 5),
+    period,
+    capital,
+    shouldRun,
+  };
+}
 
 export default function ComparePanel({ strategies, onCompare, results, loading }) {
   const [symbol, setSymbol] = useState('AAPL');
@@ -40,16 +92,48 @@ export default function ComparePanel({ strategies, onCompare, results, loading }
     }
   };
 
-  const handleRun = () => {
+  const runCompare = useCallback((override = {}) => {
+    const nextSymbol = String(override.symbol || symbol).toUpperCase();
+    const nextSelected = override.selected || selected;
+    const nextPeriod = override.period || period;
+    const nextCapital = override.capital || capital;
     onCompare({
-      symbol: symbol.toUpperCase(),
-      strategies: selected,
-      period,
-      initial_capital: capital,
+      symbol: nextSymbol,
+      strategies: nextSelected,
+      period: nextPeriod,
+      initial_capital: nextCapital,
       start_date: startDate || null,
       end_date: endDate || null,
     });
-  };
+  }, [capital, endDate, onCompare, period, selected, startDate, symbol]);
+
+  const handleRun = () => runCompare();
+
+  useEffect(() => {
+    const onAssistantQuery = (e) => {
+      const parsed = parseBacktestCommand(e.detail?.message, strategies);
+      const nextSymbol = parsed.symbol || symbol;
+      const nextSelected = parsed.selected?.length ? parsed.selected : selected;
+      const nextPeriod = parsed.period || period;
+      const nextCapital = parsed.capital || capital;
+
+      if (parsed.symbol) setSymbol(parsed.symbol);
+      if (parsed.selected?.length) setSelected(parsed.selected);
+      if (parsed.period) setPeriod(parsed.period);
+      if (parsed.capital) setCapital(parsed.capital);
+
+      if (parsed.shouldRun && nextSelected.length >= 2) {
+        runCompare({
+          symbol: nextSymbol,
+          selected: nextSelected,
+          period: nextPeriod,
+          capital: nextCapital,
+        });
+      }
+    };
+    window.addEventListener('eq-backtest-assistant-query', onAssistantQuery);
+    return () => window.removeEventListener('eq-backtest-assistant-query', onAssistantQuery);
+  }, [capital, period, runCompare, selected, strategies, symbol]);
 
   const mergedEquity = [];
   if (results?.length) {

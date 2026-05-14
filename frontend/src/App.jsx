@@ -369,6 +369,7 @@ function App() {
           <div className={activeTab === 'research' || activeTab === 'backtest' ? '' : 'hidden'}>
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
               <ResearchPanel
+                view={activeTab === 'backtest' ? 'backtest' : 'research'}
                 strategies={strategies}
                 onCompare={handleCompare}
                 compareResults={compareResults}
@@ -381,6 +382,12 @@ function App() {
                 contextInstruction={activeTab === 'backtest'
                   ? 'You are embedded in the Backtesting workflow. Help the user choose strategies, time windows, tickers, risk controls, and interpret backtest results. If they ask for macro or market data, connect it to backtest assumptions.'
                   : 'You are embedded in the Research tab. Help with ticker research, fundamentals, valuation, technicals, news, macro and market context when asked. Be concise, specific, and practical.'}
+                onUserMessage={(message) => {
+                  window.dispatchEvent(new CustomEvent(
+                    activeTab === 'backtest' ? 'eq-backtest-assistant-query' : 'eq-research-assistant-query',
+                    { detail: { message } },
+                  ));
+                }}
                 onNavigate={handleAgentNavigate}
                 user={user}
                 dek={agentDek}

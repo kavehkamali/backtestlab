@@ -341,8 +341,34 @@ const TABS = [
   { id: 'terminal', label: 'Chart' },
   { id: 'news', label: 'News' },
   { id: 'ownership', label: 'Ownership' },
-  { id: 'backtest', label: 'Backtesting' },
 ];
+
+function resolveResearchSymbolFromText(message) {
+  const raw = String(message || '');
+  const upper = raw.toUpperCase();
+  const tickerMatch = upper.match(/\b[A-Z][A-Z0-9.-]{0,9}(?:\.TO)?\b/g) || [];
+  for (const token of tickerMatch) {
+    if (RESEARCH_SEARCH_INDEX.some((item) => item.symbol === token)) return token;
+  }
+  const normalized = normalizeResearchSearch(raw);
+  const compact = normalized.replace(/\s+/g, '');
+  const hit = RESEARCH_SEARCH_INDEX
+    .map((item) => {
+      const symbolNorm = item.symbol.toLowerCase();
+      const nameNorm = normalizeResearchSearch(item.name);
+      const nameCompact = nameNorm.replace(/\s+/g, '');
+      let score = 0;
+      if (symbolNorm === compact) score = 100;
+      else if (normalized.includes(nameNorm)) score = 95;
+      else if (nameNorm.includes(normalized) && normalized.length >= 3) score = 78;
+      else if (nameCompact.includes(compact) && compact.length >= 3) score = 72;
+      else if (normalized.includes(symbolNorm)) score = 68;
+      return { symbol: item.symbol, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)[0];
+  return hit?.symbol || null;
+}
 
 const PRICE_WINDOWS = [
   { key: '1M', label: '1M', days: 21 },
@@ -1066,6 +1092,7 @@ function NewsTab({ data }) {
 // FUNDAMENTALS (symbol lookup + tabs)
 // ═══════════════════════════════════════════
 function ResearchFundamentals({
+  view = 'research',
   strategies = [],
   onCompare,
   compareResults = null,
@@ -1076,7 +1103,7 @@ function ResearchFundamentals({
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [tab, setTab] = useState('summary');
+  const [tab, setTab] = useState(view === 'backtest' ? 'backtest' : 'summary');
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [recentSymbols, setRecentSymbols] = useState(getResearchRecents);
   const symbolRef = useRef(symbol);
@@ -1095,7 +1122,7 @@ function ResearchFundamentals({
         setSymbol(s);
         setSymbolInput(s);
         setData(d);
-        setTab('summary');
+        setTab(view === 'backtest' ? 'backtest' : 'summary');
         setRecentSymbols(prev => {
           const next = [s, ...prev.filter(item => item !== s)].slice(0, 12);
           saveResearchRecents(next);
@@ -1104,7 +1131,11 @@ function ResearchFundamentals({
       })
       .catch(e => setError(`No research found for "${s}". Keeping ${symbolRef.current || 'the previous ticker'}. ${e.message || ''}`.trim()))
       .finally(() => setLoading(false));
-  }, []);
+  }, [view]);
+
+  useEffect(() => {
+    setTab(view === 'backtest' ? 'backtest' : 'summary');
+  }, [view]);
 
   useEffect(() => { loadSymbol('AAPL'); }, [loadSymbol]);
 
@@ -1116,6 +1147,16 @@ function ResearchFundamentals({
     };
     window.addEventListener('eq-agent-open-ticker', onAgentTicker);
     return () => window.removeEventListener('eq-agent-open-ticker', onAgentTicker);
+  }, [loadSymbol]);
+
+  useEffect(() => {
+    const onAssistantQuery = (e) => {
+      const sym = resolveResearchSymbolFromText(e.detail?.message);
+      if (!sym) return;
+      loadSymbol(sym);
+    };
+    window.addEventListener('eq-research-assistant-query', onAssistantQuery);
+    return () => window.removeEventListener('eq-research-assistant-query', onAssistantQuery);
   }, [loadSymbol]);
 
   useEffect(() => {
@@ -1226,7 +1267,7 @@ function ResearchFundamentals({
         </div>
       </div>
 
-      {data && (
+      {data && view !== 'backtest' && (
         <div className="flex gap-0.5 border-b border-zinc-200/80 overflow-x-auto">
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
