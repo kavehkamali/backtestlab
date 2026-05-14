@@ -1099,20 +1099,22 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
                 <button
                   type="button"
                   onClick={() => removeSnowflakeController(controller.id)}
-                  className="absolute right-1 top-0 z-10 rounded-full bg-white/90 p-1 text-zinc-400 shadow-sm ring-1 ring-zinc-200/70 hover:text-red-600"
+                  className="absolute right-1 top-1 z-10 rounded-full bg-white/95 p-1 text-zinc-400 shadow-sm ring-1 ring-zinc-200/70 hover:text-red-600"
                   aria-label={`Remove ${controller.title} snowflake`}
                   title={`Remove ${controller.title}`}
                 >
                   <X className="h-3 w-3" />
                 </button>
-                <InteractiveSnowflake
-                  title={controller.title}
-                  dims={controller.dims}
-                  values={controller.values}
-                  onChange={controller.onChange}
-                  enabled={controller.enabled}
-                  onToggle={controller.onToggle}
-                />
+                <div className="pt-6">
+                  <InteractiveSnowflake
+                    title={controller.title}
+                    dims={controller.dims}
+                    values={controller.values}
+                    onChange={controller.onChange}
+                    enabled={controller.enabled}
+                    onToggle={controller.onToggle}
+                  />
+                </div>
               </div>
             ))}
             {snowflakeControllers.length === 0 && (
