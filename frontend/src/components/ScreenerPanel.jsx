@@ -799,14 +799,6 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
       onToggle: () => setSfAgent(prev => ({ ...prev, enabled: !prev?.enabled })),
     }] : []),
   ].filter((controller) => activeSnowflakeIds.includes(controller.id));
-  const removeSnowflakeController = (id) => {
-    setActiveSnowflakeIds(prev => prev.filter(item => item !== id));
-    if (id === 'quality') setSfQualityEnabled(false);
-    if (id === 'fund') setSfFundEnabled(false);
-    if (id === 'tech') setSfTechEnabled(false);
-    if (id === 'mom') setSfMomEnabled(false);
-    if (id === 'agent') setSfAgent(null);
-  };
 
   // Render a cell
   const renderCell = (r, colKey) => {
@@ -1095,27 +1087,15 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
           </div>
           <div className="flex justify-around flex-wrap gap-2">
             {snowflakeControllers.map((controller) => (
-              <div key={controller.id} className="relative">
-                <button
-                  type="button"
-                  onClick={() => removeSnowflakeController(controller.id)}
-                  className="absolute right-1 top-1 z-10 rounded-full bg-white/95 p-1 text-zinc-400 shadow-sm ring-1 ring-zinc-200/70 hover:text-red-600"
-                  aria-label={`Remove ${controller.title} snowflake`}
-                  title={`Remove ${controller.title}`}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-                <div className="pt-6">
-                  <InteractiveSnowflake
-                    title={controller.title}
-                    dims={controller.dims}
-                    values={controller.values}
-                    onChange={controller.onChange}
-                    enabled={controller.enabled}
-                    onToggle={controller.onToggle}
-                  />
-                </div>
-              </div>
+              <InteractiveSnowflake
+                key={controller.id}
+                title={controller.title}
+                dims={controller.dims}
+                values={controller.values}
+                onChange={controller.onChange}
+                enabled={controller.enabled}
+                onToggle={controller.onToggle}
+              />
             ))}
             {snowflakeControllers.length === 0 && (
               <div className="py-8 text-center text-xs text-zinc-500">
