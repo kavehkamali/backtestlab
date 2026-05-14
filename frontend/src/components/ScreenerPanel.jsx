@@ -174,14 +174,17 @@ function ToggleRow({ label, value, onChange, options }) {
 
 function deriveScreenerAssistantIntent(message) {
   const text = String(message || '').toLowerCase();
+  const scoreCut = (val, labels) => labels[Math.max(0, Math.min(labels.length - 1, Math.round(Number(val) || 0)))];
   const filters = {};
   const chips = [];
   const snowflake = {
     enable: { quality: false, fund: false, tech: false, mom: false },
+    controllers: [],
     quality: { value: 3, future: 3, past: 3, health: 3, dividend: 3 },
     fund: { valuation: 3, growth: 3, profitability: 3, balance: 3, income: 3 },
     tech: { rsi_score: 3, macd_score: 3, volume_score: 3, trend_score: 3, bb_score: 3 },
     mom: { mom_1d: 3, mom_5d: 3, mom_20d: 3, mom_60d: 3, mom_52w: 3 },
+    custom: null,
   };
   let listId = 'sp500';
   let listLabel = 'S&P 500';
@@ -274,6 +277,52 @@ function deriveScreenerAssistantIntent(message) {
     snowflake.enable.fund = true;
     snowflake.enable.tech = true;
   }
+  if (/remove\s+(quality|fundamental|fundamentals|technical|momentum|income|dividend|value)/.test(text)) {
+    if (/quality/.test(text)) snowflake.enable.quality = false;
+    if (/fundamental|fundamentals|value|income|dividend/.test(text)) snowflake.enable.fund = false;
+    if (/technical/.test(text)) snowflake.enable.tech = false;
+    if (/momentum/.test(text)) snowflake.enable.mom = false;
+  }
+
+  const customDims = [];
+  const addCustomDim = (key, sourceKey, label, color, formatThreshold) => {
+    if (customDims.some((d) => d.key === key)) return;
+    customDims.push({ key, sourceKey, label, color, formatThreshold });
+  };
+  if (/custom|snowflake|screen|find|show|filter/.test(text)) {
+    if (/cheap|value|valuation|undervalued|low p\/?e/.test(text)) addCustomDim('agent_valuation', 'valuation', 'Value', '#818cf8', v => `P/E <= ${scoreCut(v, ['50+', '50', '35', '25', '18', '12', '8'])}`);
+    if (/growth|revenue|earnings|future/.test(text)) addCustomDim('agent_growth', 'growth', 'Growth', '#34d399', v => `Rev >= ${scoreCut(v, ['-10%', '0%', '5%', '10%', '20%', '35%', '50%'])}`);
+    if (/profit|margin|profitable|quality/.test(text)) addCustomDim('agent_profit', 'profitability', 'Profit', '#fbbf24', v => `Mrg >= ${scoreCut(v, ['-5%', '0%', '5%', '10%', '20%', '35%', '50%'])}`);
+    if (/debt|balance|safe|stable|defensive|risk/.test(text)) addCustomDim('agent_balance', 'balance', 'Balance', '#22d3ee', v => `D/E <= ${scoreCut(v, ['400+', '400', '250', '150', '80', '40', '20'])}`);
+    if (/dividend|income|yield/.test(text)) addCustomDim('agent_income', 'income', 'Income', '#f472b6', v => `Div >= ${scoreCut(v, ['0%', '0.5%', '1%', '2%', '3%', '4%', '6%'])}`);
+    if (/trend|breakout|above sma|strength|momentum/.test(text)) addCustomDim('agent_trend', 'trend_score', 'Trend', '#38bdf8', v => `${Math.round(Number(v) || 0)}/6`);
+    if (/volume|liquidity|buzz/.test(text)) addCustomDim('agent_volume', 'volume_score', 'Volume', '#fb923c', v => `Vol >= ${scoreCut(v, ['0.3x', '0.6x', '0.8x', '1.0x', '1.5x', '2.0x', '3.0x'])}`);
+    if (/rsi|oversold|overbought|dip/.test(text)) addCustomDim('agent_rsi', 'rsi_score', 'RSI', '#a78bfa', v => `RSI >= ${scoreCut(v, ['20', '30', '40', '50', '60', '70', '80'])}`);
+    if (/1m|one month|short term|swing/.test(text)) addCustomDim('agent_mom20', 'mom_20d', '1M', '#facc15', v => `>= ${scoreCut(v, ['-10%', '-5%', '0%', '+3%', '+8%', '+15%', '+15%'])}`);
+    if (/3m|three month|medium term|momentum/.test(text)) addCustomDim('agent_mom60', 'mom_60d', '3M', '#2dd4bf', v => `>= ${scoreCut(v, ['-10%', '-5%', '0%', '+3%', '+8%', '+15%', '+15%'])}`);
+  }
+  if (customDims.length < 3 && /snowflake|custom|screen|find|show|filter/.test(text)) {
+    addCustomDim('agent_valuation', 'valuation', 'Value', '#818cf8', v => `P/E <= ${scoreCut(v, ['50+', '50', '35', '25', '18', '12', '8'])}`);
+    addCustomDim('agent_profit', 'profitability', 'Profit', '#fbbf24', v => `Mrg >= ${scoreCut(v, ['-5%', '0%', '5%', '10%', '20%', '35%', '50%'])}`);
+    addCustomDim('agent_trend', 'trend_score', 'Trend', '#38bdf8', v => `${Math.round(Number(v) || 0)}/6`);
+    addCustomDim('agent_mom20', 'mom_20d', '1M', '#facc15', v => `>= ${scoreCut(v, ['-10%', '-5%', '0%', '+3%', '+8%', '+15%', '+15%'])}`);
+  }
+  if (customDims.length >= 3) {
+    const values = Object.fromEntries(customDims.map((d) => [d.key, /oversold|dip/.test(text) && d.sourceKey === 'rsi_score' ? 1.5 : 3.5]));
+    snowflake.custom = {
+      title: chips.slice(0, 2).join(' + ') || 'Agent Screen',
+      dims: customDims.slice(0, 5),
+      values,
+      enabled: true,
+    };
+  }
+  snowflake.controllers = [
+    ...(snowflake.enable.quality ? ['quality'] : []),
+    ...(snowflake.enable.fund ? ['fund'] : []),
+    ...(snowflake.enable.tech ? ['tech'] : []),
+    ...(snowflake.enable.mom ? ['mom'] : []),
+    ...(snowflake.custom ? ['agent'] : []),
+  ];
 
   return {
     listId,
@@ -355,8 +404,10 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
   const [sfFund, setSfFund] = useState({ valuation: 3, growth: 3, profitability: 3, balance: 3, income: 3 });
   const [sfTech, setSfTech] = useState({ rsi_score: 3, macd_score: 3, volume_score: 3, trend_score: 3, bb_score: 3 });
   const [sfMom, setSfMom] = useState({ mom_1d: 3, mom_5d: 3, mom_20d: 3, mom_60d: 3, mom_52w: 3 });
+  const [sfAgent, setSfAgent] = useState(null);
+  const [activeSnowflakeIds, setActiveSnowflakeIds] = useState(['quality', 'fund', 'tech', 'mom']);
 
-  const anySfActive = sfQualityEnabled || sfFundEnabled || sfTechEnabled || sfMomEnabled;
+  const anySfActive = sfQualityEnabled || sfFundEnabled || sfTechEnabled || sfMomEnabled || Boolean(sfAgent?.enabled);
   const validListIds = useMemo(() => new Set((lists || []).map((l) => l.id)), [lists]);
 
   // Helper: compute technical/momentum scores from stock data (0-6)
@@ -407,6 +458,16 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
       mom_60d: sc(r.change_60d),
       mom_52w: sc(r.pct_from_52w_high != null ? r.pct_from_52w_high + 10 : null), // shift so -10% = 0
     };
+  };
+  const snowflakeScoreValue = (r, key) => {
+    if (r.snowflake && Object.prototype.hasOwnProperty.call(r.snowflake, key)) return r.snowflake[key] ?? 3;
+    const fs = computeFundScores(r);
+    if (Object.prototype.hasOwnProperty.call(fs, key)) return fs[key] ?? 3;
+    const ts = computeTechScores(r);
+    if (Object.prototype.hasOwnProperty.call(ts, key)) return ts[key] ?? 3;
+    const ms = computeMomScores(r);
+    if (Object.prototype.hasOwnProperty.call(ms, key)) return ms[key] ?? 3;
+    return 3;
   };
 
   useEffect(() => {
@@ -475,6 +536,9 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
       if (sf.fund) setSfFund((prev) => ({ ...prev, ...sf.fund }));
       if (sf.tech) setSfTech((prev) => ({ ...prev, ...sf.tech }));
       if (sf.mom) setSfMom((prev) => ({ ...prev, ...sf.mom }));
+      if (sf.custom) setSfAgent(sf.custom);
+      else setSfAgent(null);
+      setActiveSnowflakeIds(sf.controllers?.length ? sf.controllers : ['fund', 'tech']);
     }
     setFiltersOpen(false);
     setColumnsOpen(false);
@@ -613,6 +677,12 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
           if ((ms[d.key] || 0) < sfMom[d.key]) return false;
         }
       }
+      if (sfAgent?.enabled && sfAgent?.dims?.length) {
+        for (const d of sfAgent.dims) {
+          const sourceKey = d.sourceKey || d.key;
+          if (snowflakeScoreValue(r, sourceKey) < (sfAgent.values?.[d.key] ?? 3)) return false;
+        }
+      }
       return true;
     });
 
@@ -629,12 +699,46 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
       if (typeof va === 'boolean') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
       return sortAsc ? va - vb : vb - va;
     });
-  }, [results, searchTerm, filters, sortKey, sortAsc, sfQualityEnabled, sfFundEnabled, sfTechEnabled, sfMomEnabled, sfQuality, sfFund, sfTech, sfMom]);
+  }, [results, searchTerm, filters, sortKey, sortAsc, sfQualityEnabled, sfFundEnabled, sfTechEnabled, sfMomEnabled, sfQuality, sfFund, sfTech, sfMom, sfAgent]);
 
   const marketLists = lists.filter(l => l.group === 'Markets');
   const sectorLists = lists.filter(l => l.group === 'Sectors');
   const yesNoAny = [{ value: 'any', label: 'Any' }, { value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }];
   const trendOpts = [{ value: 'any', label: 'Any' }, { value: 'rising', label: 'Rising' }, { value: 'falling', label: 'Falling' }];
+  const appliedFilterChips = useMemo(() => {
+    const chips = [];
+    const addRange = (label, minKey, maxKey, suffix = '') => {
+      if (filters[minKey] !== DEFAULT_FILTERS[minKey] || filters[maxKey] !== DEFAULT_FILTERS[maxKey]) {
+        chips.push(`${label}: ${filters[minKey]}-${filters[maxKey]}${suffix}`);
+      }
+    };
+    addRange('RSI', 'rsi_min', 'rsi_max');
+    addRange('1D', 'change_1d_min', 'change_1d_max', '%');
+    addRange('5D', 'change_5d_min', 'change_5d_max', '%');
+    addRange('1M', 'change_20d_min', 'change_20d_max', '%');
+    addRange('3M', 'change_60d_min', 'change_60d_max', '%');
+    addRange('52W High', 'pct_from_52w_high_min', 'pct_from_52w_high_max', '%');
+    addRange('Volume', 'vol_ratio_min', 'vol_ratio_max', 'x');
+    addRange('Volatility', 'volatility_min', 'volatility_max', '%');
+    addRange('Market cap', 'market_cap_min', 'market_cap_max', 'B');
+    addRange('P/E', 'pe_min', 'pe_max');
+    addRange('Dividend', 'dividend_yield_min', 'dividend_yield_max', '%');
+    addRange('Beta', 'beta_min', 'beta_max');
+    addRange('Short', 'short_pct_min', 'short_pct_max', '%');
+    addRange('Insider', 'insider_pct_min', 'insider_pct_max', '%');
+    addRange('Margin', 'profit_margin_min', 'profit_margin_max', '%');
+    if (filters.min_buy_signals !== DEFAULT_FILTERS.min_buy_signals) chips.push(`Signals >= ${filters.min_buy_signals}`);
+    if (filters.above_sma20 !== 'any') chips.push(`SMA20: ${filters.above_sma20}`);
+    if (filters.above_sma50 !== 'any') chips.push(`SMA50: ${filters.above_sma50}`);
+    if (filters.above_sma200 !== 'any') chips.push(`SMA200: ${filters.above_sma200}`);
+    if (filters.macd_trend !== 'any') chips.push(`MACD: ${filters.macd_trend}`);
+    if (sfQualityEnabled) chips.push('Snowflake: Quality');
+    if (sfFundEnabled) chips.push('Snowflake: Fundamentals');
+    if (sfTechEnabled) chips.push('Snowflake: Technical');
+    if (sfMomEnabled) chips.push('Snowflake: Momentum');
+    if (sfAgent?.enabled) chips.push(`Snowflake: ${sfAgent.title || 'Agent'}`);
+    return chips;
+  }, [filters, sfAgent, sfFundEnabled, sfMomEnabled, sfQualityEnabled, sfTechEnabled]);
 
   // Visible column keys in order
   const visCols = Object.keys(COLUMNS).filter(k => visibleCols[k]);
@@ -647,6 +751,61 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
       : activeAssistantSymbolIndex;
     const next = assistantSymbols[(base + delta + assistantSymbols.length) % assistantSymbols.length];
     if (next) handleStockClick(next);
+  };
+  const snowflakeControllers = [
+    {
+      id: 'quality',
+      title: 'Quality',
+      dims: SF_QUALITY_DIMS,
+      values: sfQuality,
+      enabled: sfQualityEnabled,
+      onChange: (key, val) => setSfQuality(prev => ({ ...prev, [key]: val })),
+      onToggle: () => setSfQualityEnabled(p => !p),
+    },
+    {
+      id: 'fund',
+      title: 'Fundamentals',
+      dims: SF_FUNDAMENTAL_DIMS,
+      values: sfFund,
+      enabled: sfFundEnabled,
+      onChange: (key, val) => setSfFund(prev => ({ ...prev, [key]: val })),
+      onToggle: () => setSfFundEnabled(p => !p),
+    },
+    {
+      id: 'tech',
+      title: 'Technical',
+      dims: SF_TECHNICAL_DIMS,
+      values: sfTech,
+      enabled: sfTechEnabled,
+      onChange: (key, val) => setSfTech(prev => ({ ...prev, [key]: val })),
+      onToggle: () => setSfTechEnabled(p => !p),
+    },
+    {
+      id: 'mom',
+      title: 'Momentum',
+      dims: SF_MOMENTUM_DIMS,
+      values: sfMom,
+      enabled: sfMomEnabled,
+      onChange: (key, val) => setSfMom(prev => ({ ...prev, [key]: val })),
+      onToggle: () => setSfMomEnabled(p => !p),
+    },
+    ...(sfAgent ? [{
+      id: 'agent',
+      title: sfAgent.title || 'Agent Screen',
+      dims: sfAgent.dims || [],
+      values: sfAgent.values || {},
+      enabled: Boolean(sfAgent.enabled),
+      onChange: (key, val) => setSfAgent(prev => ({ ...prev, values: { ...(prev?.values || {}), [key]: val } })),
+      onToggle: () => setSfAgent(prev => ({ ...prev, enabled: !prev?.enabled })),
+    }] : []),
+  ].filter((controller) => activeSnowflakeIds.includes(controller.id));
+  const removeSnowflakeController = (id) => {
+    setActiveSnowflakeIds(prev => prev.filter(item => item !== id));
+    if (id === 'quality') setSfQualityEnabled(false);
+    if (id === 'fund') setSfFundEnabled(false);
+    if (id === 'tech') setSfTechEnabled(false);
+    if (id === 'mom') setSfMomEnabled(false);
+    if (id === 'agent') setSfAgent(null);
   };
 
   // Render a cell
@@ -725,6 +884,24 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
               <ChevronRight className="h-4 w-4" />
             </button>
           )}
+        </div>
+      )}
+      {appliedFilterChips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-[10px] ring-1 ring-zinc-200/70">
+          <span className="mr-1 font-semibold uppercase tracking-wider text-zinc-500">Applied</span>
+          {appliedFilterChips.slice(0, 18).map((chip) => (
+            <span key={chip} className="rounded-full bg-zinc-100 px-2 py-1 font-medium text-zinc-700 ring-1 ring-zinc-200/60">
+              {chip}
+            </span>
+          ))}
+          {appliedFilterChips.length > 18 && (
+            <span className="rounded-full bg-zinc-100 px-2 py-1 font-medium text-zinc-500">
+              +{appliedFilterChips.length - 18}
+            </span>
+          )}
+          <button type="button" onClick={resetFilters} className="ml-auto text-[10px] font-semibold text-zinc-500 hover:text-zinc-900">
+            Clear numeric
+          </button>
         </div>
       )}
       {/* ─── Top bar ─── */}
@@ -899,52 +1076,50 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
               <span className="text-[9px] text-zinc-600">Drag points to set minimum thresholds</span>
             </div>
             <div className="flex gap-1.5">
-              <button onClick={() => { setSfQualityEnabled(false); setSfFundEnabled(false); setSfTechEnabled(false); setSfMomEnabled(false); }}
+              <button onClick={() => { setSfQualityEnabled(false); setSfFundEnabled(false); setSfTechEnabled(false); setSfMomEnabled(false); setSfAgent(prev => prev ? { ...prev, enabled: false } : prev); }}
                 className="px-2 py-0.5 rounded text-[9px] text-zinc-500 hover:text-zinc-900 bg-zinc-100">All Off</button>
-              <button onClick={() => { setSfQualityEnabled(true); setSfFundEnabled(true); setSfTechEnabled(true); setSfMomEnabled(true); }}
+              <button onClick={() => {
+                setActiveSnowflakeIds(['quality', 'fund', 'tech', 'mom', ...(sfAgent ? ['agent'] : [])]);
+                setSfQualityEnabled(true); setSfFundEnabled(true); setSfTechEnabled(true); setSfMomEnabled(true); setSfAgent(prev => prev ? { ...prev, enabled: true } : prev);
+              }}
                 className="px-2 py-0.5 rounded text-[9px] text-zinc-500 hover:text-zinc-900 bg-zinc-100">All On</button>
               <button onClick={() => {
                 setSfQuality({ value: 3, future: 3, past: 3, health: 3, dividend: 3 });
                 setSfFund({ valuation: 3, growth: 3, profitability: 3, balance: 3, income: 3 });
                 setSfTech({ rsi_score: 3, macd_score: 3, volume_score: 3, trend_score: 3, bb_score: 3 });
                 setSfMom({ mom_1d: 3, mom_5d: 3, mom_20d: 3, mom_60d: 3, mom_52w: 3 });
+                setSfAgent(prev => prev ? { ...prev, values: Object.fromEntries((prev.dims || []).map(d => [d.key, 3])) } : prev);
               }}
                 className="px-2 py-0.5 rounded text-[9px] text-zinc-500 hover:text-zinc-900 bg-zinc-100">Reset Shapes</button>
             </div>
           </div>
           <div className="flex justify-around flex-wrap gap-2">
-            <InteractiveSnowflake
-              title="Quality"
-              dims={SF_QUALITY_DIMS}
-              values={sfQuality}
-              onChange={(key, val) => setSfQuality(prev => ({ ...prev, [key]: val }))}
-              enabled={sfQualityEnabled}
-              onToggle={() => setSfQualityEnabled(p => !p)}
-            />
-            <InteractiveSnowflake
-              title="Fundamentals"
-              dims={SF_FUNDAMENTAL_DIMS}
-              values={sfFund}
-              onChange={(key, val) => setSfFund(prev => ({ ...prev, [key]: val }))}
-              enabled={sfFundEnabled}
-              onToggle={() => setSfFundEnabled(p => !p)}
-            />
-            <InteractiveSnowflake
-              title="Technical"
-              dims={SF_TECHNICAL_DIMS}
-              values={sfTech}
-              onChange={(key, val) => setSfTech(prev => ({ ...prev, [key]: val }))}
-              enabled={sfTechEnabled}
-              onToggle={() => setSfTechEnabled(p => !p)}
-            />
-            <InteractiveSnowflake
-              title="Momentum"
-              dims={SF_MOMENTUM_DIMS}
-              values={sfMom}
-              onChange={(key, val) => setSfMom(prev => ({ ...prev, [key]: val }))}
-              enabled={sfMomEnabled}
-              onToggle={() => setSfMomEnabled(p => !p)}
-            />
+            {snowflakeControllers.map((controller) => (
+              <div key={controller.id} className="relative">
+                <button
+                  type="button"
+                  onClick={() => removeSnowflakeController(controller.id)}
+                  className="absolute right-1 top-0 z-10 rounded-full bg-white/90 p-1 text-zinc-400 shadow-sm ring-1 ring-zinc-200/70 hover:text-red-600"
+                  aria-label={`Remove ${controller.title} snowflake`}
+                  title={`Remove ${controller.title}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+                <InteractiveSnowflake
+                  title={controller.title}
+                  dims={controller.dims}
+                  values={controller.values}
+                  onChange={controller.onChange}
+                  enabled={controller.enabled}
+                  onToggle={controller.onToggle}
+                />
+              </div>
+            ))}
+            {snowflakeControllers.length === 0 && (
+              <div className="py-8 text-center text-xs text-zinc-500">
+                No visual filters applied. Ask the assistant for a screen or use All On.
+              </div>
+            )}
           </div>
           {anySfActive && (
             <div className="text-center mt-2 text-[9px] text-indigo-600">
