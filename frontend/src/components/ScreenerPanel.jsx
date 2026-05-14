@@ -184,8 +184,8 @@ function deriveScreenerAssistantIntent(message) {
   if (/(small|low cap|micro)/.test(text)) {
     filters.market_cap_min = 0;
     filters.market_cap_max = /micro/.test(text) ? 0.35 : 2;
-    listId = 'russell2000';
-    listLabel = 'Russell 2000';
+    listId = 'smallcap';
+    listLabel = 'Small Caps';
     chips.push(/micro/.test(text) ? 'Micro/small cap' : 'Small cap');
   } else if (/(large|mega|blue chip|quality)/.test(text)) {
     filters.market_cap_min = 20;
@@ -322,6 +322,7 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
   const [sfMom, setSfMom] = useState({ mom_1d: 3, mom_5d: 3, mom_20d: 3, mom_60d: 3, mom_52w: 3 });
 
   const anySfActive = sfQualityEnabled || sfFundEnabled || sfTechEnabled || sfMomEnabled;
+  const validListIds = useMemo(() => new Set((lists || []).map((l) => l.id)), [lists]);
 
   // Helper: compute technical/momentum scores from stock data (0-6)
   const computeFundScores = (r) => {
@@ -430,11 +431,14 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
     setSortAsc(Boolean(intent.sortAsc));
     setFiltersOpen(false);
     setColumnsOpen(false);
-    if (intent.listId && intent.listId !== activeList) {
-      handleScan(intent.listId);
+    const nextListId = intent.listId && (validListIds.size === 0 || validListIds.has(intent.listId))
+      ? intent.listId
+      : 'sp500';
+    if (nextListId && nextListId !== activeList) {
+      handleScan(nextListId);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentIntent, assistantIntent]);
+  }, [agentIntent, assistantIntent, validListIds]);
 
   const handleStockClick = async (symbol) => {
     setSelectedStock(symbol);
