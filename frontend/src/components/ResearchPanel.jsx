@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Loader2, Search, ExternalLink, Clock, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, ComposedChart, Line, PieChart, Pie } from 'recharts';
-import { fetchResearch } from '../api';
+import { fetchMacroOverview, fetchResearch } from '../api';
 import SnowflakeChart from './SnowflakeChart';
 import { buildResearchPriceChartRows, formatResearchPriceXTick } from '../utils/marketHeroChart';
 import TerminalPanel from './terminal/TerminalPanel';
@@ -119,15 +119,21 @@ const RESEARCH_SEARCH_INDEX = [
 
 const RESEARCH_ASSET_INDEX = [
   { symbol: 'GC=F', name: 'Gold futures', type: 'commodity', aliases: ['gold', 'gold futures', 'xau', 'xauusd', 'gc=f'] },
-  { symbol: 'GLD', name: 'SPDR Gold Shares', type: 'etf', aliases: ['gld', 'gold etf'] },
+  { symbol: 'GLD', name: 'SPDR Gold Shares', type: 'etf', aliases: ['gld', 'gold etf'], chartIds: ['hard_assets', 'precious_metals'] },
   { symbol: 'SI=F', name: 'Silver futures', type: 'commodity', aliases: ['silver', 'silver futures', 'xag', 'xagusd', 'si=f'] },
+  { symbol: 'SLV', name: 'iShares Silver Trust', type: 'etf', aliases: ['slv', 'silver etf'], chartIds: ['precious_metals'] },
   { symbol: 'CL=F', name: 'WTI crude oil futures', type: 'commodity', aliases: ['oil', 'wti', 'crude', 'crude oil', 'oil futures', 'cl=f'] },
+  { symbol: 'USO', name: 'United States Oil Fund', type: 'etf', aliases: ['uso', 'oil etf'], chartIds: ['hard_assets', 'commodities_demand', 'oil_exposure'] },
   { symbol: 'BZ=F', name: 'Brent crude oil futures', type: 'commodity', aliases: ['brent', 'brent oil', 'bz=f'] },
   { symbol: 'NG=F', name: 'Natural gas futures', type: 'commodity', aliases: ['natural gas', 'nat gas', 'gas futures', 'ng=f'] },
   { symbol: 'HG=F', name: 'Copper futures', type: 'commodity', aliases: ['copper', 'copper futures', 'hg=f'] },
   { symbol: 'BTC-USD', name: 'Bitcoin', type: 'crypto', aliases: ['bitcoin', 'btc', 'btc usd', 'btc-usd'] },
   { symbol: 'ETH-USD', name: 'Ethereum', type: 'crypto', aliases: ['ethereum', 'ether', 'eth', 'eth usd', 'eth-usd'] },
   { symbol: 'SOL-USD', name: 'Solana', type: 'crypto', aliases: ['solana', 'sol', 'sol usd', 'sol-usd'] },
+  { symbol: 'SPY', name: 'SPDR S&P 500 ETF Trust', type: 'etf', aliases: ['spy', 's&p etf', 'sp500 etf'], chartIds: ['risk', 'global_equity', 'risk_volatility'] },
+  { symbol: 'QQQ', name: 'Invesco QQQ Trust', type: 'etf', aliases: ['qqq', 'nasdaq etf', 'technology etf'], chartIds: ['risk', 'risk_volatility'] },
+  { symbol: 'IWM', name: 'iShares Russell 2000 ETF', type: 'etf', aliases: ['iwm', 'russell etf', 'small cap etf'], chartIds: ['risk'] },
+  { symbol: 'DIA', name: 'SPDR Dow Jones Industrial Average ETF', type: 'etf', aliases: ['dia', 'dow etf'], chartIds: ['risk'] },
   { symbol: '^GSPC', name: 'S&P 500 Index', type: 'index', aliases: ['s&p 500', 'sp500', 's and p', 's and p 500', 'spx', '^gspc'] },
   { symbol: '^IXIC', name: 'Nasdaq Composite', type: 'index', aliases: ['nasdaq', 'nasdaq composite', '^ixic'] },
   { symbol: '^DJI', name: 'Dow Jones Industrial Average', type: 'index', aliases: ['dow', 'dow jones', '^dji'] },
@@ -136,6 +142,14 @@ const RESEARCH_ASSET_INDEX = [
   { symbol: 'DX-Y.NYB', name: 'US Dollar Index', type: 'currency', aliases: ['usd index', 'dxy', 'dollar index', 'us dollar index', 'dx-y.nyb'] },
   { symbol: '^TNX', name: 'US 10Y Treasury Yield', type: 'yield', aliases: ['10y', '10 year', '10-year', 'us 10y', 'treasury yield', 'tnx', '^tnx'] },
   { symbol: 'TLT', name: '20+ Year Treasury Bond ETF', type: 'bond', aliases: ['tlt', 'long bonds', 'long treasury', 'treasury bonds'] },
+  { symbol: 'VNQ', name: 'US Real Estate ETF', type: 'etf', aliases: ['vnq', 'real estate etf', 'reit etf', 'real estate'], chartIds: ['us_real_estate'] },
+  { symbol: 'UNRATE', name: 'US Unemployment Rate', type: 'macro', aliases: ['unemployment', 'unemployment rate', 'job market', 'jobs market', 'labor market', 'unrate'], chartIds: ['rates_jobs', 'labor'], chartable: false },
+  { symbol: 'JOLTS', name: 'US Job Openings', type: 'macro', aliases: ['job openings', 'jobs openings', 'jolts', 'labor demand', 'payrolls', 'employment'], chartIds: ['labor'], chartable: false },
+  { symbol: 'FEDFUNDS', name: 'Fed Funds Rate', type: 'macro', aliases: ['fed funds', 'fed rate', 'fed rates', 'interest rates', 'policy rate'], chartIds: ['rates_jobs', 'us_curve', 'inflation_policy', 'us_fixed_variable_proxy'], chartable: false },
+  { symbol: 'CPIAUCSL', name: 'US CPI Inflation Index', type: 'macro', aliases: ['cpi', 'inflation', 'consumer price index'], chartIds: ['inflation_policy'], chartable: false },
+  { symbol: 'USDEBT', name: 'US Federal Debt', type: 'macro', aliases: ['us debt', 'federal debt', 'government debt', 'debt'], chartIds: ['debt_jobs'], chartable: false },
+  { symbol: 'DEFICIT', name: 'US Federal Deficit Pressure', type: 'macro', aliases: ['deficit', 'federal deficit', 'us deficit'], chartIds: ['debt_jobs'], chartable: false },
+  { symbol: 'GDP', name: 'GDP Growth', type: 'macro', aliases: ['gdp', 'world gdp', 'us gdp', 'global gdp', 'north america gdp'], chartIds: ['gdp_growth', 'world_gdp', 'north_america_gdp'], chartable: false },
 ];
 
 function normalizeResearchSearch(value) {
@@ -364,6 +378,13 @@ const TABS = [
   { id: 'ownership', label: 'Ownership' },
 ];
 
+const ASSET_TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'terminal', label: 'Chart', chartOnly: true },
+  { id: 'macro', label: 'Macro' },
+  { id: 'asset_news', label: 'News' },
+];
+
 function resolveResearchSymbolFromText(message) {
   const raw = String(message || '');
   const upper = raw.toUpperCase();
@@ -395,6 +416,15 @@ function normalizeAssetToken(value) {
   return String(value || '').trim().toLowerCase().replace(/[^a-z0-9.^=-]+/g, ' ');
 }
 
+function assetAliasMatches(lower, compact, alias) {
+  const aliasNorm = normalizeAssetToken(alias);
+  const aliasCompact = aliasNorm.replace(/\s+/g, '');
+  if (!aliasNorm) return false;
+  if (compact === aliasCompact) return true;
+  if (/[.^=-]/.test(aliasNorm)) return lower.includes(aliasNorm);
+  return aliasNorm.length >= 3 && ` ${lower} `.includes(` ${aliasNorm} `);
+}
+
 function findResearchAsset(value) {
   const raw = String(value || '');
   if (!raw.trim()) return null;
@@ -402,20 +432,15 @@ function findResearchAsset(value) {
   const compact = lower.replace(/\s+/g, '');
   const upper = raw.trim().toUpperCase();
 
-  const stock = RESEARCH_SEARCH_INDEX.find((item) => item.symbol === upper);
-  if (stock) return { symbol: stock.symbol, name: stock.name, type: 'stock', stock: true };
-
   for (const asset of RESEARCH_ASSET_INDEX) {
     const symbolNorm = asset.symbol.toLowerCase();
-    if (upper === asset.symbol || compact === symbolNorm || lower.includes(symbolNorm)) return { ...asset, stock: asset.type === 'etf' };
-    if (asset.aliases.some((alias) => {
-      const aliasNorm = normalizeAssetToken(alias);
-      const aliasCompact = aliasNorm.replace(/\s+/g, '');
-      return compact === aliasCompact || (aliasNorm.length >= 3 && lower.includes(aliasNorm));
-    })) {
-      return { ...asset, stock: asset.type === 'etf' };
+    if (upper === asset.symbol || compact === symbolNorm || lower.includes(symbolNorm)) return { ...asset, stock: false };
+    if (asset.aliases.some((alias) => assetAliasMatches(lower, compact, alias))) {
+      return { ...asset, stock: false };
     }
   }
+  const stock = RESEARCH_SEARCH_INDEX.find((item) => item.symbol === upper);
+  if (stock) return { symbol: stock.symbol, name: stock.name, type: 'stock', stock: true };
   return null;
 }
 
@@ -440,7 +465,7 @@ function resolveResearchTargetFromAssistant(detail = {}) {
   const userAsset = findResearchAsset(userMessage);
   const userStockSymbol = resolveResearchSymbolFromText(userMessage);
   const userMentionsStockIntent = /\b(stock|stocks|share|shares|company|companies|ticker|equity|equities)\b/i.test(userMessage);
-  const userMentionsAssetIntent = /\b(gold|silver|bitcoin|ethereum|crypto|oil price|crude|wti|brent|natural gas|copper|usd index|dxy|yield|treasury|s&p|nasdaq|dow|vix)\b/i.test(userMessage);
+  const userMentionsAssetIntent = /\b(gold|silver|bitcoin|ethereum|crypto|oil price|crude|wti|brent|natural gas|copper|usd index|dxy|yield|treasury|s&p|nasdaq|dow|vix|unemployment|job openings|jobs|labor|fed funds|fed rate|cpi|inflation|deficit|debt|gdp)\b/i.test(userMessage);
 
   if (userAsset && (!userStockSymbol || userMentionsAssetIntent || !userMentionsStockIntent)) return userAsset;
   if (userStockSymbol) {
@@ -1176,6 +1201,179 @@ function NewsTab({ data }) {
   );
 }
 
+function mergeResearchMacroSeries(chart) {
+  const byDate = new Map();
+  for (const series of chart?.series || []) {
+    for (const point of series.data || []) {
+      if (!point?.date) continue;
+      const row = byDate.get(point.date) || { date: point.date };
+      row[series.key] = point.value;
+      byDate.set(point.date, row);
+    }
+  }
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function ResearchMacroChart({ chart }) {
+  if (chart?.type === 'bar') {
+    const rows = (chart.bars || []).filter((row) => row.value != null);
+    if (!rows.length) return null;
+    return (
+      <Card title={chart.title}>
+        <div className="h-56">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={rows} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-200" />
+              <XAxis dataKey="label" interval={0} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-500" />
+              <YAxis width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-500" />
+              <Tooltip formatter={(value) => [`${Number(value).toFixed(2)}%`, chart.subtitle || 'Value']} />
+              <Bar dataKey="value" radius={[5, 5, 0, 0]}>
+                {rows.map((entry) => <Cell key={entry.label} fill={entry.value >= 0 ? (entry.color || '#34d399') : '#fb7185'} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
+    );
+  }
+
+  const rows = mergeResearchMacroSeries(chart);
+  if (!rows.length) return null;
+  return (
+    <Card title={chart.title}>
+      <div className="mb-2 flex flex-wrap gap-3">
+        {(chart.series || []).map((s) => (
+          <span key={s.key} className="inline-flex items-center gap-1.5 text-[10px] text-zinc-500">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
+            {s.label}
+          </span>
+        ))}
+      </div>
+      <div className="h-56">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={rows} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-200" />
+            <XAxis dataKey="date" minTickGap={32} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-500" />
+            <YAxis width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-500" />
+            <Tooltip formatter={(value, name) => [fmtNum(value, 2), (chart.series || []).find((s) => s.key === name)?.label || name]} />
+            {(chart.series || []).map((s) => (
+              <Line key={s.key} type="monotone" dataKey={s.key} stroke={s.color} strokeWidth={2} dot={false} connectNulls />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  );
+}
+
+function relatedMacroCharts(asset, macroData) {
+  const charts = macroData?.charts || [];
+  const ids = new Set(asset?.chartIds || []);
+  const text = `${asset?.name || ''} ${asset?.symbol || ''} ${asset?.type || ''}`.toLowerCase();
+  return charts
+    .filter((chart) => {
+      if (ids.has(chart.id)) return true;
+      const title = `${chart.title || ''} ${chart.id || ''}`.toLowerCase();
+      if (/bitcoin|ethereum|crypto|btc|eth/.test(text)) return /crypto|risk/.test(title);
+      if (/gold|silver|copper|oil|commodity/.test(text)) return /commodity|gold|metal|oil|hard asset/.test(title);
+      if (/yield|treasury|bond|rate|fed/.test(text)) return /rate|yield|bond|fed|curve/.test(title);
+      if (/unemployment|job|labor/.test(text)) return /labor|job|rate/.test(title);
+      if (/gdp/.test(text)) return /gdp|global|world/.test(title);
+      if (/index|s&p|nasdaq|dow|russell|spy|qqq|iwm|dia/.test(text)) return /risk|global equity|volatility/.test(title);
+      return false;
+    })
+    .slice(0, 4);
+}
+
+function AssetOverviewTab({ asset, macroData, macroLoading, onOpenTab }) {
+  const macroCharts = relatedMacroCharts(asset, macroData);
+  const matchedSignal = (macroData?.signals || []).find((item) => {
+    const hay = `${item.asset || ''} ${item.symbol || ''}`.toLowerCase();
+    return hay.includes(String(asset?.name || '').split(' ')[0]?.toLowerCase()) || hay.includes(String(asset?.symbol || '').toLowerCase());
+  });
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <Card title="Asset">
+          <div className="text-lg font-bold text-zinc-900">{asset.name}</div>
+          <div className="mt-1 text-xs uppercase tracking-wide text-zinc-500">{asset.type} · {asset.symbol}</div>
+        </Card>
+        <Card title="Research Mode">
+          <div className="text-sm font-semibold text-zinc-900">{asset.chartable === false ? 'Macro series' : 'Market-traded asset'}</div>
+          <div className="mt-1 text-xs text-zinc-500">
+            {asset.chartable === false ? 'Uses macro charts and related economic context.' : 'Uses live chart data plus related macro context.'}
+          </div>
+        </Card>
+        <Card title="Signal">
+          {matchedSignal ? (
+            <>
+              <div className="text-sm font-semibold text-zinc-900">Short: {matchedSignal.short_term} · Long: {matchedSignal.long_term}</div>
+              <div className="mt-1 text-xs text-zinc-500">{matchedSignal.rationale}</div>
+            </>
+          ) : (
+            <div className="text-xs text-zinc-500">Use Macro for the closest economic drivers.</div>
+          )}
+        </Card>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {asset.chartable !== false && (
+          <button type="button" onClick={() => onOpenTab('terminal')} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700">
+            Open chart
+          </button>
+        )}
+        <button type="button" onClick={() => onOpenTab('macro')} className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-200">
+          Macro drivers
+        </button>
+        <button type="button" onClick={() => onOpenTab('asset_news')} className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-200">
+          Related news
+        </button>
+      </div>
+      {macroLoading ? (
+        <div className="flex h-32 items-center justify-center text-sm text-zinc-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading macro context...</div>
+      ) : macroCharts.length ? (
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {macroCharts.slice(0, 2).map((chart) => <ResearchMacroChart key={chart.id} chart={chart} />)}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function AssetMacroTab({ asset, macroData, macroLoading, macroError }) {
+  if (macroLoading) return <div className="flex h-48 items-center justify-center text-sm text-zinc-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading macro context...</div>;
+  if (macroError) return <div className="rounded-xl bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-200/80">{macroError}</div>;
+  const charts = relatedMacroCharts(asset, macroData);
+  if (!charts.length) return <div className="py-8 text-center text-sm text-zinc-500">No related macro charts for {asset.name}.</div>;
+  return (
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      {charts.map((chart) => <ResearchMacroChart key={chart.id} chart={chart} />)}
+    </div>
+  );
+}
+
+function AssetNewsTab({ asset, macroData, macroLoading }) {
+  if (macroLoading) return <div className="flex h-48 items-center justify-center text-sm text-zinc-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading news...</div>;
+  const key = String(asset?.symbol || '').toLowerCase();
+  const firstWord = String(asset?.name || '').split(' ')[0]?.toLowerCase();
+  const news = (macroData?.news || []).filter((n) => {
+    const hay = `${n.symbol || ''} ${n.title || ''}`.toLowerCase();
+    return hay.includes(key) || (firstWord && hay.includes(firstWord));
+  });
+  const rows = news.length ? news : (macroData?.news || []).slice(0, 8);
+  if (!rows.length) return <div className="py-8 text-center text-sm text-zinc-500">No related macro news.</div>;
+  return (
+    <div className="space-y-2">
+      {rows.map((n, idx) => (
+        <a key={`${n.symbol}-${idx}`} href={n.url || undefined} target="_blank" rel="noopener noreferrer"
+          className="block rounded-xl bg-zinc-50/90 p-3 text-sm ring-1 ring-zinc-200/70 hover:bg-zinc-100">
+          <div className="text-[11px] font-semibold text-zinc-500">{n.symbol} {n.publisher ? `/ ${n.publisher}` : ''}</div>
+          <div className="mt-1 leading-snug text-zinc-800">{n.title}</div>
+        </a>
+      ))}
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════
 // FUNDAMENTALS (symbol lookup + tabs)
 // ═══════════════════════════════════════════
@@ -1196,6 +1394,9 @@ function ResearchFundamentals({
   const [recentSymbols, setRecentSymbols] = useState(getResearchRecents);
   const [assistantSymbols, setAssistantSymbols] = useState([]);
   const [assetContext, setAssetContext] = useState({ symbol: 'AAPL', name: 'Apple Inc.', type: 'stock', stock: true });
+  const [macroData, setMacroData] = useState(null);
+  const [macroLoading, setMacroLoading] = useState(false);
+  const [macroError, setMacroError] = useState('');
   const symbolRef = useRef(symbol);
 
   useEffect(() => {
@@ -1233,8 +1434,9 @@ function ResearchFundamentals({
     setData(null);
     setError(null);
     setLoading(false);
-    setTab('terminal');
+    setTab(asset.chartable === false ? 'macro' : 'overview');
     setAssetContext({
+      ...asset,
       symbol: s,
       name: asset.name || s,
       type: asset.type || 'asset',
@@ -1251,6 +1453,17 @@ function ResearchFundamentals({
   useEffect(() => {
     setTab(view === 'backtest' ? 'backtest' : 'summary');
   }, [view]);
+
+  useEffect(() => {
+    if (assetContext?.stock !== false) return;
+    if (macroData || macroLoading) return;
+    setMacroLoading(true);
+    setMacroError('');
+    fetchMacroOverview()
+      .then(setMacroData)
+      .catch((e) => setMacroError(e.message || 'Failed to load macro context'))
+      .finally(() => setMacroLoading(false));
+  }, [assetContext?.stock, macroData, macroLoading]);
 
   useEffect(() => { loadSymbol('AAPL'); }, [loadSymbol]);
 
@@ -1335,7 +1548,7 @@ function ResearchFundamentals({
         else if (nameNorm.includes(q)) score = 82;
         else if (aliasNorms.some((alias) => alias === q || alias.replace(/\s+/g, '') === compact)) score = 96;
         else if (aliasNorms.some((alias) => alias.includes(q) || alias.replace(/\s+/g, '').includes(compact))) score = 78;
-        return { ...item, score, stock: item.type === 'etf' };
+        return { ...item, score, stock: false };
       })
       .filter(item => item.score > 0);
     const bySymbol = new Map();
@@ -1386,6 +1599,10 @@ function ResearchFundamentals({
       else loadSymbol(target?.symbol || next);
     }
   };
+  const activeTabs = assetContext?.stock === false
+    ? ASSET_TABS.filter((t) => !(t.chartOnly && assetContext.chartable === false))
+    : TABS;
+  const showResearchTabs = view !== 'backtest' && (data || assetContext?.stock === false);
 
   return (
     <div className="space-y-4">
@@ -1398,7 +1615,7 @@ function ResearchFundamentals({
             onFocus={() => setSuggestionsOpen(true)}
             onChange={e => { setSymbolInput(e.target.value); setSuggestionsOpen(true); setError(null); }}
             onBlur={() => window.setTimeout(() => setSuggestionsOpen(false), 120)}
-            placeholder="Search company or ticker..."
+            placeholder="Search stocks, crypto, commodities, indexes, macro..."
             className="w-full bg-white rounded-xl pl-10 pr-4 py-2.5 text-zinc-900 text-sm shadow-sm ring-1 ring-zinc-200/70 focus:outline-none focus:ring-2 focus:ring-indigo-200"
           />
           {suggestionsOpen && symbolInput.trim() && (
@@ -1454,9 +1671,9 @@ function ResearchFundamentals({
         </div>
       </div>
 
-      {data && view !== 'backtest' && (
+      {showResearchTabs && (
         <div className="flex gap-0.5 border-b border-zinc-200/80 overflow-x-auto">
-          {TABS.map(t => (
+          {activeTabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`px-4 py-2 text-xs font-medium whitespace-nowrap transition-all border-b-2 ${
                 tab === t.id ? 'text-indigo-700 border-indigo-500' : 'text-zinc-500 border-transparent hover:text-zinc-800'
@@ -1465,14 +1682,14 @@ function ResearchFundamentals({
         </div>
       )}
 
-      {!data && tab === 'terminal' && assetContext?.stock === false && (
+      {!data && assetContext?.stock === false && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 ring-1 ring-zinc-200/70">
           <div>
             <div className="text-xs font-semibold text-zinc-900">{assetContext.name}</div>
             <div className="text-[10px] uppercase tracking-wide text-zinc-500">{assetContext.type} · {assetContext.symbol}</div>
           </div>
           <span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-100">
-            Chart research
+            {assetContext.chartable === false ? 'Macro research' : 'Market research'}
           </span>
         </div>
       )}
@@ -1480,12 +1697,26 @@ function ResearchFundamentals({
       {loading && <div className="flex items-center justify-center h-48 text-zinc-500"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...</div>}
       {error && <div className="p-4 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80">{error}</div>}
 
-      {(data || tab === 'backtest' || tab === 'terminal') && !loading && (
+      {(data || tab === 'backtest' || assetContext?.stock === false || tab === 'terminal') && !loading && (
         <>
+          {tab === 'overview' && assetContext?.stock === false && (
+            <AssetOverviewTab
+              asset={assetContext}
+              macroData={macroData}
+              macroLoading={macroLoading}
+              onOpenTab={setTab}
+            />
+          )}
           {tab === 'summary' && data && <SummaryTab data={data} />}
           {tab === 'financials' && data && <FinancialsTab data={data} />}
           {tab === 'ownership' && data && <OwnershipTab data={data} />}
           {tab === 'news' && data && <NewsTab data={data} />}
+          {tab === 'macro' && assetContext?.stock === false && (
+            <AssetMacroTab asset={assetContext} macroData={macroData} macroLoading={macroLoading} macroError={macroError} />
+          )}
+          {tab === 'asset_news' && assetContext?.stock === false && (
+            <AssetNewsTab asset={assetContext} macroData={macroData} macroLoading={macroLoading} />
+          )}
           {tab === 'terminal' && (
             <div className="overflow-hidden rounded-xl ring-1 ring-zinc-200/70 dark:ring-zinc-800">
               <TerminalPanel embedded symbol={symbol} />
