@@ -380,7 +380,6 @@ function App() {
                 context="screener"
                 contextTitle="Screener Assistant"
                 contextInstruction="You are embedded in the Screener tab. Help the user translate requests into practical screen filters, universes, ranking criteria, and next research actions. If they ask for macro or market context, answer briefly and connect it back to screening."
-                onUserMessage={(message) => window.dispatchEvent(new CustomEvent('eq-screener-assistant-query', { detail: { message } }))}
                 onAssistantResult={(result) => {
                   const message = [result?.userMessage, result?.response].filter(Boolean).join('\n\n');
                   window.dispatchEvent(new CustomEvent('eq-screener-assistant-query', {
