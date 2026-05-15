@@ -2,11 +2,11 @@ import { useEffect, useCallback } from 'react';
 import { TerminalProvider, useTerminal } from './TerminalContext';
 import CandlestickChart from './CandlestickChart';
 import AiInsightPanel from './AiInsightPanel';
-import WatchlistSidebar from './WatchlistSidebar';
 import {
-  LayoutGrid, Brain, List, Calculator, Minus,
+  Brain, List, Minus,
   Square, Grid2x2, Grid3x3,
 } from 'lucide-react';
+import WatchlistSidebar from './WatchlistSidebar';
 
 // Intraday (15m) is used only for 1D; other ranges use daily/weekly bars for Yahoo limits and clarity.
 const TIMEFRAMES = [
@@ -55,7 +55,7 @@ function TerminalInner({ embedded = false, symbol }) {
 
     if (e.key === 'a' || e.key === 'A') {
       dispatch({ type: 'TOGGLE_AI_PANEL' });
-    } else if (e.key === 'w' || e.key === 'W') {
+    } else if (!embedded && (e.key === 'w' || e.key === 'W')) {
       dispatch({ type: 'TOGGLE_WATCHLIST' });
     } else if (e.key >= '1' && e.key <= '4') {
       const layouts = [1, 2, 4, 6];
@@ -149,23 +149,27 @@ function TerminalInner({ embedded = false, symbol }) {
         <div className="w-px h-5 bg-zinc-200/60 dark:bg-zinc-700" />
 
         {/* Panel toggles */}
-        <button onClick={() => dispatch({ type: 'TOGGLE_WATCHLIST' })} title="Watchlist (W)"
-          className={`p-1.5 rounded transition-all ${state.showWatchlist ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-200'}`}>
-          <List className="w-3.5 h-3.5" />
-        </button>
+        {!embedded && (
+          <button onClick={() => dispatch({ type: 'TOGGLE_WATCHLIST' })} title="Watchlist (W)"
+            className={`p-1.5 rounded transition-all ${state.showWatchlist ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-200'}`}>
+            <List className="w-3.5 h-3.5" />
+          </button>
+        )}
         <button onClick={() => dispatch({ type: 'TOGGLE_AI_PANEL' })} title="AI Insight (A)"
           className={`p-1.5 rounded transition-all ${state.showAiPanel ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-200'}`}>
           <Brain className="w-3.5 h-3.5" />
         </button>
 
         {/* Shortcut hint */}
-        <span className="text-[9px] text-zinc-700 ml-1 dark:text-zinc-400">Keys: 1-4 layout · W watch · A ai · Tab focus</span>
+        <span className="text-[9px] text-zinc-700 ml-1 dark:text-zinc-400">
+          {embedded ? 'Keys: 1-4 layout · A ai · Tab focus' : 'Keys: 1-4 layout · W watch · A ai · Tab focus'}
+        </span>
       </div>
 
       {/* Main content */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* Watchlist — hidden on mobile */}
-        {state.showWatchlist && (
+        {!embedded && state.showWatchlist && (
           <div className="hidden sm:block" style={{ width: 176, flexShrink: 0, height: '100%' }}>
             <WatchlistSidebar />
           </div>
