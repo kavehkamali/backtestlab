@@ -1338,7 +1338,11 @@ function ResearchFundamentals({
         return { ...item, score, stock: item.type === 'etf' };
       })
       .filter(item => item.score > 0);
-    return [...assetMatches, ...stockMatches]
+    const bySymbol = new Map();
+    for (const item of [...assetMatches, ...stockMatches].sort((a, b) => b.score - a.score)) {
+      if (!bySymbol.has(item.symbol)) bySymbol.set(item.symbol, item);
+    }
+    return [...bySymbol.values()]
       .sort((a, b) => b.score - a.score || a.symbol.localeCompare(b.symbol))
       .slice(0, 8);
   }, [symbolInput]);
