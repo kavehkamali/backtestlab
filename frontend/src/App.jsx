@@ -381,6 +381,12 @@ function App() {
                 contextTitle="Screener Assistant"
                 contextInstruction="You are embedded in the Screener tab. Help the user translate requests into practical screen filters, universes, ranking criteria, and next research actions. If they ask for macro or market context, answer briefly and connect it back to screening."
                 onUserMessage={(message) => window.dispatchEvent(new CustomEvent('eq-screener-assistant-query', { detail: { message } }))}
+                onAssistantResult={(result) => {
+                  const message = [result?.userMessage, result?.response].filter(Boolean).join('\n\n');
+                  window.dispatchEvent(new CustomEvent('eq-screener-assistant-query', {
+                    detail: { message, tickers: result?.tickers || [] },
+                  }));
+                }}
                 onNavigate={handleAgentNavigate}
                 user={user}
                 dek={agentDek}
@@ -411,10 +417,21 @@ function App() {
                   ? 'You are embedded in the Backtesting workflow. Help the user choose strategies, time windows, tickers, risk controls, and interpret backtest results. If they ask for macro or market data, connect it to backtest assumptions.'
                   : 'You are embedded in the Research tab. Help with ticker research, fundamentals, valuation, technicals, news, macro and market context when asked. Be concise, specific, and practical.'}
                 onUserMessage={(message) => {
-                  window.dispatchEvent(new CustomEvent(
-                    activeTab === 'backtest' ? 'eq-backtest-assistant-query' : 'eq-research-assistant-query',
-                    { detail: { message } },
-                  ));
+                  if (activeTab !== 'backtest') return;
+                  window.dispatchEvent(new CustomEvent('eq-backtest-assistant-query', { detail: { message } }));
+                }}
+                onAssistantResult={(result) => {
+                  if (activeTab !== 'research') return;
+                  const message = [result?.userMessage, result?.response].filter(Boolean).join('\n\n');
+                  window.dispatchEvent(new CustomEvent('eq-research-assistant-result', {
+                    detail: {
+                      message,
+                      userMessage: result?.userMessage || '',
+                      response: result?.response || '',
+                      ticker: result?.ticker || '',
+                      tickers: result?.tickers || [],
+                    },
+                  }));
                 }}
                 onNavigate={handleAgentNavigate}
                 user={user}

@@ -2045,6 +2045,7 @@ export default function AgentPanel({
   contextTitle = 'Assistant',
   contextInstruction = '',
   onUserMessage,
+  onAssistantResult,
   panelWidth = 390,
   onPanelWidthChange,
   layoutMode = 'assistant',
@@ -2397,6 +2398,14 @@ export default function AgentPanel({
       setLastRun({ mode: effectiveMode, url, elapsedMs });
       const nextMessages = [...messages, { role: 'user', content: msg }, { role: 'assistant', content: streamTextRef.current, ticker: streamTickerRef.current, tickers: data.tickers || [] }];
       updateActiveSession({ messages: nextMessages, lastRun: { mode: effectiveMode, url, elapsedMs }, mode: effectiveMode });
+      onAssistantResult?.({
+        userMessage: msg,
+        response: streamTextRef.current,
+        ticker: streamTickerRef.current,
+        tickers: data.tickers || [],
+        context,
+        mode: effectiveMode,
+      });
     } catch (e) {
       const nextMessages = [...messages, { role: 'user', content: msg }, { role: 'assistant', content: `**Error:** ${e.message}` }];
       updateActiveSession({ messages: nextMessages, mode: effectiveMode });

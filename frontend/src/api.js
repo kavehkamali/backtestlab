@@ -709,13 +709,15 @@ export async function fetchCrypto() {
 
 // Terminal APIs
 export async function fetchTerminalChart(symbol, period = '1y', interval = '1d') {
-  const res = await fetch(`${BASE}/terminal/chart/${symbol}?period=${period}&interval=${interval}`, { headers: { ...authHeaders() } });
+  const encoded = encodeURIComponent(symbol);
+  const res = await fetch(`${BASE}/terminal/chart/${encoded}?period=${period}&interval=${interval}`, { headers: { ...authHeaders() } });
   if (!res.ok) throw new Error(await parseApiError(res, `Chart data failed for ${symbol}`));
   return res.json();
 }
 
 export async function fetchTerminalIndicators(symbol, period = '1y', interval = '1d', indicators = 'sma_20,sma_50,volume') {
-  const res = await fetch(`${BASE}/terminal/indicators/${symbol}?period=${period}&interval=${interval}&indicators=${indicators}`, { headers: { ...authHeaders() } });
+  const encoded = encodeURIComponent(symbol);
+  const res = await fetch(`${BASE}/terminal/indicators/${encoded}?period=${period}&interval=${interval}&indicators=${indicators}`, { headers: { ...authHeaders() } });
   if (!res.ok) throw new Error(await parseApiError(res, `Indicators failed for ${symbol}`));
   return res.json();
 }

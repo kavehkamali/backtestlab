@@ -117,6 +117,27 @@ const RESEARCH_SEARCH_INDEX = [
   ['SU.TO', 'Suncor Energy Inc.'],
 ].map(([symbol, name]) => ({ symbol, name }));
 
+const RESEARCH_ASSET_INDEX = [
+  { symbol: 'GC=F', name: 'Gold futures', type: 'commodity', aliases: ['gold', 'gold futures', 'xau', 'xauusd', 'gc=f'] },
+  { symbol: 'GLD', name: 'SPDR Gold Shares', type: 'etf', aliases: ['gld', 'gold etf'] },
+  { symbol: 'SI=F', name: 'Silver futures', type: 'commodity', aliases: ['silver', 'silver futures', 'xag', 'xagusd', 'si=f'] },
+  { symbol: 'CL=F', name: 'WTI crude oil futures', type: 'commodity', aliases: ['oil', 'wti', 'crude', 'crude oil', 'oil futures', 'cl=f'] },
+  { symbol: 'BZ=F', name: 'Brent crude oil futures', type: 'commodity', aliases: ['brent', 'brent oil', 'bz=f'] },
+  { symbol: 'NG=F', name: 'Natural gas futures', type: 'commodity', aliases: ['natural gas', 'nat gas', 'gas futures', 'ng=f'] },
+  { symbol: 'HG=F', name: 'Copper futures', type: 'commodity', aliases: ['copper', 'copper futures', 'hg=f'] },
+  { symbol: 'BTC-USD', name: 'Bitcoin', type: 'crypto', aliases: ['bitcoin', 'btc', 'btc usd', 'btc-usd'] },
+  { symbol: 'ETH-USD', name: 'Ethereum', type: 'crypto', aliases: ['ethereum', 'ether', 'eth', 'eth usd', 'eth-usd'] },
+  { symbol: 'SOL-USD', name: 'Solana', type: 'crypto', aliases: ['solana', 'sol', 'sol usd', 'sol-usd'] },
+  { symbol: '^GSPC', name: 'S&P 500 Index', type: 'index', aliases: ['s&p 500', 'sp500', 's and p', 's and p 500', 'spx', '^gspc'] },
+  { symbol: '^IXIC', name: 'Nasdaq Composite', type: 'index', aliases: ['nasdaq', 'nasdaq composite', '^ixic'] },
+  { symbol: '^DJI', name: 'Dow Jones Industrial Average', type: 'index', aliases: ['dow', 'dow jones', '^dji'] },
+  { symbol: '^RUT', name: 'Russell 2000 Index', type: 'index', aliases: ['russell 2000', 'small cap index', '^rut'] },
+  { symbol: '^VIX', name: 'CBOE Volatility Index', type: 'index', aliases: ['vix', 'volatility index', '^vix'] },
+  { symbol: 'DX-Y.NYB', name: 'US Dollar Index', type: 'currency', aliases: ['usd index', 'dxy', 'dollar index', 'us dollar index', 'dx-y.nyb'] },
+  { symbol: '^TNX', name: 'US 10Y Treasury Yield', type: 'yield', aliases: ['10y', '10 year', '10-year', 'us 10y', 'treasury yield', 'tnx', '^tnx'] },
+  { symbol: 'TLT', name: '20+ Year Treasury Bond ETF', type: 'bond', aliases: ['tlt', 'long bonds', 'long treasury', 'treasury bonds'] },
+];
+
 function normalizeResearchSearch(value) {
   return String(value || '').trim().toLowerCase().replace(/[^a-z0-9.]+/g, ' ');
 }
@@ -368,6 +389,73 @@ function resolveResearchSymbolFromText(message) {
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)[0];
   return hit?.symbol || null;
+}
+
+function normalizeAssetToken(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9.^=-]+/g, ' ');
+}
+
+function findResearchAsset(value) {
+  const raw = String(value || '');
+  if (!raw.trim()) return null;
+  const lower = normalizeAssetToken(raw);
+  const compact = lower.replace(/\s+/g, '');
+  const upper = raw.trim().toUpperCase();
+
+  const stock = RESEARCH_SEARCH_INDEX.find((item) => item.symbol === upper);
+  if (stock) return { symbol: stock.symbol, name: stock.name, type: 'stock', stock: true };
+
+  for (const asset of RESEARCH_ASSET_INDEX) {
+    const symbolNorm = asset.symbol.toLowerCase();
+    if (upper === asset.symbol || compact === symbolNorm || lower.includes(symbolNorm)) return { ...asset, stock: asset.type === 'etf' };
+    if (asset.aliases.some((alias) => {
+      const aliasNorm = normalizeAssetToken(alias);
+      const aliasCompact = aliasNorm.replace(/\s+/g, '');
+      return compact === aliasCompact || (aliasNorm.length >= 3 && lower.includes(aliasNorm));
+    })) {
+      return { ...asset, stock: asset.type === 'etf' };
+    }
+  }
+  return null;
+}
+
+function resolveResearchTargetFromText(message, tickers = []) {
+  const combined = String(message || '');
+  const combinedAsset = findResearchAsset(combined);
+  if (combinedAsset) return combinedAsset;
+  for (const ticker of tickers || []) {
+    const asset = findResearchAsset(ticker);
+    if (asset) return asset;
+  }
+  const stockSymbol = resolveResearchSymbolFromText(combined);
+  if (!stockSymbol) return null;
+  const item = RESEARCH_SEARCH_INDEX.find((x) => x.symbol === stockSymbol);
+  return { symbol: stockSymbol, name: item?.name || stockSymbol, type: 'stock', stock: true };
+}
+
+function resolveResearchTargetFromAssistant(detail = {}) {
+  const userMessage = String(detail.userMessage || '');
+  const response = String(detail.response || '');
+  const tickers = detail.tickers || [];
+  const userAsset = findResearchAsset(userMessage);
+  const userStockSymbol = resolveResearchSymbolFromText(userMessage);
+  const userMentionsStockIntent = /\b(stock|stocks|share|shares|company|companies|ticker|equity|equities)\b/i.test(userMessage);
+  const userMentionsAssetIntent = /\b(gold|silver|bitcoin|ethereum|crypto|oil price|crude|wti|brent|natural gas|copper|usd index|dxy|yield|treasury|s&p|nasdaq|dow|vix)\b/i.test(userMessage);
+
+  if (userAsset && (!userStockSymbol || userMentionsAssetIntent || !userMentionsStockIntent)) return userAsset;
+  if (userStockSymbol) {
+    const item = RESEARCH_SEARCH_INDEX.find((x) => x.symbol === userStockSymbol);
+    return { symbol: userStockSymbol, name: item?.name || userStockSymbol, type: 'stock', stock: true };
+  }
+
+  for (const ticker of tickers) {
+    const asset = findResearchAsset(ticker);
+    if (asset) return asset;
+  }
+
+  const responseAsset = findResearchAsset(response);
+  if (responseAsset) return responseAsset;
+  return resolveResearchTargetFromText([userMessage, response, detail.message].filter(Boolean).join('\n\n'), tickers);
 }
 
 const PRICE_WINDOWS = [
@@ -1107,6 +1195,7 @@ function ResearchFundamentals({
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [recentSymbols, setRecentSymbols] = useState(getResearchRecents);
   const [assistantSymbols, setAssistantSymbols] = useState([]);
+  const [assetContext, setAssetContext] = useState({ symbol: 'AAPL', name: 'Apple Inc.', type: 'stock', stock: true });
   const symbolRef = useRef(symbol);
 
   useEffect(() => {
@@ -1123,6 +1212,7 @@ function ResearchFundamentals({
         setSymbol(s);
         setSymbolInput(s);
         setData(d);
+        setAssetContext({ symbol: s, name: d?.summary?.name || s, type: 'stock', stock: true });
         setTab(view === 'backtest' ? 'backtest' : 'summary');
         setRecentSymbols(prev => {
           const next = [s, ...prev.filter(item => item !== s)].slice(0, 12);
@@ -1134,6 +1224,30 @@ function ResearchFundamentals({
       .finally(() => setLoading(false));
   }, [view]);
 
+  const openChartAsset = useCallback((target) => {
+    const asset = target || {};
+    const s = String(asset.symbol || '').trim().toUpperCase();
+    if (!s) return;
+    setSymbol(s);
+    setSymbolInput(s);
+    setData(null);
+    setError(null);
+    setLoading(false);
+    setTab('terminal');
+    setAssetContext({
+      symbol: s,
+      name: asset.name || s,
+      type: asset.type || 'asset',
+      stock: false,
+    });
+    setAssistantSymbols(prev => [s, ...prev.filter(item => item !== s)].slice(0, 12));
+    setRecentSymbols(prev => {
+      const next = [s, ...prev.filter(item => item !== s)].slice(0, 12);
+      saveResearchRecents(next);
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     setTab(view === 'backtest' ? 'backtest' : 'summary');
   }, [view]);
@@ -1144,21 +1258,25 @@ function ResearchFundamentals({
     const onAgentTicker = (e) => {
       const { tab, ticker } = e.detail || {};
       if (tab !== 'research' || !ticker) return;
-      loadSymbol(ticker);
+      const target = resolveResearchTargetFromText(ticker, [ticker]);
+      if (target && !target.stock) openChartAsset(target);
+      else loadSymbol(target?.symbol || ticker);
     };
     window.addEventListener('eq-agent-open-ticker', onAgentTicker);
     return () => window.removeEventListener('eq-agent-open-ticker', onAgentTicker);
-  }, [loadSymbol]);
+  }, [loadSymbol, openChartAsset]);
 
   useEffect(() => {
     const onAssistantQuery = (e) => {
-      const sym = resolveResearchSymbolFromText(e.detail?.message);
-      if (!sym) return;
-      loadSymbol(sym);
+      const detail = e.detail || {};
+      const target = resolveResearchTargetFromAssistant(detail);
+      if (!target) return;
+      if (target.stock) loadSymbol(target.symbol);
+      else openChartAsset(target);
     };
-    window.addEventListener('eq-research-assistant-query', onAssistantQuery);
-    return () => window.removeEventListener('eq-research-assistant-query', onAssistantQuery);
-  }, [loadSymbol]);
+    window.addEventListener('eq-research-assistant-result', onAssistantQuery);
+    return () => window.removeEventListener('eq-research-assistant-result', onAssistantQuery);
+  }, [loadSymbol, openChartAsset]);
 
   useEffect(() => {
     const onAssistantTickers = (e) => {
@@ -1188,7 +1306,7 @@ function ResearchFundamentals({
     const q = normalizeResearchSearch(raw);
     if (!q) return [];
     const compact = q.replace(/\s+/g, '');
-    return RESEARCH_SEARCH_INDEX
+    const stockMatches = RESEARCH_SEARCH_INDEX
       .map(item => {
         const symbolNorm = item.symbol.toLowerCase();
         const nameNorm = normalizeResearchSearch(item.name);
@@ -1205,6 +1323,22 @@ function ResearchFundamentals({
         return { ...item, score };
       })
       .filter(item => item.score > 0)
+      .map(item => ({ ...item, type: 'stock', stock: true }));
+    const assetMatches = RESEARCH_ASSET_INDEX
+      .map(item => {
+        const symbolNorm = item.symbol.toLowerCase();
+        const nameNorm = normalizeResearchSearch(item.name);
+        const aliasNorms = item.aliases.map((alias) => normalizeResearchSearch(alias));
+        let score = 0;
+        if (symbolNorm === raw.toLowerCase()) score = 100;
+        else if (symbolNorm.startsWith(raw.toLowerCase())) score = 92;
+        else if (nameNorm.includes(q)) score = 82;
+        else if (aliasNorms.some((alias) => alias === q || alias.replace(/\s+/g, '') === compact)) score = 96;
+        else if (aliasNorms.some((alias) => alias.includes(q) || alias.replace(/\s+/g, '').includes(compact))) score = 78;
+        return { ...item, score, stock: item.type === 'etf' };
+      })
+      .filter(item => item.score > 0);
+    return [...assetMatches, ...stockMatches]
       .sort((a, b) => b.score - a.score || a.symbol.localeCompare(b.symbol))
       .slice(0, 8);
   }, [symbolInput]);
@@ -1214,10 +1348,12 @@ function ResearchFundamentals({
     if (!raw) return null;
     const upper = raw.toUpperCase();
     const normalized = normalizeResearchSearch(raw).replace(/\s+/g, '');
+    const asset = findResearchAsset(raw);
+    if (asset) return asset;
     const exact = RESEARCH_SEARCH_INDEX.find(item => item.symbol === upper || normalizeResearchSearch(item.name).replace(/\s+/g, '') === normalized);
-    if (exact) return exact.symbol;
-    if (searchSuggestions.length) return searchSuggestions[0].symbol;
-    if (/^[A-Z0-9][A-Z0-9.-]{0,11}$/.test(upper)) return upper;
+    if (exact) return { symbol: exact.symbol, name: exact.name, type: 'stock', stock: true };
+    if (searchSuggestions.length) return searchSuggestions[0];
+    if (/^[A-Z0-9][A-Z0-9.-]{0,11}$/.test(upper)) return { symbol: upper, name: upper, type: 'stock', stock: true };
     return null;
   }, [searchSuggestions, symbolInput]);
 
@@ -1229,7 +1365,8 @@ function ResearchFundamentals({
       return;
     }
     setSuggestionsOpen(false);
-    loadSymbol(resolved);
+    if (resolved.stock === false) openChartAsset(resolved);
+    else loadSymbol(resolved.symbol || resolved);
   };
 
   const shortcutSymbols = assistantSymbols.length ? assistantSymbols : (recentSymbols.length ? recentSymbols : DEFAULT_RESEARCH_SHORTCUTS);
@@ -1240,7 +1377,9 @@ function ResearchFundamentals({
     const next = shortcutSymbols[(base + delta + shortcutSymbols.length) % shortcutSymbols.length];
     if (next) {
       setSymbolInput(next);
-      loadSymbol(next);
+      const target = resolveResearchTargetFromText(next, [next]);
+      if (target && !target.stock) openChartAsset(target);
+      else loadSymbol(target?.symbol || next);
     }
   };
 
@@ -1265,12 +1404,16 @@ function ResearchFundamentals({
                   key={item.symbol}
                   type="button"
                   onMouseDown={e => e.preventDefault()}
-                  onClick={() => { setSuggestionsOpen(false); loadSymbol(item.symbol); }}
+                  onClick={() => {
+                    setSuggestionsOpen(false);
+                    if (item.stock === false) openChartAsset(item);
+                    else loadSymbol(item.symbol);
+                  }}
                   className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-zinc-50"
                 >
                   <span className="min-w-0">
                     <span className="block text-xs font-semibold text-zinc-900">{item.symbol}</span>
-                    <span className="block truncate text-[11px] text-zinc-500">{item.name}</span>
+                    <span className="block truncate text-[11px] text-zinc-500">{item.name}{item.type && item.type !== 'stock' ? ` · ${item.type}` : ''}</span>
                   </span>
                   <ExternalLink className="h-3.5 w-3.5 shrink-0 text-zinc-300" />
                 </button>
@@ -1288,7 +1431,12 @@ function ResearchFundamentals({
           )}
           <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto no-scrollbar">
             {shortcutSymbols.map(s => (
-              <button key={s} onClick={() => { setSymbolInput(s); loadSymbol(s); }}
+              <button key={s} onClick={() => {
+                setSymbolInput(s);
+                const target = resolveResearchTargetFromText(s, [s]);
+                if (target && !target.stock) openChartAsset(target);
+                else loadSymbol(target?.symbol || s);
+              }}
                 className={`px-2.5 py-1.5 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all ${
                   symbol === s ? 'bg-indigo-100 text-indigo-800 ring-1 ring-indigo-200' : 'bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200/60 hover:text-zinc-900'
                 }`}>{s}</button>
@@ -1313,10 +1461,22 @@ function ResearchFundamentals({
         </div>
       )}
 
+      {!data && tab === 'terminal' && assetContext?.stock === false && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 ring-1 ring-zinc-200/70">
+          <div>
+            <div className="text-xs font-semibold text-zinc-900">{assetContext.name}</div>
+            <div className="text-[10px] uppercase tracking-wide text-zinc-500">{assetContext.type} · {assetContext.symbol}</div>
+          </div>
+          <span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-100">
+            Chart research
+          </span>
+        </div>
+      )}
+
       {loading && <div className="flex items-center justify-center h-48 text-zinc-500"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...</div>}
       {error && <div className="p-4 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80">{error}</div>}
 
-      {(data || tab === 'backtest') && !loading && (
+      {(data || tab === 'backtest' || tab === 'terminal') && !loading && (
         <>
           {tab === 'summary' && data && <SummaryTab data={data} />}
           {tab === 'financials' && data && <FinancialsTab data={data} />}
