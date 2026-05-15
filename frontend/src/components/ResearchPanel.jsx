@@ -1602,6 +1602,11 @@ function ResearchFundamentals({
   const activeTabs = assetContext?.stock === false
     ? ASSET_TABS.filter((t) => !(t.chartOnly && assetContext.chartable === false))
     : TABS;
+  const effectiveTab = tab === 'backtest'
+    ? tab
+    : activeTabs.some((t) => t.id === tab)
+    ? tab
+    : (activeTabs[0]?.id || tab);
   const showResearchTabs = view !== 'backtest' && (data || assetContext?.stock === false);
 
   return (
@@ -1676,7 +1681,7 @@ function ResearchFundamentals({
           {activeTabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`px-4 py-2 text-xs font-medium whitespace-nowrap transition-all border-b-2 ${
-                tab === t.id ? 'text-indigo-700 border-indigo-500' : 'text-zinc-500 border-transparent hover:text-zinc-800'
+                effectiveTab === t.id ? 'text-indigo-700 border-indigo-500' : 'text-zinc-500 border-transparent hover:text-zinc-800'
               }`}>{t.label}</button>
           ))}
         </div>
@@ -1699,7 +1704,7 @@ function ResearchFundamentals({
 
       {(data || tab === 'backtest' || assetContext?.stock === false || tab === 'terminal') && !loading && (
         <>
-          {tab === 'overview' && assetContext?.stock === false && (
+          {effectiveTab === 'overview' && assetContext?.stock === false && (
             <AssetOverviewTab
               asset={assetContext}
               macroData={macroData}
@@ -1707,22 +1712,22 @@ function ResearchFundamentals({
               onOpenTab={setTab}
             />
           )}
-          {tab === 'summary' && data && <SummaryTab data={data} />}
-          {tab === 'financials' && data && <FinancialsTab data={data} />}
-          {tab === 'ownership' && data && <OwnershipTab data={data} />}
-          {tab === 'news' && data && <NewsTab data={data} />}
-          {tab === 'macro' && assetContext?.stock === false && (
+          {effectiveTab === 'summary' && data && <SummaryTab data={data} />}
+          {effectiveTab === 'financials' && data && <FinancialsTab data={data} />}
+          {effectiveTab === 'ownership' && data && <OwnershipTab data={data} />}
+          {effectiveTab === 'news' && data && <NewsTab data={data} />}
+          {effectiveTab === 'macro' && assetContext?.stock === false && (
             <AssetMacroTab asset={assetContext} macroData={macroData} macroLoading={macroLoading} macroError={macroError} />
           )}
-          {tab === 'asset_news' && assetContext?.stock === false && (
+          {effectiveTab === 'asset_news' && assetContext?.stock === false && (
             <AssetNewsTab asset={assetContext} macroData={macroData} macroLoading={macroLoading} />
           )}
-          {tab === 'terminal' && (
+          {effectiveTab === 'terminal' && (
             <div className="overflow-hidden rounded-xl ring-1 ring-zinc-200/70 dark:ring-zinc-800">
               <TerminalPanel embedded symbol={symbol} />
             </div>
           )}
-          {tab === 'backtest' && (
+          {effectiveTab === 'backtest' && (
             <ComparePanel
               strategies={strategies}
               onCompare={onCompare}
