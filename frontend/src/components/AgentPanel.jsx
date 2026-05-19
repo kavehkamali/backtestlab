@@ -2048,6 +2048,7 @@ export default function AgentPanel({
   onAssistantResult,
   panelWidth = 390,
   onPanelWidthChange,
+  onPanelCollapse,
   layoutMode = 'assistant',
   setLayoutMode,
   strategies = [],
@@ -2290,20 +2291,25 @@ export default function AgentPanel({
   const startPanelResize = useCallback((event) => {
     if (!embedded || !onPanelWidthChange) return;
     const pointer = event.touches?.[0] || event;
-    resizeRef.current = { startX: pointer.clientX, startWidth: Number(panelWidth) || 390 };
+    resizeRef.current = { startX: pointer.clientX, startWidth: Number(panelWidth) || 390, moved: false };
 
     const onMove = (moveEvent) => {
       const movePointer = moveEvent.touches?.[0] || moveEvent;
       const delta = resizeRef.current.startX - movePointer.clientX;
+      if (Math.abs(delta) > 4) resizeRef.current.moved = true;
       onPanelWidthChange(resizeRef.current.startWidth + delta);
     };
-    const onEnd = () => {
+    const onEnd = (endEvent) => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onEnd);
       window.removeEventListener('touchmove', onMove);
       window.removeEventListener('touchend', onEnd);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+      if (!resizeRef.current.moved && onPanelCollapse) {
+        onPanelCollapse();
+        endEvent?.preventDefault?.();
+      }
     };
 
     document.body.style.cursor = 'col-resize';
@@ -2313,7 +2319,7 @@ export default function AgentPanel({
     window.addEventListener('touchmove', onMove, { passive: false });
     window.addEventListener('touchend', onEnd);
     event.preventDefault?.();
-  }, [embedded, onPanelWidthChange, panelWidth]);
+  }, [embedded, onPanelCollapse, onPanelWidthChange, panelWidth]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -2536,11 +2542,11 @@ export default function AgentPanel({
             type="button"
             onMouseDown={startPanelResize}
             onTouchStart={startPanelResize}
-            className="hidden xl:block absolute left-0 top-0 bottom-0 z-20 w-2 cursor-col-resize group"
-            aria-label="Resize assistant panel"
-            title="Drag to resize assistant"
+            className="hidden xl:block absolute left-0 top-0 bottom-0 z-20 w-3 cursor-col-resize group"
+            aria-label="Resize or collapse assistant panel"
+            title="Drag to resize · Click to collapse"
           >
-            <span className="absolute left-0 top-1/2 h-16 w-1 -translate-y-1/2 rounded-full bg-zinc-300/0 transition-colors group-hover:bg-indigo-400/80 dark:group-hover:bg-indigo-500/80" />
+            <span className="absolute left-0 top-1/2 h-16 w-1 -translate-y-1/2 rounded-full bg-zinc-300/40 transition-colors group-hover:bg-indigo-400/80 dark:bg-zinc-700/70 dark:group-hover:bg-indigo-500/80" />
           </button>
         )}
         {historyOpen && (

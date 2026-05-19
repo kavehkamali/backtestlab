@@ -29,6 +29,7 @@ const APP_PATH_TO_TAB = {
 };
 
 const ASSISTANT_WIDTH_STORAGE_KEY = 'eq_assistant_panel_width_v1';
+const ASSISTANT_COLLAPSED_STORAGE_KEY = 'eq_assistant_panel_collapsed_v1';
 const clampAssistantWidth = (value) => Math.max(340, Math.min(620, Number(value) || 390));
 
 function getTabFromPath() {
@@ -43,6 +44,20 @@ function getResearchSubtabFromPath() {
   return null;
 }
 
+function AssistantEdgeRail({ onOpen }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="hidden xl:block sticky top-[74px] h-[calc(100dvh-92px)] rounded-full bg-zinc-200/40 ring-1 ring-zinc-300/50 transition-colors hover:bg-indigo-300/70 hover:ring-indigo-300 dark:bg-zinc-800/60 dark:ring-zinc-700 dark:hover:bg-indigo-700/70"
+      aria-label="Open assistant"
+      title="Open assistant"
+    >
+      <span className="mx-auto mt-[calc(50vh-120px)] block h-16 w-1 rounded-full bg-zinc-400/70 dark:bg-zinc-500/80" />
+    </button>
+  );
+}
+
 function App() {
   const [strategies, setStrategies] = useState([]);
   const [isAdmin, setIsAdmin] = useState(window.location.hash === '#admin');
@@ -53,6 +68,13 @@ function App() {
       return clampAssistantWidth(localStorage.getItem(ASSISTANT_WIDTH_STORAGE_KEY) || 390);
     } catch {
       return 390;
+    }
+  });
+  const [assistantCollapsed, setAssistantCollapsedState] = useState(() => {
+    try {
+      return localStorage.getItem(ASSISTANT_COLLAPSED_STORAGE_KEY) === '1';
+    } catch {
+      return false;
     }
   });
 
@@ -246,6 +268,14 @@ function App() {
     } catch {}
   }, []);
 
+  const setAssistantCollapsed = useCallback((next) => {
+    const value = Boolean(next);
+    setAssistantCollapsedState(value);
+    try {
+      localStorage.setItem(ASSISTANT_COLLAPSED_STORAGE_KEY, value ? '1' : '0');
+    } catch {}
+  }, []);
+
   const handleAgentNavigate = useCallback((tab, ticker) => {
     const target = String(tab || 'research').toLowerCase();
     const t = ticker ? String(ticker).trim().toUpperCase() : '';
@@ -361,7 +391,7 @@ function App() {
           <div className={activeTab === 'screener' ? '' : 'hidden'}>
             <div
               className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_var(--assistant-width)]"
-              style={{ '--assistant-width': `${assistantWidth}px` }}
+              style={{ '--assistant-width': assistantCollapsed ? '14px' : `${assistantWidth}px` }}
             >
               <ScreenerPanel
                 onOpenResearch={(ticker) => {
@@ -375,29 +405,34 @@ function App() {
                   }, 0);
                 }}
               />
-              <AgentPanel
-                embedded
-                context="screener"
-                contextTitle="Screener Assistant"
-                contextInstruction="You are embedded in the Screener tab. Help the user translate requests into practical screen filters, universes, ranking criteria, and next research actions. If they ask for macro or market context, answer briefly and connect it back to screening."
-                onAssistantResult={(result) => {
-                  const message = [result?.userMessage, result?.response].filter(Boolean).join('\n\n');
-                  window.dispatchEvent(new CustomEvent('eq-screener-assistant-query', {
-                    detail: { message, tickers: result?.tickers || [] },
-                  }));
-                }}
-                onNavigate={handleAgentNavigate}
-                user={user}
-                dek={agentDek}
-                panelWidth={assistantWidth}
-                onPanelWidthChange={setAssistantWidth}
-              />
+              {assistantCollapsed ? (
+                <AssistantEdgeRail onOpen={() => setAssistantCollapsed(false)} />
+              ) : (
+                <AgentPanel
+                  embedded
+                  context="screener"
+                  contextTitle="Screener Assistant"
+                  contextInstruction="You are embedded in the Screener tab. Help the user translate requests into practical screen filters, universes, ranking criteria, and next research actions. If they ask for macro or market context, answer briefly and connect it back to screening."
+                  onAssistantResult={(result) => {
+                    const message = [result?.userMessage, result?.response].filter(Boolean).join('\n\n');
+                    window.dispatchEvent(new CustomEvent('eq-screener-assistant-query', {
+                      detail: { message, tickers: result?.tickers || [] },
+                    }));
+                  }}
+                  onNavigate={handleAgentNavigate}
+                  user={user}
+                  dek={agentDek}
+                  panelWidth={assistantWidth}
+                  onPanelWidthChange={setAssistantWidth}
+                  onPanelCollapse={() => setAssistantCollapsed(true)}
+                />
+              )}
             </div>
           </div>
           <div className={activeTab === 'research' || activeTab === 'backtest' ? '' : 'hidden'}>
             <div
               className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_var(--assistant-width)]"
-              style={{ '--assistant-width': `${assistantWidth}px` }}
+              style={{ '--assistant-width': assistantCollapsed ? '14px' : `${assistantWidth}px` }}
             >
               <ResearchPanel
                 view={activeTab === 'backtest' ? 'backtest' : 'research'}
@@ -408,38 +443,45 @@ function App() {
                 panelWidth={assistantWidth}
                 onPanelWidthChange={setAssistantWidth}
               />
-              <AgentPanel
-                embedded
-                context={activeTab === 'backtest' ? 'backtest' : 'research'}
-                contextTitle={activeTab === 'backtest' ? 'Backtesting Assistant' : 'Research Assistant'}
-                contextInstruction={activeTab === 'backtest'
-                  ? 'You are embedded in the Backtesting workflow. Help the user choose strategies, time windows, tickers, risk controls, and interpret backtest results. If they ask for macro or market data, connect it to backtest assumptions.'
-                  : 'You are embedded in the Research tab. Help with ticker research, fundamentals, valuation, technicals, news, macro and market context when asked. Be concise, specific, and practical.'}
-                onUserMessage={(message) => {
-                  if (activeTab !== 'backtest') return;
-                  window.dispatchEvent(new CustomEvent('eq-backtest-assistant-query', { detail: { message } }));
-                }}
-                onAssistantResult={(result) => {
-                  if (activeTab !== 'research') return;
-                  const message = [result?.userMessage, result?.response].filter(Boolean).join('\n\n');
-                  window.dispatchEvent(new CustomEvent('eq-research-assistant-result', {
-                    detail: {
-                      message,
-                      userMessage: result?.userMessage || '',
-                      response: result?.response || '',
-                      ticker: result?.ticker || '',
-                      tickers: result?.tickers || [],
-                    },
-                  }));
-                }}
-                onNavigate={handleAgentNavigate}
-                user={user}
-                dek={agentDek}
-                strategies={strategies}
-                onCompare={handleCompare}
-                compareResults={compareResults}
-                compareLoading={loading}
-              />
+              {assistantCollapsed ? (
+                <AssistantEdgeRail onOpen={() => setAssistantCollapsed(false)} />
+              ) : (
+                <AgentPanel
+                  embedded
+                  context={activeTab === 'backtest' ? 'backtest' : 'research'}
+                  contextTitle={activeTab === 'backtest' ? 'Backtesting Assistant' : 'Research Assistant'}
+                  contextInstruction={activeTab === 'backtest'
+                    ? 'You are embedded in the Backtesting workflow. Help the user choose strategies, time windows, tickers, risk controls, and interpret backtest results. If they ask for macro or market data, connect it to backtest assumptions.'
+                    : 'You are embedded in the Research tab. Help with ticker research, fundamentals, valuation, technicals, news, macro and market context when asked. Be concise, specific, and practical.'}
+                  onUserMessage={(message) => {
+                    if (activeTab !== 'backtest') return;
+                    window.dispatchEvent(new CustomEvent('eq-backtest-assistant-query', { detail: { message } }));
+                  }}
+                  onAssistantResult={(result) => {
+                    if (activeTab !== 'research') return;
+                    const message = [result?.userMessage, result?.response].filter(Boolean).join('\n\n');
+                    window.dispatchEvent(new CustomEvent('eq-research-assistant-result', {
+                      detail: {
+                        message,
+                        userMessage: result?.userMessage || '',
+                        response: result?.response || '',
+                        ticker: result?.ticker || '',
+                        tickers: result?.tickers || [],
+                      },
+                    }));
+                  }}
+                  onNavigate={handleAgentNavigate}
+                  user={user}
+                  dek={agentDek}
+                  strategies={strategies}
+                  onCompare={handleCompare}
+                  compareResults={compareResults}
+                  compareLoading={loading}
+                  panelWidth={assistantWidth}
+                  onPanelWidthChange={setAssistantWidth}
+                  onPanelCollapse={() => setAssistantCollapsed(true)}
+                />
+              )}
             </div>
           </div>
           <div className={activeTab === 'account' ? '' : 'hidden'}>
