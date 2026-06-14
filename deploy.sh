@@ -1,75 +1,62 @@
-#!/bin/bash
-# Deploy script — runs on the AWS box
-# Usage: ssh aws-jump 'bash -s' < deploy.sh
+#!/usr/bin/env bash
+# Deploy Equilima on the private Neo backend host.
 #
-# TradingAgents is a git submodule. Web hosts usually do not need it.
-# On a machine that runs agent_api.py (e.g. home-linux), set in ~/.equilima_env:
-#   export EQUILIMA_PULL_AGENT_SUBMODULE=1
+# Expected production layout:
+#   code:    /srv/webapps/equilima/current
+#   data:    /srv/webdata/equilima
+#   secrets: /etc/webapps/equilima.env
+#   service: equilima.service
+#
+# AWS should only terminate TLS/proxy traffic to the private reverse tunnel.
 
-set -e
+set -euo pipefail
 
-APP_DIR="$HOME/equilima"
-REPO="https://github.com/kavehkamali/equilima.git"
+APP_DIR="${APP_DIR:-/srv/webapps/equilima/current}"
+DATA_DIR="${DATA_DIR:-/srv/webdata/equilima}"
+ENV_FILE="${ENV_FILE:-/etc/webapps/equilima.env}"
+SERVICE_NAME="${SERVICE_NAME:-equilima.service}"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+TORCH_INDEX_URL="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}"
 
-echo "=== Equilima Deploy ==="
+cd "$APP_DIR"
 
-load_env() {
-  [ -f "$HOME/.equilima_env" ] && source "$HOME/.equilima_env"
-}
-
-# Install system deps if needed
-if ! command -v node &>/dev/null; then
-    echo "[1/5] Installing Node.js..."
-    curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
-    sudo yum install -y nodejs
+if [ ! -r "$ENV_FILE" ]; then
+  echo "Missing readable env file: $ENV_FILE" >&2
+  exit 1
 fi
 
-if ! command -v pip3 &>/dev/null; then
-    echo "pip3 already available"
+mkdir -p "$DATA_DIR/.equilima_data" "$DATA_DIR/.stock_dashboard_cache"
+
+if [ ! -d .venv ]; then
+  "$PYTHON_BIN" -m venv .venv
 fi
 
-# Clone or pull repo
-if [ -d "$APP_DIR" ]; then
-    echo "[2/5] Pulling latest code..."
-    cd "$APP_DIR"
-    load_env
-    git pull origin main
-else
-    echo "[2/5] Cloning repo..."
-    git clone "$REPO" "$APP_DIR"
-    cd "$APP_DIR"
-    load_env
-fi
+. .venv/bin/activate
+python -m pip install --upgrade pip "setuptools<82" wheel
 
-if [ "${EQUILIMA_PULL_AGENT_SUBMODULE:-0}" = "1" ]; then
-    echo "[2b/5] Git submodules (EQUILIMA_PULL_AGENT_SUBMODULE=1)..."
-    git submodule update --init --recursive
-fi
+tmp_req="$(mktemp)"
+awk '$1 != "torch"' backend/requirements.txt > "$tmp_req"
+python -m pip install -r "$tmp_req"
+rm -f "$tmp_req"
+python -m pip install --index-url "$TORCH_INDEX_URL" torch
 
-# Install Python deps
-echo "[3/5] Installing Python dependencies..."
-pip3 install --user -q fastapi uvicorn yfinance pandas numpy torch scikit-learn ta pydantic python-dateutil 2>/dev/null || true
+(
+  cd frontend
+  npm ci
+  npm run build
+)
 
-# Build frontend
-echo "[4/5] Building frontend..."
-cd frontend
-npm install --production=false
-npm run build
-cd ..
+sudo -n systemctl restart "$SERVICE_NAME"
+sudo -n systemctl is-active "$SERVICE_NAME"
 
-# Stop existing instance
-echo "[5/5] Starting server..."
-pkill -f "uvicorn app.main" 2>/dev/null || true
-sleep 1
+for _ in $(seq 1 30); do
+  if curl -fs http://127.0.0.1:8080/api/health >/dev/null; then
+    echo "Equilima deployed and healthy on 127.0.0.1:8080"
+    exit 0
+  fi
+  sleep 1
+done
 
-load_env
-
-# Start server
-cd backend
-nohup ~/.local/bin/uvicorn app.main:app --host 127.0.0.1 --port 8080 > ~/equilima.log 2>&1 &
-
-echo ""
-echo "=== Deployed! ==="
-echo "Server running on port 8080"
-echo "Log: ~/equilima.log"
-echo "URL: http://$(curl -s ifconfig.me):8080"
+echo "Equilima service restarted but health check did not pass" >&2
+sudo -n systemctl is-active "$SERVICE_NAME" >&2 || true
+exit 1

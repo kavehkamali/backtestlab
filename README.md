@@ -129,24 +129,27 @@ export EQUILIMA_PUBLIC_URL=https://equilima.com
 
 ### Production Deployment
 
+Production now runs on the private Neo backend host. AWS is only the public Caddy/TLS proxy and forwards to Neo through a loopback-only reverse SSH tunnel. See [`docs/NEO_AWS_DEPLOYMENT.md`](docs/NEO_AWS_DEPLOYMENT.md).
+
 ```bash
-# On your server:
-ssh your-server 'bash -s' < deploy.sh
+# On Neo after syncing the repo:
+cd /srv/webapps/equilima/current
+./deploy.sh
 ```
 
 The deploy script:
-1. Installs Node.js and Python dependencies
-2. Clones/pulls the repo (without fetching the **TradingAgents** submodule unless you opt in; see below)
-3. Builds the frontend
-4. Starts uvicorn on port 8080
+1. Installs Python dependencies in `.venv`, using CPU-only Torch
+2. Builds the frontend with `npm ci && npm run build`
+3. Restarts `equilima.service`
+4. Checks `/api/health` on port 8080
 
-**TradingAgents submodule:** the agent stack lives in this repo (`agent_api.py`, `requirements-agent.txt`, `TradingAgents/` as a [git submodule](https://github.com/TauricResearch/TradingAgents), `scripts/setup-agent-venv.sh`). Production web boxes do **not** need it. To have `deploy.sh` run `git submodule update --init --recursive` on a host, add to `~/.equilima_env`:
+**TradingAgents submodule:** the agent stack lives in this repo (`agent_api.py`, `requirements-agent.txt`, `TradingAgents/` as a [git submodule](https://github.com/TauricResearch/TradingAgents), `scripts/setup-agent-venv.sh`). The production web service does **not** need it. If you run the agent sidecar on the same host, initialize the submodule separately:
 
 ```bash
-export EQUILIMA_PULL_AGENT_SUBMODULE=1
+git submodule update --init --recursive
 ```
 
-Use that on the machine where you actually run the sidecar (for example **home-linux**), not on a minimal EC2 web-only install.
+Do that on the machine where you actually run the sidecar, not on the AWS proxy.
 
 ### AI research agent (intended: **home-linux** only)
 
@@ -189,29 +192,15 @@ Put that in `~/.equilima_env` on the app server if you use `deploy.sh`, or in yo
 
 **Sidecar env (examples):** `EQUILIMA_AGENT_PORT`, `EQUILIMA_OLLAMA_MODEL`, `TRADING_AGENTS_PATH`, `OLLAMA_OPENAI_BASE`.
 
-For HTTPS, install [Caddy](https://caddyserver.com):
+For HTTPS, AWS runs [Caddy](https://caddyserver.com) and proxies to the private tunnel:
 
 ```
 yourdomain.com {
-    reverse_proxy localhost:8080
+    reverse_proxy localhost:18080
 }
 ```
 
 Caddy handles SSL certificates automatically.
-
-### Auto-Deploy (GitHub Webhook)
-
-1. Start the webhook listener on your server:
-   ```bash
-   python3 autodeploy.py &
-   ```
-
-2. Add a webhook in GitHub repo Settings → Webhooks:
-   - URL: `http://your-server-ip:9000/webhook`
-   - Content type: `application/json`
-   - Events: Push
-
-Now every push to `main` auto-deploys.
 
 ---
 

@@ -1,0 +1,44 @@
+name: Deploy Equilima Neo
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Prepare SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/equilima_ec2
+          chmod 600 ~/.ssh/equilima_ec2
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Stage repository on AWS
+        run: |
+          ssh -i ~/.ssh/equilima_ec2 "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" \
+            "rm -rf /tmp/equilima-${{ github.sha }} && mkdir -p /tmp/equilima-${{ github.sha }}"
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude '.venv' \
+            --exclude 'frontend/node_modules' \
+            --exclude 'backend/__pycache__' \
+            --exclude '**/__pycache__' \
+            --exclude '*.pyc' \
+            -e "ssh -i ~/.ssh/equilima_ec2" \
+            ./ "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/equilima-${{ github.sha }}/"
+
+      - name: Deploy to Neo through AWS tunnel
+        run: |
+          ssh -i ~/.ssh/equilima_ec2 "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" \
+            "set -euo pipefail
+             rsync -az --delete -e 'ssh -i ~/.ssh/neo_migration_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=no -p 2222' --exclude '.venv' --exclude 'frontend/node_modules' --exclude '**/__pycache__' --exclude '*.pyc' /tmp/equilima-${{ github.sha }}/ neo@localhost:/srv/webapps/equilima/current/
+             ssh -i ~/.ssh/neo_migration_ed25519 -o BatchMode=yes -o StrictHostKeyChecking=no -p 2222 neo@localhost 'chmod +x /srv/webapps/equilima/current/deploy.sh && /srv/webapps/equilima/current/deploy.sh'
+             rm -rf /tmp/equilima-${{ github.sha }}"
