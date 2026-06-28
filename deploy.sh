@@ -79,7 +79,11 @@ update_agent_sidecar() {
   else
     echo "No agent venv found — run scripts/install-home-agent.sh once to bootstrap" >&2
   fi
-  if systemctl list-unit-files 2>/dev/null | grep -q "^${AGENT_SERVICE}"; then
+  # NB: capture to a var — `systemctl ... | grep -q` returns 141 (SIGPIPE) under
+  # `set -o pipefail` because grep -q closes the pipe early, which would wrongly
+  # take the else branch and skip the restart.
+  agent_unit="$(systemctl list-unit-files "$AGENT_SERVICE" --no-legend 2>/dev/null || true)"
+  if [ -n "$agent_unit" ]; then
     sudo -n systemctl restart "$AGENT_SERVICE" || echo "Agent service restart failed" >&2
     sleep 3
     if curl -fs "http://127.0.0.1:${AGENT_PORT}/health" >/dev/null; then
