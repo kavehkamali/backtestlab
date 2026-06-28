@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Loader2, Search, ExternalLink, Clock, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, ComposedChart, Line, PieChart, Pie } from 'recharts';
-import { fetchMacroOverview, fetchResearch } from '../api';
+import { fetchMacroOverview, fetchResearch, searchSymbols } from '../api';
 import SnowflakeChart from './SnowflakeChart';
 import { buildResearchPriceChartRows, formatResearchPriceXTick } from '../utils/marketHeroChart';
 import TerminalPanel from './terminal/TerminalPanel';
@@ -506,6 +506,155 @@ function filterPriceWindow(chart, windowKey) {
 // ═══════════════════════════════════════════
 // SUMMARY TAB
 // ═══════════════════════════════════════════
+// ─── Adaptive (non-stock) asset research ───
+const ASSET_RESEARCH_TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'terminal', label: 'Chart' },
+  { id: 'risk', label: 'Risk' },
+  { id: 'macro', label: 'Macro' },
+  { id: 'asset_news', label: 'News' },
+];
+
+function fmtCompactNum(v) {
+  if (v == null || Number.isNaN(Number(v))) return '—';
+  const n = Number(v);
+  const a = Math.abs(n);
+  if (a >= 1e12) return `${(n / 1e12).toFixed(2)}T`;
+  if (a >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
+  if (a >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
+  if (a >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
+  return String(n);
+}
+
+function assetMetricTiles(s, ac) {
+  const px = (v) => (v != null ? `$${v}` : '—');
+  if (ac === 'crypto') {
+    return [
+      ['Market Cap', s.market_cap_fmt || '—'],
+      ['24h Volume', fmtCompactNum(s.volume_24h)],
+      ['Circulating Supply', fmtCompactNum(s.circulating_supply)],
+      ['Max Supply', s.max_supply ? fmtCompactNum(s.max_supply) : '—'],
+      ['52W High', px(s.high_52w)],
+      ['52W Low', px(s.low_52w)],
+    ];
+  }
+  if (ac === 'etf') {
+    return [
+      ['AUM', s.total_assets_fmt || '—'],
+      ['Yield', s.yield_pct != null ? `${s.yield_pct}%` : '—'],
+      ['Category', s.category || '—'],
+      ['Fund Family', s.fund_family || '—'],
+      ['YTD Return', s.ytd_return != null ? fmtPct(s.ytd_return * 100) : '—'],
+      ['Volume', fmtCompactNum(s.volume)],
+      ['52W High', px(s.high_52w)],
+      ['52W Low', px(s.low_52w)],
+    ];
+  }
+  if (ac === 'commodity') {
+    return [
+      ['Contract', s.contract || '—'],
+      ['Exchange', s.exchange || '—'],
+      ['Day High', px(s.day_high)],
+      ['Day Low', px(s.day_low)],
+      ['52W High', px(s.high_52w)],
+      ['52W Low', px(s.low_52w)],
+      ['Open Interest', s.open_interest != null ? fmtCompactNum(s.open_interest) : '—'],
+      ['Volume', fmtCompactNum(s.volume)],
+    ];
+  }
+  // index / forex / bond — level/rate based
+  return [
+    ['Open', s.open != null ? s.open : '—'],
+    ['Day High', s.day_high != null ? s.day_high : '—'],
+    ['Day Low', s.day_low != null ? s.day_low : '—'],
+    ['52W High', s.high_52w != null ? s.high_52w : '—'],
+    ['52W Low', s.low_52w != null ? s.low_52w : '—'],
+    ['Volume', s.volume != null ? fmtCompactNum(s.volume) : '—'],
+  ];
+}
+
+function AssetResearch({ data }) {
+  const s = data.summary || {};
+  const ac = data.asset_class || 'asset';
+  const rm = data.risk_metrics || {};
+  const chart = data.chart || [];
+  const [priceWindow, setPriceWindow] = useState('1Y');
+  const rows = filterPriceWindow(chart, priceWindow);
+  const { chartData: priceChartRows, xTicks: priceXTicks } = buildResearchPriceChartRows(rows, 260);
+  const tiles = assetMetricTiles(s, ac);
+  const up = (s.change || 0) >= 0;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-zinc-900">{s.name}</h2>
+          <div className="text-xs text-zinc-500 mt-0.5">
+            <span className="rounded-full bg-indigo-50 px-2 py-0.5 font-semibold text-indigo-700 ring-1 ring-indigo-100">{s.asset_class_label || ac}</span>
+            <span className="ml-2">{s.symbol}{s.exchange ? ` · ${s.exchange}` : ''}</span>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-bold text-zinc-900">{s.price != null ? s.price : '—'} <span className="text-xs font-medium text-zinc-400">{s.currency || ''}</span></div>
+          <div className={`text-sm font-semibold ${up ? 'text-emerald-600' : 'text-red-600'}`}>
+            {s.change != null ? `${s.change >= 0 ? '+' : ''}${s.change} (${fmtPct(s.change_pct)})` : '—'}
+          </div>
+        </div>
+      </div>
+
+      {rm.performance && Object.keys(rm.performance).length > 0 && (
+        <div className="flex gap-2 flex-wrap">
+          {Object.entries(rm.performance).map(([k, v]) => (
+            <div key={k} className={`px-3 py-1.5 rounded-lg text-center ${v >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
+              <div className="text-[9px] text-zinc-500">{k}</div>
+              <div className={`text-xs font-bold ${v >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{v > 0 ? '+' : ''}{v}%</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Card title="Key Stats">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {tiles.map(([label, value]) => <Stat key={label} label={label} value={value} />)}
+        </div>
+      </Card>
+
+      {priceChartRows.length > 0 && (
+        <Card>
+          <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">Price History</div>
+            <div className="flex flex-wrap gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+              {PRICE_WINDOWS.map((w) => (
+                <button key={w.key} type="button" onClick={() => setPriceWindow(w.key)}
+                  className={`h-6 min-w-8 rounded-md px-2 text-[10px] font-medium transition ${
+                    priceWindow === w.key ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-700 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-800'
+                  }`}>{w.label}</button>
+              ))}
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={priceChartRows} margin={{ top: 4, right: 8, left: 4, bottom: 8 }}>
+              <defs><linearGradient id="rg_asset" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6366f1" stopOpacity={0.2} /><stop offset="100%" stopColor="#6366f1" stopOpacity={0} /></linearGradient></defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" />
+              <XAxis dataKey="ts" type="number" domain={['dataMin', 'dataMax']} ticks={priceXTicks}
+                tickFormatter={(t) => formatResearchPriceXTick(t)} tick={{ fontSize: 9, fill: '#444' }} tickLine={false} axisLine={{ stroke: '#d4d4d8' }} minTickGap={14} />
+              <YAxis tick={{ fontSize: 9, fill: '#444' }} domain={['auto', 'auto']} width={50} />
+              <Tooltip content={<PriceHistoryTooltip />} />
+              <Area type="monotone" dataKey="close" stroke="#6366f1" fill="url(#rg_asset)" strokeWidth={1.5} name="Close" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </Card>
+      )}
+
+      {s.description && (
+        <Card title="About">
+          <p className="text-xs leading-relaxed text-zinc-600">{String(s.description).slice(0, 600)}</p>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 function SummaryTab({ data }) {
   const s = data.summary;
   const g = data.grades || {};
@@ -1397,6 +1546,7 @@ function ResearchFundamentals({
   const [macroData, setMacroData] = useState(null);
   const [macroLoading, setMacroLoading] = useState(false);
   const [macroError, setMacroError] = useState('');
+  const [liveResults, setLiveResults] = useState([]);
   const symbolRef = useRef(symbol);
 
   useEffect(() => {
@@ -1410,11 +1560,21 @@ function ResearchFundamentals({
     setError(null);
     fetchResearch(s)
       .then(d => {
+        const ac = d?.asset_class || 'stock';
+        const isStock = ac === 'stock';
+        const idx = RESEARCH_ASSET_INDEX.find((a) => a.symbol === s);
         setSymbol(s);
         setSymbolInput(s);
         setData(d);
-        setAssetContext({ symbol: s, name: d?.summary?.name || s, type: 'stock', stock: true });
-        setTab(view === 'backtest' ? 'backtest' : 'summary');
+        setAssetContext({
+          symbol: s,
+          name: d?.summary?.name || s,
+          type: ac,
+          stock: isStock,
+          chartable: true,
+          chartIds: idx?.chartIds || [],
+        });
+        setTab(view === 'backtest' ? 'backtest' : (isStock ? 'summary' : 'overview'));
         setRecentSymbols(prev => {
           const next = [s, ...prev.filter(item => item !== s)].slice(0, 12);
           saveResearchRecents(next);
@@ -1472,7 +1632,7 @@ function ResearchFundamentals({
       const { tab, ticker } = e.detail || {};
       if (tab !== 'research' || !ticker) return;
       const target = resolveResearchTargetFromText(ticker, [ticker]);
-      if (target && !target.stock) openChartAsset(target);
+      if (target && target.stock === false && target.chartable === false) openChartAsset(target);
       else loadSymbol(target?.symbol || ticker);
     };
     window.addEventListener('eq-agent-open-ticker', onAgentTicker);
@@ -1484,8 +1644,8 @@ function ResearchFundamentals({
       const detail = e.detail || {};
       const target = resolveResearchTargetFromAssistant(detail);
       if (!target) return;
-      if (target.stock) loadSymbol(target.symbol);
-      else openChartAsset(target);
+      if (target.stock === false && target.chartable === false) openChartAsset(target);
+      else loadSymbol(target.symbol);
     };
     window.addEventListener('eq-research-assistant-result', onAssistantQuery);
     return () => window.removeEventListener('eq-research-assistant-result', onAssistantQuery);
@@ -1514,7 +1674,7 @@ function ResearchFundamentals({
     return () => window.removeEventListener('eq-research-subtab', onSub);
   }, []);
 
-  const searchSuggestions = useMemo(() => {
+  const localSuggestions = useMemo(() => {
     const raw = symbolInput.trim();
     const q = normalizeResearchSearch(raw);
     if (!q) return [];
@@ -1560,6 +1720,30 @@ function ResearchFundamentals({
       .slice(0, 8);
   }, [symbolInput]);
 
+  // Live Yahoo lookup so ANY global ticker/crypto/commodity is reachable.
+  useEffect(() => {
+    const raw = symbolInput.trim();
+    if (raw.length < 2) { setLiveResults([]); return; }
+    let cancelled = false;
+    const id = window.setTimeout(() => {
+      searchSymbols(raw).then((rows) => {
+        if (cancelled) return;
+        setLiveResults(rows.map((r) => ({ symbol: r.symbol, name: r.name, type: r.type, stock: r.type === 'stock' })));
+      });
+    }, 220);
+    return () => { cancelled = true; window.clearTimeout(id); };
+  }, [symbolInput]);
+
+  // Local matches first (instant), then live results not already present.
+  const searchSuggestions = useMemo(() => {
+    const seen = new Set(localSuggestions.map((i) => i.symbol));
+    const merged = [...localSuggestions];
+    for (const r of liveResults) {
+      if (!seen.has(r.symbol)) { merged.push(r); seen.add(r.symbol); }
+    }
+    return merged.slice(0, 10);
+  }, [localSuggestions, liveResults]);
+
   const resolveSearchSymbol = useCallback(() => {
     const raw = symbolInput.trim();
     if (!raw) return null;
@@ -1595,11 +1779,14 @@ function ResearchFundamentals({
     if (next) {
       setSymbolInput(next);
       const target = resolveResearchTargetFromText(next, [next]);
-      if (target && !target.stock) openChartAsset(target);
+      if (target && target.stock === false && target.chartable === false) openChartAsset(target);
       else loadSymbol(target?.symbol || next);
     }
   };
-  const activeTabs = assetContext?.stock === false
+  const adaptiveAsset = !!data && data.asset_class && data.asset_class !== 'stock';
+  const activeTabs = adaptiveAsset
+    ? ASSET_RESEARCH_TABS
+    : assetContext?.stock === false
     ? ASSET_TABS.filter((t) => !(t.chartOnly && assetContext.chartable === false))
     : TABS;
   const effectiveTab = tab === 'backtest'
@@ -1632,7 +1819,7 @@ function ResearchFundamentals({
                   onMouseDown={e => e.preventDefault()}
                   onClick={() => {
                     setSuggestionsOpen(false);
-                    if (item.stock === false) openChartAsset(item);
+                    if (item.stock === false && item.chartable === false) openChartAsset(item);
                     else loadSymbol(item.symbol);
                   }}
                   className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-zinc-50"
@@ -1660,7 +1847,7 @@ function ResearchFundamentals({
               <button key={s} onClick={() => {
                 setSymbolInput(s);
                 const target = resolveResearchTargetFromText(s, [s]);
-                if (target && !target.stock) openChartAsset(target);
+                if (target && target.stock === false && target.chartable === false) openChartAsset(target);
                 else loadSymbol(target?.symbol || s);
               }}
                 className={`px-2.5 py-1.5 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all ${
@@ -1704,7 +1891,8 @@ function ResearchFundamentals({
 
       {(data || tab === 'backtest' || assetContext?.stock === false || tab === 'terminal') && !loading && (
         <>
-          {effectiveTab === 'overview' && assetContext?.stock === false && (
+          {effectiveTab === 'overview' && adaptiveAsset && <AssetResearch data={data} />}
+          {effectiveTab === 'overview' && !adaptiveAsset && assetContext?.stock === false && (
             <AssetOverviewTab
               asset={assetContext}
               macroData={macroData}
@@ -1715,11 +1903,13 @@ function ResearchFundamentals({
           {effectiveTab === 'summary' && data && <SummaryTab data={data} />}
           {effectiveTab === 'financials' && data && <FinancialsTab data={data} />}
           {effectiveTab === 'ownership' && data && <OwnershipTab data={data} />}
+          {effectiveTab === 'risk' && data && <RiskTab data={data} />}
           {effectiveTab === 'news' && data && <NewsTab data={data} />}
           {effectiveTab === 'macro' && assetContext?.stock === false && (
             <AssetMacroTab asset={assetContext} macroData={macroData} macroLoading={macroLoading} macroError={macroError} />
           )}
-          {effectiveTab === 'asset_news' && assetContext?.stock === false && (
+          {effectiveTab === 'asset_news' && adaptiveAsset && <NewsTab data={data} />}
+          {effectiveTab === 'asset_news' && !adaptiveAsset && assetContext?.stock === false && (
             <AssetNewsTab asset={assetContext} macroData={macroData} macroLoading={macroLoading} />
           )}
           {effectiveTab === 'terminal' && (

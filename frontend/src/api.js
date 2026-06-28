@@ -492,6 +492,18 @@ export async function agentHealth() {
   } catch { return { status: 'offline' }; }
 }
 
+/** Live symbol search (any global ticker/crypto/commodity/etf/index). Best-effort. */
+export async function searchSymbols(q) {
+  const query = String(q || '').trim();
+  if (!query) return [];
+  try {
+    const res = await fetch(`${BASE}/search?q=${encodeURIComponent(query)}&limit=10`, { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data?.results) ? data.results : [];
+  } catch { return []; }
+}
+
 /** Fast LLM routing — which workspace tab a request should land on. Best-effort. */
 export async function agentRoute(message, history = []) {
   try {

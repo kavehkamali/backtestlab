@@ -161,8 +161,12 @@ Your job has two parts every turn:
    (buy/avoid/watch, level, catalyst, risk, metric). 3-6 tight bullets or a short
    paragraph. No generic investing disclaimers, no filler. Use ticker SYMBOLS explicitly.
 2. ROUTE: pick the single workspace tab that best serves what the user wants to DO next:
-   - research : analyze ONE company (valuation, fundamentals, earnings, "should I buy AAPL").
+   - research : analyze ONE asset of ANY class — a stock, crypto, commodity, ETF, index, or currency
+       (valuation, price, fundamentals, "should I buy AAPL", "how is bitcoin", "gold price", "SPY").
        set research_subtab='chart' for price/technical/trend/support questions, else 'fundamentals'.
+       Put the canonical Yahoo Finance symbol in `ticker`: stocks AAPL; crypto BTC-USD, ETH-USD, SOL-USD;
+       commodities gold=GC=F, silver=SI=F, crude oil=CL=F, brent=BZ=F, natural gas=NG=F, copper=HG=F;
+       indices S&P 500=^GSPC, Nasdaq=^IXIC, Dow=^DJI, VIX=^VIX; currencies EUR/USD=EURUSD=X; ETFs SPY, QQQ, GLD.
    - screener : find/filter a LIST of stocks (oversold, momentum, value, dividends, small caps...).
    - macro    : rates, fed, inflation, jobs, commodities, dollar, crypto, recession — no single ticker.
    - news     : catalysts, headlines, "what happened", "why did it move", "today".
@@ -173,12 +177,15 @@ the answer in live data; otherwise answer from your knowledge and state when a n
 needs live confirmation. Be fast and decisive. Always fill `ticker` with the primary
 symbol (or '') and list every referenced symbol in `tickers`."""
 
-_ROUTER_INSTRUCTIONS = """Classify the user's latest message into ONE workspace tab and primary ticker.
-Tabs: research (one company), screener (find a list of stocks), macro (rates/jobs/commodities/no ticker),
+_ROUTER_INSTRUCTIONS = """Classify the user's latest message into ONE workspace tab and primary symbol.
+Tabs: research (ONE asset of any class — stock, crypto, commodity, ETF, index, or currency),
+screener (find a LIST of stocks), macro (broad rates/jobs/economy with NO single asset in focus),
 news (headlines/catalysts/'why moved'), overview (vague/greeting/multi-topic).
+A single named crypto/commodity/index/ETF (bitcoin, gold, oil, S&P 500, SPY) => research, NOT macro.
+Put the canonical Yahoo Finance symbol in `ticker`: crypto BTC-USD/ETH-USD/SOL-USD; commodities gold=GC=F,
+silver=SI=F, oil=CL=F, natural gas=NG=F, copper=HG=F; indices ^GSPC/^IXIC/^DJI/^VIX; EUR/USD=EURUSD=X; ETFs SPY/QQQ/GLD.
 If tab=research set research_subtab='chart' for price/technical/trend questions else 'fundamentals', else 'none'.
-Return ticker='' when no single company is in focus. Keep reason to one short sentence.
-Do not write an answer; set answer='' (routing only)."""
+Return ticker='' when no single asset is in focus. One short sentence reason. Set answer='' (routing only)."""
 
 
 def build_agent() -> Agent:

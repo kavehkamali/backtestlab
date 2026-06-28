@@ -2177,6 +2177,48 @@ async def agent_health():
         return {"status": "offline"}
 
 
+# ─── Symbol search (any global ticker / crypto / commodity / etf / index) ───
+_YF_QT_TO_CLASS = {
+    "EQUITY": "stock", "ETF": "etf", "MUTUALFUND": "etf", "INDEX": "index",
+    "CURRENCY": "forex", "CRYPTOCURRENCY": "crypto", "FUTURE": "commodity",
+}
+
+
+@app.get("/api/search")
+async def symbol_search(q: str = "", limit: int = 10):
+    """Live symbol lookup via Yahoo Finance autocomplete. Resolves any ticker,
+    company, crypto, commodity, ETF, or index by name or symbol."""
+    query = (q or "").strip()
+    if len(query) < 1:
+        return {"results": []}
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(
+                "https://query2.finance.yahoo.com/v1/finance/search",
+                params={"q": query, "quotesCount": max(1, min(limit, 20)), "newsCount": 0},
+                headers={"User-Agent": "Mozilla/5.0 (Equilima research)"},
+            )
+            if resp.status_code >= 400:
+                return {"results": []}
+            quotes = resp.json().get("quotes", [])
+    except Exception:
+        return {"results": []}
+
+    results = []
+    for item in quotes:
+        sym = item.get("symbol")
+        if not sym:
+            continue
+        qt = str(item.get("quoteType", "")).upper()
+        results.append({
+            "symbol": sym,
+            "name": item.get("longname") or item.get("shortname") or sym,
+            "type": _YF_QT_TO_CLASS.get(qt, "stock"),
+            "exchange": item.get("exchDisp") or item.get("exchange"),
+        })
+    return {"results": results[:limit]}
+
+
 # --- Macro Overview ---
 MACRO_TTL = 60 * 60 * 4
 

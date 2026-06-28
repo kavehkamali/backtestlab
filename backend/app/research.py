@@ -10,8 +10,82 @@ import pandas as pd
 import numpy as np
 import math
 from .cache import fetch_price_cached, fetch_fundamentals_cached
+from .asset_class import detect_asset_class, ASSET_CLASS_LABELS
 
 router = APIRouter(prefix="/api/research", tags=["research"])
+
+
+def _compute_chart(symbol: str):
+    """2y daily close+volume series (shared by all asset classes)."""
+    chart = []
+    try:
+        df = fetch_price_cached(symbol, period="2y")
+        for i in range(len(df)):
+            chart.append({
+                "date": df.index[i].strftime("%Y-%m-%d"),
+                "close": round(float(df["close"].iloc[i]), 2),
+                "volume": int(df["volume"].iloc[i]) if not math.isnan(df["volume"].iloc[i]) else 0,
+            })
+    except Exception:
+        pass
+    return chart
+
+
+def _compute_risk(symbol: str, info: dict | None = None):
+    """Price-based risk + performance — meaningful for any tradable asset."""
+    risk = {}
+    try:
+        df = fetch_price_cached(symbol, period="2y")
+        if len(df) > 60:
+            close = df["close"]
+            returns = close.pct_change().dropna()
+            sharpe = float(returns.mean() / returns.std() * np.sqrt(252)) if returns.std() > 0 else 0
+            downside = returns[returns < 0]
+            sortino = float(returns.mean() / downside.std() * np.sqrt(252)) if len(downside) > 0 and downside.std() > 0 else 0
+            cummax = (1 + returns).cumprod().cummax()
+            drawdown = ((1 + returns).cumprod() / cummax - 1)
+            max_dd = float(drawdown.min()) * 100
+            vol_annual = float(returns.std() * np.sqrt(252) * 100)
+            var_95 = float(np.percentile(returns, 5) * 100)
+            perf = {}
+            for label, days in [("1W", 5), ("1M", 21), ("3M", 63), ("6M", 126), ("1Y", 252), ("2Y", 504)]:
+                if len(close) > days:
+                    perf[label] = round((float(close.iloc[-1]) / float(close.iloc[-days - 1]) - 1) * 100, 2)
+            risk = {
+                "sharpe_ratio": round(sharpe, 3),
+                "sortino_ratio": round(sortino, 3),
+                "max_drawdown": round(max_dd, 2),
+                "volatility_annual": round(vol_annual, 1),
+                "var_95": round(var_95, 2),
+                "performance": perf,
+                "beta": _safe((info or {}).get("beta")),
+            }
+    except Exception:
+        pass
+    return risk
+
+
+def _compute_news(ticker, limit: int = 10):
+    """Recent news for any symbol (best-effort)."""
+    out = []
+    try:
+        for n in (ticker.news or [])[:limit]:
+            content = n.get("content") or n
+            title = content.get("title") or n.get("title")
+            if not title:
+                continue
+            url = (content.get("canonicalUrl") or {}).get("url") or content.get("clickThroughUrl", {}).get("url") or n.get("link")
+            provider = (content.get("provider") or {}).get("displayName") or n.get("publisher")
+            out.append({
+                "title": title,
+                "url": url,
+                "source": provider,
+                "date": content.get("pubDate") or n.get("providerPublishTime"),
+                "thumbnail": ((content.get("thumbnail") or {}).get("resolutions") or [{}])[0].get("url"),
+            })
+    except Exception:
+        pass
+    return out
 
 
 def _safe(val, decimals=2):
@@ -59,10 +133,88 @@ def get_research(symbol: str, request: Request):
     return data
 
 
+def _research_compute_nonstock(symbol: str, ticker, info: dict, asset_class: str):
+    """Adaptive research payload for non-stock assets (crypto, commodity, etf,
+    index, forex, bond). Reuses the price-based chart + risk, fills a
+    class-appropriate summary, and omits stock-only blocks."""
+    g = info.get
+    price = _safe(g("currentPrice") or g("regularMarketPrice") or g("regularMarketPreviousClose"))
+    prev_close = _safe(g("previousClose") or g("regularMarketPreviousClose"))
+    change = round(price - prev_close, 2) if price and prev_close else None
+    change_pct = round((change / prev_close) * 100, 2) if change and prev_close else None
+
+    summary = {
+        "symbol": symbol,
+        "name": g("longName") or g("shortName") or symbol,
+        "asset_class": asset_class,
+        "asset_class_label": ASSET_CLASS_LABELS.get(asset_class, asset_class.title()),
+        "exchange": g("exchange"),
+        "currency": g("currency", "USD"),
+        "quote_type": g("quoteType"),
+        "description": g("longBusinessSummary") or g("description") or "",
+        "price": price,
+        "previous_close": prev_close,
+        "change": change,
+        "change_pct": change_pct,
+        "open": _safe(g("open") or g("regularMarketOpen")),
+        "day_high": _safe(g("dayHigh") or g("regularMarketDayHigh")),
+        "day_low": _safe(g("dayLow") or g("regularMarketDayLow")),
+        "high_52w": _safe(g("fiftyTwoWeekHigh")),
+        "low_52w": _safe(g("fiftyTwoWeekLow")),
+        "volume": g("volume") or g("regularMarketVolume"),
+        "avg_volume": g("averageVolume"),
+        "market_cap": g("marketCap"),
+        "market_cap_fmt": _fmt_large(g("marketCap")),
+    }
+
+    extra = {}
+    if asset_class == "crypto":
+        extra = {
+            "circulating_supply": g("circulatingSupply"),
+            "max_supply": g("maxSupply"),
+            "volume_24h": g("volume24Hr") or g("volume"),
+            "from_currency": g("fromCurrency"),
+            "start_date": g("startDate"),
+        }
+    elif asset_class == "etf":
+        extra = {
+            "total_assets": g("totalAssets"),
+            "total_assets_fmt": _fmt_large(g("totalAssets")),
+            "nav_price": _safe(g("navPrice")),
+            "yield": _safe(g("yield"), 4),
+            "yield_pct": round(g("yield", 0) * 100, 2) if g("yield") else None,
+            "category": g("category"),
+            "fund_family": g("fundFamily"),
+            "ytd_return": _safe(g("ytdReturn"), 4),
+            "three_year_return": _safe(g("threeYearAverageReturn"), 4),
+            "five_year_return": _safe(g("fiveYearAverageReturn"), 4),
+        }
+    elif asset_class == "commodity":
+        extra = {
+            "open_interest": g("openInterest"),
+            "contract": g("shortName"),
+            "underlying": g("underlyingSymbol"),
+        }
+    summary.update({k: v for k, v in extra.items()})
+
+    return {
+        "asset_class": asset_class,
+        "asset_class_label": ASSET_CLASS_LABELS.get(asset_class, asset_class.title()),
+        "summary": summary,
+        "chart": _compute_chart(symbol),
+        "risk_metrics": _compute_risk(symbol, info),
+        "news": _compute_news(ticker),
+    }
+
+
 def _research_compute(symbol: str):
     try:
         ticker = yf.Ticker(symbol)
         info = ticker.info or {}
+
+        asset_class = detect_asset_class(symbol, info)
+        if asset_class != "stock":
+            return _research_compute_nonstock(symbol, ticker, info, asset_class)
 
         # ─── Summary / Key Stats ───
         price = _safe(info.get("currentPrice") or info.get("regularMarketPrice"))
@@ -73,6 +225,8 @@ def _research_compute(symbol: str):
         summary = {
             "symbol": symbol,
             "name": info.get("longName") or info.get("shortName") or symbol,
+            "asset_class": "stock",
+            "asset_class_label": "Stock",
             "sector": info.get("sector"),
             "industry": info.get("industry"),
             "description": info.get("longBusinessSummary", ""),
@@ -679,6 +833,8 @@ def _research_compute(symbol: str):
             pass
 
         return {
+            "asset_class": "stock",
+            "asset_class_label": "Stock",
             "summary": summary,
             "profitability": profitability,
             "growth": growth,
