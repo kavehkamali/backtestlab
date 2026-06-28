@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Loader2, Search, ExternalLink, Clock, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, ComposedChart, Line, PieChart, Pie } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, ComposedChart, Line, LineChart, PieChart, Pie } from 'recharts';
 import { fetchMacroOverview, fetchResearch, searchSymbols } from '../api';
 import SnowflakeChart from './SnowflakeChart';
 import { buildResearchPriceChartRows, formatResearchPriceXTick } from '../utils/marketHeroChart';
