@@ -2145,6 +2145,28 @@ async def agent_quick(request: Request):
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Agent unavailable: {str(e)}")
 
+@app.post("/api/agent/route")
+async def agent_route(request: Request):
+    """Proxy fast routing to the agent — used for instant workspace tab switching."""
+    raw_body = await request.json()
+    body = {
+        "message": str(raw_body.get("message") or ""),
+        "history": raw_body.get("history") or [],
+    }
+    try:
+        async with httpx.AsyncClient(timeout=25.0) as client:
+            resp = await client.post(f"{AGENT_URL}/route", json=body)
+            if resp.status_code >= 400:
+                raise HTTPException(status_code=resp.status_code, detail=resp.text)
+            return resp.json()
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Router timed out")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Router unavailable: {str(e)}")
+
+
 @app.get("/api/agent/health")
 async def agent_health():
     try:

@@ -42,7 +42,7 @@ import {
   ReferenceLine,
   ComposedChart,
 } from 'recharts';
-import { fetchTerminalChart, fetchResearch, fetchAgentHistory, putAgentHistory } from '../api';
+import { fetchTerminalChart, fetchResearch, fetchAgentHistory, putAgentHistory, agentRoute } from '../api';
 import SnowflakeChart from './SnowflakeChart';
 import MacroPanel from './MacroPanel';
 import ResearchPanel from './ResearchPanel';
@@ -1527,6 +1527,7 @@ function MacroMiniPanel({ macro }) {
 function AssistantWorkbench({
   messages,
   streamingText,
+  liveRoute,
   focusTicker,
   setFocusTicker,
   onNavigate,
@@ -1542,12 +1543,25 @@ function AssistantWorkbench({
     const found = [...(messages || [])].reverse().find((m) => m.role === 'assistant' && String(m.content || '').trim());
     return streamingText || found?.content || '';
   }, [messages, streamingText]);
-  const workspaceIntent = useMemo(() => classifyWorkspaceIntent({
+  const regexIntent = useMemo(() => classifyWorkspaceIntent({
     latestUser,
     latestAssistant,
     tickers: discussedTickers,
     focusTicker,
   }), [latestAssistant, latestUser, tickerKey, focusTicker]);
+  // The LLM agent's routing decision is authoritative; the regex is the fallback
+  // that covers the brief gap before the model responds (and offline degradation).
+  const workspaceIntent = useMemo(() => {
+    if (!liveRoute?.tab) return regexIntent;
+    const llmTicker = String(liveRoute.ticker || '').toUpperCase();
+    return {
+      ...regexIntent,
+      tab: liveRoute.tab,
+      primaryTicker: llmTicker || regexIntent.primaryTicker,
+      researchSubtab: liveRoute.researchSubtab || regexIntent.researchSubtab,
+      reason: liveRoute.reason || regexIntent.reason,
+    };
+  }, [regexIntent, liveRoute]);
 
   const [tab, setTab] = useState('overview');
   const [research, setResearch] = useState(null);
@@ -1876,6 +1890,7 @@ function AssistantMode({
   messages,
   loading,
   streamingText,
+  liveRoute,
   input,
   setInput,
   handleSend,
@@ -1923,6 +1938,7 @@ function AssistantMode({
       <AssistantWorkbench
         messages={messages}
         streamingText={streamingText}
+        liveRoute={liveRoute}
         focusTicker={focusTicker}
         setFocusTicker={setFocusTicker}
         onNavigate={onNavigate}
@@ -2061,6 +2077,7 @@ export default function AgentPanel({
   const [mode, setMode] = useState('quick');
   const assistantAvailable = useDesktopAssistantAvailable();
   const [streamingText, setStreamingText] = useState('');
+  const [liveRoute, setLiveRoute] = useState(null); // LLM workspace routing decision
   const [lastRun, setLastRun] = useState(null); // { mode, url, elapsedMs }
   const scrollRef = useRef(null);
   const streamTextRef = useRef('');
@@ -2276,6 +2293,7 @@ export default function AgentPanel({
     setInput('');
     setStreamingText('');
     setLastRun(null);
+    setLiveRoute(null);
     setResultCursor(-1);
   };
 
@@ -2388,6 +2406,12 @@ export default function AgentPanel({
     });
     onUserMessage?.(msg);
 
+    // Instant routing: switch the workspace tab before the full answer returns.
+    // Clear the prior turn's route so the regex fallback covers the brief gap.
+    setLiveRoute(null);
+    const routeHistory = messages.slice(-12).map((m) => ({ role: m.role, content: m.content }));
+    agentRoute(msg, routeHistory).then((r) => { if (r?.tab) setLiveRoute(r); });
+
     try {
       const url = effectiveMode === 'full' ? '/api/agent/chat' : '/api/agent/quick';
       const body = {
@@ -2402,7 +2426,9 @@ export default function AgentPanel({
         setStreamingText(text);
       });
       setLastRun({ mode: effectiveMode, url, elapsedMs });
-      const nextMessages = [...messages, { role: 'user', content: msg }, { role: 'assistant', content: streamTextRef.current, ticker: streamTickerRef.current, tickers: data.tickers || [] }];
+      // Authoritative route from the agent's full answer (overrides the instant guess).
+      if (data.route?.tab) setLiveRoute(data.route);
+      const nextMessages = [...messages, { role: 'user', content: msg }, { role: 'assistant', content: streamTextRef.current, ticker: streamTickerRef.current, tickers: data.tickers || [], route: data.route || null }];
       updateActiveSession({ messages: nextMessages, lastRun: { mode: effectiveMode, url, elapsedMs }, mode: effectiveMode });
       onAssistantResult?.({
         userMessage: msg,
@@ -2712,6 +2738,7 @@ export default function AgentPanel({
         messages={messages}
         loading={loading}
         streamingText={streamingText}
+        liveRoute={liveRoute}
         input={input}
         setInput={setInput}
         handleSend={handleSend}

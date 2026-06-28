@@ -492,6 +492,19 @@ export async function agentHealth() {
   } catch { return { status: 'offline' }; }
 }
 
+/** Fast LLM routing — which workspace tab a request should land on. Best-effort. */
+export async function agentRoute(message, history = []) {
+  try {
+    const res = await fetch(`${BASE}/agent/route`, {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, history }),
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch { return null; }
+}
+
 export async function fetchAiPicks({ refresh = false } = {}) {
   const res = await fetch(`${BASE}/picks`, {
     method: 'POST',

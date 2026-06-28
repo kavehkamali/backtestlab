@@ -1,6 +1,14 @@
 """
-Equilima AI Agent API — wraps TradingAgents with a REST endpoint.
-Uses Ollama (local LLM) as the backend.
+Equilima AI Agent API — REST endpoints for the web UI.
+
+Backends (EQUILIMA_LLM_PROVIDER):
+  openai (default) — cheap OpenAI models via the OpenAI Agents SDK (agent_core.py):
+                     a tool-using agent that answers AND routes the user to the
+                     right workspace tab. Set OPENAI_API_KEY (repo .env).
+  ollama           — local LLM fallback (legacy).
+
+Endpoints: /chat (full TradingAgents pipeline), /quick (smart agent),
+           /route (fast tab routing), /health.
 
 Deploy (example on home-linux):
   cd ~/projects/side/equilima
@@ -24,9 +32,40 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 import uvicorn
 
-# Ollama's OpenAI-compatible endpoint does not require a real key, but the
-# OpenAI SDK used by LangChain refuses to initialize without one.
-os.environ.setdefault("OPENAI_API_KEY", os.environ.get("OLLAMA_OPENAI_API_KEY", "ollama"))
+# ─── Load .env (sibling to this file, then repo root) ───
+try:
+    from dotenv import load_dotenv
+
+    _here_dir = os.path.dirname(os.path.abspath(__file__))
+    for _cand in (os.path.join(_here_dir, ".env"), os.path.join(_here_dir, "..", ".env")):
+        if os.path.isfile(_cand):
+            load_dotenv(_cand, override=False)
+except Exception:
+    pass
+
+# ─── LLM backend selection ───
+# EQUILIMA_LLM_PROVIDER = "openai" (cheap cloud, default) | "ollama" (local).
+LLM_PROVIDER = os.environ.get("EQUILIMA_LLM_PROVIDER", "openai").strip().lower()
+OPENAI_MODEL = os.environ.get("EQUILIMA_OPENAI_MODEL", "gpt-5-nano").strip()
+ROUTER_MODEL = os.environ.get("EQUILIMA_ROUTER_MODEL", OPENAI_MODEL).strip()
+OPENAI_BASE = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+OLLAMA_MODEL = os.environ.get("EQUILIMA_OLLAMA_MODEL", "gemma3:4b")
+OLLAMA_BASE = os.environ.get("OLLAMA_OPENAI_BASE", "http://localhost:11434/v1")
+
+# When using Ollama, LangChain's OpenAI client still demands a non-empty key.
+if LLM_PROVIDER == "ollama":
+    os.environ.setdefault("OPENAI_API_KEY", os.environ.get("OLLAMA_OPENAI_API_KEY", "ollama"))
+
+ACTIVE_MODEL = OLLAMA_MODEL if LLM_PROVIDER == "ollama" else OPENAI_MODEL
+
+# ─── Smart agent (OpenAI Agents SDK) — optional, only when on the openai backend ───
+_AGENT_CORE = None
+if LLM_PROVIDER != "ollama":
+    try:
+        import agent_core as _AGENT_CORE  # noqa: N816
+    except Exception as _e:  # pragma: no cover
+        print(f"[agent] smart agent disabled: {_e}")
+        _AGENT_CORE = None
 
 # ─── Resolve TradingAgents package ───
 def _trading_agents_root() -> str:
@@ -70,6 +109,14 @@ class ChatResponse(BaseModel):
     response: str
     ticker: str = ""
     analysis: dict = {}
+    route: Optional[dict] = None
+    tickers: List[str] = Field(default_factory=list)
+
+
+class RouteRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    message: str
+    history: List[HistoryTurn] = Field(default_factory=list)
 
 
 def _last_user_line(packed_message: str) -> str:
@@ -93,18 +140,71 @@ def _format_history_block(history: List[HistoryTurn], max_turns: int = 14) -> st
     return "\n\n".join(lines)
 
 
+def _openai_chat(
+    messages: list[dict],
+    model: str | None = None,
+    timeout: int = 120,
+    max_tokens: int = 1400,
+    json_mode: bool = False,
+) -> str:
+    """Call OpenAI (or any OpenAI-compatible) chat endpoint via plain HTTP."""
+    import requests
+
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not key:
+        raise RuntimeError("OPENAI_API_KEY not set")
+
+    payload: dict[str, Any] = {
+        "model": model or OPENAI_MODEL,
+        "messages": messages,
+        # gpt-5 family uses max_completion_tokens; older models use max_tokens.
+        "max_completion_tokens": max_tokens,
+    }
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
+
+    resp = requests.post(
+        f"{OPENAI_BASE}/chat/completions",
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        json=payload,
+        timeout=timeout,
+    )
+    # Retry once with legacy max_tokens for non-gpt-5 / compatible backends.
+    if resp.status_code == 400 and "max_completion_tokens" in resp.text:
+        payload.pop("max_completion_tokens", None)
+        payload["max_tokens"] = max_tokens
+        resp = requests.post(
+            f"{OPENAI_BASE}/chat/completions",
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=timeout,
+        )
+    resp.raise_for_status()
+    data = resp.json()
+    return (data.get("choices") or [{}])[0].get("message", {}).get("content", "") or ""
+
+
 def _ollama_generate(prompt: str, timeout: int = 120) -> str:
     import requests
 
-    model = os.environ.get("EQUILIMA_OLLAMA_MODEL", "gemma3:4b")
     ollama_resp = requests.post(
-        "http://localhost:11434/api/generate",
-        json={"model": model, "prompt": prompt, "stream": False},
+        OLLAMA_BASE.replace("/v1", "") + "/api/generate",
+        json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
         timeout=timeout,
     )
     ollama_resp.raise_for_status()
     result = ollama_resp.json()
     text = result.get("response", "")
+    if "</think>" in text:
+        text = text.split("</think>")[-1].strip()
+    return text
+
+
+def _llm_generate(prompt: str, timeout: int = 120) -> str:
+    """Single-prompt completion routed to the active provider."""
+    if LLM_PROVIDER == "ollama":
+        return _ollama_generate(prompt, timeout=timeout)
+    text = _openai_chat([{"role": "user", "content": prompt}], timeout=timeout)
     if "</think>" in text:
         text = text.split("</think>")[-1].strip()
     return text
@@ -119,10 +219,10 @@ def get_trading_agent(ticker: str):
         raise RuntimeError("TradingAgents directory not found (set TRADING_AGENTS_PATH)")
 
     config = {
-        "llm_provider": "openai",
-        "deep_think_llm": os.environ.get("EQUILIMA_OLLAMA_MODEL", "gemma3:4b"),
-        "quick_think_llm": os.environ.get("EQUILIMA_OLLAMA_MODEL", "gemma3:4b"),
-        "backend_url": os.environ.get("OLLAMA_OPENAI_BASE", "http://localhost:11434/v1"),
+        "llm_provider": "openai",  # OpenAI-compatible client for both cloud + ollama
+        "deep_think_llm": ACTIVE_MODEL,
+        "quick_think_llm": ACTIVE_MODEL,
+        "backend_url": OLLAMA_BASE if LLM_PROVIDER == "ollama" else OPENAI_BASE,
         "max_debate_rounds": 1,
         "max_risk_discuss_rounds": 1,
         "max_recur_limit": 50,
@@ -140,8 +240,10 @@ def get_trading_agent(ticker: str):
 def health():
     return {
         "status": "ok",
-        "model": os.environ.get("EQUILIMA_OLLAMA_MODEL", "gemma3:4b"),
-        "backend": "ollama",
+        "model": ACTIVE_MODEL,
+        "router_model": ROUTER_MODEL,
+        "backend": LLM_PROVIDER,
+        "openai_key_present": bool(os.environ.get("OPENAI_API_KEY", "").strip()) if LLM_PROVIDER != "ollama" else None,
         "trading_agents_path": _TA_ROOT or None,
     }
 
@@ -217,7 +319,14 @@ async def chat(req: ChatRequest):
         if "risk_assessment" in analysis:
             response += f"### Risk Assessment\n{analysis['risk_assessment'][:300]}\n\n"
 
-        return ChatResponse(response=response, ticker=ticker, analysis=analysis)
+        route = {
+            "tab": "research",
+            "ticker": ticker,
+            "researchSubtab": "fundamentals",
+            "reason": f"Full multi-agent analysis of {ticker}.",
+        }
+        return ChatResponse(response=response, ticker=ticker, analysis=analysis,
+                            route=route, tickers=[ticker])
 
     except Exception as e:
         traceback.print_exc()
@@ -235,7 +344,7 @@ async def chat(req: ChatRequest):
                 f"User question:\n{user_q or req.message}\n\n"
                 f"Answer in markdown."
             )
-            text = _ollama_generate(prompt, timeout=120)
+            text = _llm_generate(prompt, timeout=120)
             return ChatResponse(response=text, ticker=req.ticker or "", analysis={})
         except Exception as e2:
             raise HTTPException(
@@ -244,15 +353,38 @@ async def chat(req: ChatRequest):
             ) from e2
 
 
+def _history_dicts(history: List[HistoryTurn]) -> list[dict]:
+    return [{"role": h.role, "content": h.content} for h in (history or [])]
+
+
 @app.post("/quick")
 async def quick_analysis(req: ChatRequest):
-    """Quick direct LLM response without full agent pipeline (faster)."""
+    """Smart tool-using agent: grounded answer + workspace routing decision.
+
+    Falls back to a single direct completion if the Agents SDK is unavailable
+    or errors (e.g. Ollama backend, missing key, transient API failure).
+    """
+    user_q = _last_user_line(req.message)
+    core = user_q or req.message.strip()
+
+    if _AGENT_CORE is not None:
+        try:
+            out = await _AGENT_CORE.run_agent(core, _history_dicts(req.history), req.ticker or "")
+            return ChatResponse(
+                response=out.get("response", ""),
+                ticker=out.get("ticker", "") or (req.ticker or ""),
+                analysis=out.get("analysis", {}),
+                route=out.get("route"),
+                tickers=out.get("tickers", []),
+            )
+        except Exception as e:
+            traceback.print_exc()
+            print(f"[agent] smart agent failed, using direct fallback: {e}")
+
+    # ─── Fallback: direct single-shot completion ───
     try:
         today = datetime.now().strftime("%Y-%m-%d")
         hist = _format_history_block(req.history)
-        user_q = _last_user_line(req.message)
-        core = user_q or req.message.strip()
-
         ctx = ""
         if hist:
             ctx = (
@@ -268,10 +400,23 @@ Today's date is {today}. Stay consistent with any prior turns above. If the user
 
 Give a concise, data-driven answer in markdown (headers, bullets, bold key numbers when you state them). If you lack live data, say so and give a methodology, not fabricated quotes."""
 
-        text = _ollama_generate(prompt, timeout=120)
+        text = _llm_generate(prompt, timeout=120)
         return ChatResponse(response=text, ticker=req.ticker or "", analysis={})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/route")
+async def route(req: RouteRequest):
+    """Fast standalone routing — frontend calls this on send for an instant tab switch."""
+    user_q = _last_user_line(req.message) or req.message.strip()
+    if _AGENT_CORE is None:
+        raise HTTPException(status_code=503, detail="Router unavailable (non-openai backend)")
+    try:
+        return await _AGENT_CORE.run_router(user_q, _history_dicts(req.history))
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=502, detail=f"Router error: {e}") from e
 
 
 if __name__ == "__main__":
