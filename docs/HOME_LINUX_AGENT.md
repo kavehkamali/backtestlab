@@ -1,18 +1,36 @@
 # Home Linux AI Agent Setup
 
-Equilima runs the public web app on AWS, but the AI research agent is a separate sidecar service. The AWS FastAPI app proxies `/api/agent/*` to `EQUILIMA_AGENT_URL`, which can point at a service on a home Linux machine.
+Equilima runs the public web app on the private Neo host (AWS is only the TLS/proxy edge), and the AI research agent is a separate sidecar service. The web app proxies `/api/agent/*` to `EQUILIMA_AGENT_URL`, which points at this sidecar.
 
-## 1. Prepare the home Linux machine
+The sidecar uses **cheap OpenAI models via the OpenAI Agents SDK** by default
+(`EQUILIMA_LLM_PROVIDER=openai`, model `gpt-5-nano`). It answers questions AND
+routes the user to the right workspace tab. Ollama remains a local fallback
+(`EQUILIMA_LLM_PROVIDER=ollama`).
+
+## 1. Prepare the host
 
 Fast path:
 
 ```bash
 cd ~/equilima
 git pull origin main
-bash scripts/install-home-agent.sh
+bash scripts/install-home-agent.sh        # openai by default; EQUILIMA_LLM_PROVIDER=ollama for local
 ```
 
-The installer sets up Ollama, pulls the default model, creates `agent_env/`, installs the TradingAgents submodule, writes both systemd units, and enables them.
+The installer creates `agent_env/`, installs deps (incl. `openai-agents`) and the
+TradingAgents submodule, writes both systemd units, and enables them. With the
+default `openai` provider it skips Ollama entirely.
+
+### Secret: OPENAI_API_KEY
+
+The agent service reads secrets from `EnvironmentFile=/etc/webapps/equilima.env`
+(and an optional repo-root `.env`). Add the key once, then restart:
+
+```bash
+echo 'OPENAI_API_KEY=sk-...' | sudo tee -a /etc/webapps/equilima.env
+sudo systemctl restart equilima-agent
+curl -s 127.0.0.1:8888/health   # expect "backend":"openai","openai_key_present":true
+```
 
 Install the base packages:
 
@@ -21,7 +39,7 @@ sudo apt update
 sudo apt install -y git python3 python3-venv python3-pip curl
 ```
 
-Install Ollama and pull the model used by the sidecar:
+Ollama is only needed for the local fallback (`EQUILIMA_LLM_PROVIDER=ollama`):
 
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
@@ -130,19 +148,38 @@ Tunnel logs:
 journalctl -u equilima-agent-tunnel -f
 ```
 
-## 4. Useful environment variables
+## 4. Updating the sidecar
 
-Set these on the home Linux host when needed:
+After new code is pushed to `main`:
 
 ```bash
-export EQUILIMA_AGENT_PORT=8888
-export EQUILIMA_SSH_TUNNEL_PORT=2223
-export EQUILIMA_OLLAMA_MODEL=gemma3:4b
-export OLLAMA_OPENAI_BASE=http://localhost:11434/v1
-export TRADING_AGENTS_PATH=/home/neo/equilima/TradingAgents
+cd ~/equilima
+bash scripts/update-agent.sh    # pull + refresh deps + restart + health check
 ```
 
-Set this on the AWS web host:
+The web app's `deploy.sh` (run by CI on Neo) also best-effort pulls, reinstalls
+deps for, and restarts the sidecar if its clone (`EQUILIMA_AGENT_DIR`, default
+`/home/neo/equilima`) and `equilima-agent.service` exist — so a push can update
+both. `scripts/update-agent.sh` is the manual equivalent.
+
+## 5. Useful environment variables
+
+The systemd unit sets these; override in `/etc/webapps/equilima.env` when needed:
+
+```bash
+EQUILIMA_AGENT_PORT=8888
+EQUILIMA_LLM_PROVIDER=openai          # or: ollama
+EQUILIMA_OPENAI_MODEL=gpt-5-nano      # cheapest; or gpt-5-mini / gpt-4o-mini
+EQUILIMA_ROUTER_MODEL=gpt-5-nano      # fast tab-routing model
+EQUILIMA_BACKEND_URL=http://127.0.0.1:8080   # so agent tools fetch live data
+OPENAI_API_KEY=sk-...                 # secret — keep in the EnvironmentFile only
+TRADING_AGENTS_PATH=/home/neo/equilima/TradingAgents
+# ollama fallback only:
+EQUILIMA_OLLAMA_MODEL=gemma3:4b
+OLLAMA_OPENAI_BASE=http://localhost:11434/v1
+```
+
+Set this on the web host:
 
 ```bash
 export EQUILIMA_AGENT_URL=http://127.0.0.1:8888

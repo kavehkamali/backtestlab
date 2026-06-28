@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # One-shot: init TradingAgents submodule + local venv for agent_api.py (repo root).
-# Requires Python 3.10+ (TradingAgents). Ollama must be running separately for local LLM.
+# Requires Python 3.10+ (TradingAgents). Default backend is OpenAI (set OPENAI_API_KEY);
+# Ollama only needed when EQUILIMA_LLM_PROVIDER=ollama.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"

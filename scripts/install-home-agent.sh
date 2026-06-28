@@ -12,6 +12,12 @@ AWS_HOST="${EQUILIMA_AWS_HOST:-54.174.207.23}"
 AWS_USER="${EQUILIMA_AWS_USER:-ec2-user}"
 AGENT_PORT="${EQUILIMA_AGENT_PORT:-8888}"
 SSH_TUNNEL_PORT="${EQUILIMA_SSH_TUNNEL_PORT:-2223}"
+# LLM backend: openai (cheap cloud, default) | ollama (local).
+LLM_PROVIDER="${EQUILIMA_LLM_PROVIDER:-openai}"
+OPENAI_MODEL="${EQUILIMA_OPENAI_MODEL:-gpt-5-nano}"
+ROUTER_MODEL="${EQUILIMA_ROUTER_MODEL:-$OPENAI_MODEL}"
+AGENT_BACKEND_URL="${EQUILIMA_BACKEND_URL:-http://127.0.0.1:8080}"
+SECRETS_FILE="${EQUILIMA_SECRETS_FILE:-/etc/webapps/equilima.env}"
 OLLAMA_MODEL="${EQUILIMA_OLLAMA_MODEL:-gemma3:4b}"
 
 if [[ "$(uname -s)" != "Linux" ]]; then
@@ -29,7 +35,12 @@ echo "Repo:       $ROOT"
 echo "User:       $USER_NAME"
 echo "AWS:        $AWS_USER@$AWS_HOST"
 echo "SSH key:    $SSH_KEY"
-echo "Port/model: $AGENT_PORT / $OLLAMA_MODEL"
+echo "Provider:   $LLM_PROVIDER"
+if [[ "$LLM_PROVIDER" == "ollama" ]]; then
+  echo "Port/model: $AGENT_PORT / $OLLAMA_MODEL (ollama)"
+else
+  echo "Port/model: $AGENT_PORT / $OPENAI_MODEL (openai, router $ROUTER_MODEL)"
+fi
 echo "SSH tunnel: $SSH_TUNNEL_PORT -> local port 22"
 echo ""
 
@@ -97,17 +108,25 @@ EOF
 
 write_agent_service() {
   echo "==> Writing /etc/systemd/system/equilima-agent.service"
+  # Secrets (OPENAI_API_KEY etc.) come from the EnvironmentFile, never the unit.
+  # The leading '-' makes the files optional so the service still starts if absent.
   sudo tee /etc/systemd/system/equilima-agent.service >/dev/null <<EOF
 [Unit]
 Description=Equilima AI Agent sidecar
-After=network-online.target ollama.service
+After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=$USER_NAME
 WorkingDirectory=$ROOT
+EnvironmentFile=-$SECRETS_FILE
+EnvironmentFile=-$ROOT/.env
 Environment=EQUILIMA_AGENT_PORT=$AGENT_PORT
+Environment=EQUILIMA_LLM_PROVIDER=$LLM_PROVIDER
+Environment=EQUILIMA_OPENAI_MODEL=$OPENAI_MODEL
+Environment=EQUILIMA_ROUTER_MODEL=$ROUTER_MODEL
+Environment=EQUILIMA_BACKEND_URL=$AGENT_BACKEND_URL
 Environment=EQUILIMA_OLLAMA_MODEL=$OLLAMA_MODEL
 Environment=OLLAMA_OPENAI_BASE=http://localhost:11434/v1
 Environment=TRADING_AGENTS_PATH=$ROOT/TradingAgents
@@ -172,6 +191,14 @@ enable_services() {
 }
 
 verify() {
+  if [[ "$LLM_PROVIDER" != "ollama" ]]; then
+    if ! grep -qs "OPENAI_API_KEY" "$SECRETS_FILE" 2>/dev/null && [[ -z "${OPENAI_API_KEY:-}" ]]; then
+      echo ""
+      echo "WARNING: provider=openai but no OPENAI_API_KEY found in $SECRETS_FILE."
+      echo "Add it (the service reads this file), then: sudo systemctl restart equilima-agent"
+      echo "  echo 'OPENAI_API_KEY=sk-...' | sudo tee -a $SECRETS_FILE"
+    fi
+  fi
   echo "==> Local health check"
   sleep 3
   curl -fsS "http://127.0.0.1:$AGENT_PORT/health" || true
@@ -194,7 +221,11 @@ verify() {
 }
 
 install_packages
-install_ollama
+if [[ "$LLM_PROVIDER" == "ollama" ]]; then
+  install_ollama
+else
+  echo "==> Provider=openai — skipping Ollama install"
+fi
 setup_repo
 write_agent_service
 write_tunnel_service

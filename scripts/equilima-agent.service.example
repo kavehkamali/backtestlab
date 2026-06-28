@@ -1,13 +1,22 @@
 [Unit]
 Description=Equilima AI Agent sidecar
-After=network-online.target ollama.service
+After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=neo
 WorkingDirectory=/home/neo/equilima
+# Secrets (OPENAI_API_KEY, ...) live here, not in the unit. '-' = optional.
+EnvironmentFile=-/etc/webapps/equilima.env
+EnvironmentFile=-/home/neo/equilima/.env
 Environment=EQUILIMA_AGENT_PORT=8888
+# LLM backend: openai (cheap cloud, default) | ollama (local).
+Environment=EQUILIMA_LLM_PROVIDER=openai
+Environment=EQUILIMA_OPENAI_MODEL=gpt-5-nano
+Environment=EQUILIMA_ROUTER_MODEL=gpt-5-nano
+Environment=EQUILIMA_BACKEND_URL=http://127.0.0.1:8080
+# Used only when EQUILIMA_LLM_PROVIDER=ollama:
 Environment=EQUILIMA_OLLAMA_MODEL=gemma3:4b
 Environment=OLLAMA_OPENAI_BASE=http://localhost:11434/v1
 Environment=TRADING_AGENTS_PATH=/home/neo/equilima/TradingAgents
