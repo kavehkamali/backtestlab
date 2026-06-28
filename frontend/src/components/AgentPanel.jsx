@@ -2002,7 +2002,7 @@ function packAgentRequestBody(priorMessages, newUserMsg, mode) {
 async function streamAgent(url, body, onToken) {
   const started = performance.now();
   const controller = new AbortController();
-  const timeoutMs = url.includes('/chat') ? 185000 : 70000;
+  const timeoutMs = url.includes('/chat') ? 185000 : 110000;
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const res = await fetch(url, {
     method: 'POST',

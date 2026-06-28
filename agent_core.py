@@ -33,10 +33,21 @@ from agents import (
     set_default_openai_key,
     set_tracing_disabled,
 )
+from openai.types.shared import Reasoning
 
 OPENAI_MODEL = os.environ.get("EQUILIMA_OPENAI_MODEL", "gpt-5-nano").strip()
 ROUTER_MODEL = os.environ.get("EQUILIMA_ROUTER_MODEL", OPENAI_MODEL).strip()
 BACKEND_URL = os.environ.get("EQUILIMA_BACKEND_URL", "http://localhost:8080").rstrip("/")
+# gpt-5 family are reasoning models — without a cap they "think" for tens of
+# seconds (the UI shows "Thinking..." the whole time). 'low' keeps routing
+# accurate while staying fast. Tools add a model round-trip each, so they are
+# OFF by default for the snappy /quick path (the UI loads live data itself).
+REASONING_EFFORT = os.environ.get("EQUILIMA_REASONING_EFFORT", "low").strip()
+USE_TOOLS = os.environ.get("EQUILIMA_AGENT_TOOLS", "0").strip().lower() in ("1", "true", "yes")
+
+
+def _fast_settings() -> ModelSettings:
+    return ModelSettings(reasoning=Reasoning(effort=REASONING_EFFORT), verbosity="low")
 
 _key = os.environ.get("OPENAI_API_KEY", "").strip()
 if _key:
@@ -157,9 +168,10 @@ Your job has two parts every turn:
    - news     : catalysts, headlines, "what happened", "why did it move", "today".
    - overview : greetings, vague, or multi-topic where no single tab dominates.
 
-Use your tools to ground the answer in live data before you write it. Prefer the tool
-that matches the tab you will route to. Always fill `ticker` with the primary symbol
-(or '') and list every referenced symbol in `tickers`."""
+If tools are available, use the one matching the tab you will route to, to ground
+the answer in live data; otherwise answer from your knowledge and state when a number
+needs live confirmation. Be fast and decisive. Always fill `ticker` with the primary
+symbol (or '') and list every referenced symbol in `tickers`."""
 
 _ROUTER_INSTRUCTIONS = """Classify the user's latest message into ONE workspace tab and primary ticker.
 Tabs: research (one company), screener (find a list of stocks), macro (rates/jobs/commodities/no ticker),
@@ -174,8 +186,8 @@ def build_agent() -> Agent:
         name="Equilima Analyst",
         instructions=_INSTRUCTIONS,
         model=OPENAI_MODEL,
-        model_settings=ModelSettings(),
-        tools=[research_ticker, price_chart, screen_stocks, macro_overview, latest_news],
+        model_settings=_fast_settings(),
+        tools=[research_ticker, price_chart, screen_stocks, macro_overview, latest_news] if USE_TOOLS else [],
         output_type=AgentOutput,
     )
 
@@ -186,6 +198,7 @@ def build_router() -> Agent:
         name="Equilima Router",
         instructions=_ROUTER_INSTRUCTIONS,
         model=ROUTER_MODEL,
+        model_settings=_fast_settings(),
         output_type=Route,
     )
 
