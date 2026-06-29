@@ -39,14 +39,21 @@ millions of price rows. SQLite stays for transactional users/usage data.
 
 Only official / free sources. Each row records provenance in `collector_runs`.
 
+Macro is **direct-first** from public-domain federal sources — no FRED needed.
+
 | Source | Data | Legal status |
 |---|---|---|
 | **SEC EDGAR** (`data.sec.gov`) | XBRL company facts, filing index, 8-K/10-K/10-Q text | Official US gov, free. MUST send a declared `User-Agent` and stay ≤10 req/s (SEC fair-access). |
-| **FRED** (`api.stlouisfed.org`) | rates, CPI, jobs, GDP, money supply | Free API key (env `FRED_API_KEY`). Attribution required. |
-| **US Treasury FiscalData** | debt, deficit, yields | Official, free, no key. |
-| **BLS** (`api.bls.gov`) | CPI, unemployment, payrolls | Free; optional key raises rate limit. |
+| **BLS** (`api.bls.gov`) | CPI, unemployment, payrolls | Public domain, **keyless** (optional `BLS_API_KEY` raises limits to 20yr/500-per-day). |
+| **US Treasury FiscalData** | total public debt | Public domain, **no key**. |
+| **BEA** (`apps.bea.gov/api`) | real GDP | Public domain; needs a free `BEA_API_KEY`. Skipped if unset. |
+| **FRED** (`api.stlouisfed.org`) | OPTIONAL extras: yields, M2, fed funds, mortgage, sentiment | Convenience aggregator only. Set `FRED_API_KEY` to enable; ⚠️ FRED requires "FRED®" attribution + has per-series copyright — we use it only for public-domain series. Not required. |
 | **Stooq** (`stooq.com`) | free EOD price CSV | Free for personal use. |
 | **yfinance** (Yahoo) | EOD prices, splits/divs, basic info | ⚠️ Unofficial Yahoo endpoint — personal-use / gray ToS. Used as convenience; Stooq/EDGAR are the defensible sources. Keep it swappable. |
+
+Public-domain US-gov data (BLS/BEA/Treasury/SEC) is free to fetch, cache, and
+redistribute — preferred over FRED, which only adds a uniform format but carries
+attribution + per-series-copyright strings.
 
 Rule: **only scrape when legal.** Prefer official APIs with documented free
 access. No auth-walled or ToS-prohibited scraping. Respect robots.txt and rate
@@ -72,8 +79,10 @@ limits. Cache aggressively to minimize requests.
 | `equilima-collect-macro` | daily ~07:00 ET | FRED/Treasury/BLS series |
 | `equilima-collect-edgar` | weekly (Sun) | companyfacts + filing index |
 
-Secrets/keys via `EnvironmentFile=/etc/webapps/equilima.env` (`FRED_API_KEY`,
-optional `BLS_API_KEY`, `SEC_USER_AGENT`). Collectors are decoupled from the web
+Keys via `EnvironmentFile=/etc/webapps/equilima.env` — all optional for the core
+(prices + BLS + Treasury run keyless): `SEC_USER_AGENT` (recommended for EDGAR),
+`BEA_API_KEY` (GDP), `BLS_API_KEY` (higher limits), `FRED_API_KEY` (extra series).
+Collectors are decoupled from the web
 app and survive its restarts. Monitor with `journalctl -u equilima-collect-*`.
 
 ## Universe

@@ -26,8 +26,9 @@ Free AI stock-research app: chat agent + adaptive research + screener + macro.
 
 ## Secrets
 Local: gitignored `.env`. Prod: `/etc/webapps/equilima.env` (loaded via systemd
-`EnvironmentFile`). Keys: `OPENAI_API_KEY`, `JWT_SECRET`, `FRED_API_KEY` (data
-platform), optional `BLS_API_KEY`, `SEC_USER_AGENT`. Never commit secrets.
+`EnvironmentFile`). Keys: `OPENAI_API_KEY`, `JWT_SECRET`. Data platform keys are
+all optional (core macro/prices run keyless): `SEC_USER_AGENT` (EDGAR),
+`BEA_API_KEY` (GDP), `BLS_API_KEY`, `FRED_API_KEY` (extras). Never commit secrets.
 
 ## Conventions
 - Auth = JWT (72h) in `localStorage.eq_token`; authenticated users are
