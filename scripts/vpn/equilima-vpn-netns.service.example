@@ -1,0 +1,13 @@
+[Unit]
+Description=Equilima collector VPN namespace (ProtonVPN WireGuard)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/srv/webapps/equilima/current/scripts/vpn/proton-netns.sh up
+ExecStop=/srv/webapps/equilima/current/scripts/vpn/proton-netns.sh down
+
+[Install]
+WantedBy=multi-user.target

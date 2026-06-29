@@ -11,21 +11,58 @@ PY="$APP_DIR/.venv/bin/python"
 echo "==> App dir: $APP_DIR  user: $SVC_USER"
 [ -x "$PY" ] || { echo "Missing venv python at $PY — deploy the web app first." >&2; exit 1; }
 
+# ─── Optional: route collector egress through ProtonVPN (collectors only) ───
+VPN_CONF="${EQUILIMA_VPN_CONF:-/etc/wireguard/proton.conf}"
+NETNS="${EQUILIMA_VPN_NETNS:-protonvpn}"
+if [ -r "$VPN_CONF" ]; then
+  echo "==> VPN config found ($VPN_CONF) — collectors will egress via namespace '$NETNS'"
+  chmod 600 "$VPN_CONF"
+  tee /etc/systemd/system/equilima-vpn-netns.service >/dev/null <<UNIT
+[Unit]
+Description=Equilima collector VPN namespace (ProtonVPN WireGuard)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=$APP_DIR/scripts/vpn/proton-netns.sh up
+ExecStop=$APP_DIR/scripts/vpn/proton-netns.sh down
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+  chmod +x "$APP_DIR/scripts/vpn/proton-netns.sh"
+  systemctl daemon-reload
+  systemctl enable --now equilima-vpn-netns.service
+  # Service runs as root and drops to $SVC_USER inside the namespace.
+  SVC_RUN_USER="root"
+  EXEC_PREFIX="/usr/sbin/ip netns exec $NETNS /usr/bin/setpriv --reuid=$SVC_USER --regid=$SVC_USER --init-groups "
+  VPN_DEPS="Requires=equilima-vpn-netns.service
+After=equilima-vpn-netns.service"
+else
+  echo "==> No VPN config at $VPN_CONF — collectors egress directly (no VPN)"
+  SVC_RUN_USER="$SVC_USER"
+  EXEC_PREFIX=""
+  VPN_DEPS=""
+fi
+
 echo "==> Templated collector service"
 tee /etc/systemd/system/equilima-collect@.service >/dev/null <<UNIT
 [Unit]
 Description=Equilima data collector (%i)
 After=network-online.target
 Wants=network-online.target
+$VPN_DEPS
 
 [Service]
 Type=oneshot
-User=$SVC_USER
+User=$SVC_RUN_USER
 WorkingDirectory=$APP_DIR
 EnvironmentFile=-/etc/webapps/equilima.env
 Environment=PYTHONUNBUFFERED=1
-ExecStart=$PY $APP_DIR/scripts/collect.py %i
-TimeoutStartSec=3600
+ExecStart=${EXEC_PREFIX}$PY $APP_DIR/scripts/collect.py %i
+TimeoutStartSec=7200
 Nice=10
 UNIT
 
@@ -57,8 +94,16 @@ systemctl enable --now \
   equilima-collect-prices.timer equilima-collect-macro.timer equilima-collect-edgar.timer \
   equilima-collect-info.timer equilima-collect-quotes.timer
 
-echo "==> Initial schema + universe"
-sudo -u "$SVC_USER" env $( [ -r /etc/webapps/equilima.env ] && cat /etc/webapps/equilima.env | grep -E '^(FRED_API_KEY|SEC_USER_AGENT|BLS_API_KEY)=' | xargs ) "$PY" "$APP_DIR/scripts/collect.py" universe || true
+echo "==> Initial schema + universe (via VPN namespace if enabled)"
+if [ -n "$EXEC_PREFIX" ]; then
+  ${EXEC_PREFIX}env $( grep -E '^(SEC_USER_AGENT|BEA_API_KEY|BLS_API_KEY|FRED_API_KEY)=' /etc/webapps/equilima.env 2>/dev/null | xargs ) "$PY" "$APP_DIR/scripts/collect.py" universe || true
+else
+  sudo -u "$SVC_USER" env $( grep -E '^(SEC_USER_AGENT|BEA_API_KEY|BLS_API_KEY|FRED_API_KEY)=' /etc/webapps/equilima.env 2>/dev/null | xargs ) "$PY" "$APP_DIR/scripts/collect.py" universe || true
+fi
+
+if [ -r "$VPN_CONF" ]; then
+  echo "==> VPN egress check:"; "$APP_DIR/scripts/vpn/proton-netns.sh" status || true
+fi
 
 echo ""
 echo "Done. Check:    systemctl list-timers 'equilima-collect-*'"

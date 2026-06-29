@@ -105,6 +105,23 @@ Cost of full mode: DuckDB grows to multiple GB; the one-time `prices-full`
 backfill takes many hours (yfinance throttles, delisted tickers warn-and-skip).
 Daily incremental + 30-min quotes stay cheap.
 
+## VPN isolation (collector egress)
+
+Collector scraping is routed through **ProtonVPN (WireGuard)** so it never uses
+the server's real IP — the rest of the host (web app, AWS reverse tunnel, SSH)
+is untouched.
+
+- A dedicated network namespace `protonvpn` holds a WireGuard interface built
+  from `/etc/wireguard/proton.conf` (`scripts/vpn/proton-netns.sh`, started by
+  `equilima-vpn-netns.service`). The wg device is created in the root ns then
+  moved into the namespace, so the encrypted UDP rides the real route to Proton
+  while apps inside the namespace are forced through the tunnel.
+- Collector units run `ip netns exec protonvpn setpriv --reuid=neo … collect.py`
+  — **fail-closed**: if the VPN namespace isn't up, the collector has no route
+  and simply fails (never leaks over the real IP).
+- `install-collectors.sh` auto-detects `proton.conf`: present → VPN-wrapped;
+  absent → direct egress. Verify: `scripts/vpn/proton-netns.sh status`.
+
 ## Read path
 
 App/agent read warehouse-first (complete, fast), falling back to live yfinance
