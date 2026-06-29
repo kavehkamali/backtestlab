@@ -19,7 +19,7 @@ SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 
 def _sec_user_agent() -> str:
     # SEC requires a descriptive UA with contact info.
-    return os.environ.get("SEC_USER_AGENT", "Equilima Research data@equilima.com")
+    return os.environ.get("SEC_USER_AGENT", "Equilima Research info@equilima.com")
 
 
 # Non-stock assets to track (canonical Yahoo symbols), mirrors the research index.
