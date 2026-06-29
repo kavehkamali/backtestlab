@@ -95,9 +95,15 @@ app and survive its restarts. Monitor with `journalctl -u equilima-collect-*`.
 
 ## Universe
 
-Existing `stock_lists.py` (SP500 + mid/small + TSX60) **plus** the adaptive
-research asset classes (ETFs, crypto, commodities, indices). CIKs resolved from
-SEC `company_tickers.json`. Expandable to the full SEC ticker list later.
+**Full US market by default** — every SEC-registered ticker from
+`company_tickers.json` (~10.5k: whole NASDAQ + NYSE + AMEX), unioned with the
+curated `stock_lists.py` names, **plus** the non-stock asset classes (ETFs,
+crypto, commodities, indices, FX, bond). CIKs attached for ~10.4k filers.
+Set `EQUILIMA_FULL_UNIVERSE=0` to fall back to the curated ~600.
+
+Cost of full mode: DuckDB grows to multiple GB; the one-time `prices-full`
+backfill takes many hours (yfinance throttles, delisted tickers warn-and-skip).
+Daily incremental + 30-min quotes stay cheap.
 
 ## Read path
 

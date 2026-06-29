@@ -85,9 +85,18 @@ def _fetch_cik_map() -> dict[str, str]:
     return out
 
 
-def build_universe() -> int:
-    stocks = _stock_symbols()
+def build_universe(full_market: bool | None = None) -> int:
+    # Full market = every SEC-registered US-listed ticker (whole NASDAQ/NYSE/AMEX,
+    # ~10k+). Default on; set EQUILIMA_FULL_UNIVERSE=0 to use the curated lists.
+    if full_market is None:
+        full_market = os.environ.get("EQUILIMA_FULL_UNIVERSE", "1").strip().lower() not in ("0", "false", "no", "")
+
+    curated = _stock_symbols()
     cik_map = _fetch_cik_map()
+    if full_market and cik_map:
+        stocks = sorted(set(curated) | set(cik_map.keys()))
+    else:
+        stocks = curated
 
     rows: list[tuple] = []
     for sym in stocks:
