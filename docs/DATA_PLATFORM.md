@@ -26,8 +26,9 @@ Neo (private Dell host)
 │   ├── universe.py      symbol set -> symbols table (+ SEC CIK map)
 │   └── sources/
 │       ├── prices.py    EOD OHLCV + splits/dividends   (yfinance, Stooq fallback)
+│       ├── info.py      full Yahoo .info snapshot + fast batch quotes
 │       ├── edgar.py     SEC EDGAR companyfacts + filings (official API)
-│       └── macro.py     FRED + US Treasury + BLS         (official APIs)
+│       └── macro.py     BLS + US Treasury + BEA/FRED     (direct gov APIs)
 ├── scripts/collectors/  CLI entrypoints (one per source)
 └── systemd timers:      equilima-collect-{prices,edgar,macro}.timer
 ```
@@ -64,6 +65,7 @@ limits. Cache aggressively to minimize requests.
 - `symbols(symbol PK, name, asset_class, cik, exchange, currency, active, added_at)`
 - `prices_daily(symbol, date, open, high, low, close, adj_close, volume, source, PRIMARY KEY(symbol,date))`
 - `corporate_actions(symbol, date, type, value, source)`  — splits, dividends
+- `yf_info(symbol PK, fetched_at, name, asset_class, sector, industry, price, market_cap, pe_trailing, info_json)`  — full Yahoo .info JSON + extracts
 - `fundamentals_facts(cik, symbol, taxonomy, tag, unit, fy, fp, period_end, value, form, filed, source)`
 - `filings(cik, symbol, accession, form, filed, period, primary_doc_url, title, source)`
 - `filing_text(accession, section, text, fetched_at)`  — raw text for Track B
@@ -75,9 +77,15 @@ limits. Cache aggressively to minimize requests.
 
 | Timer | Cadence | Collector |
 |---|---|---|
-| `equilima-collect-prices` | daily ~18:00 ET (after close) | EOD prices + corporate actions |
-| `equilima-collect-macro` | daily ~07:00 ET | FRED/Treasury/BLS series |
+| `equilima-collect-quotes` | every 30 min, Mon–Fri market hours | fast batch latest bar (continuous) |
+| `equilima-collect-prices` | daily 18:30 ET (after close) | EOD prices + corporate actions |
+| `equilima-collect-info` | daily 20:00 ET | full Yahoo .info snapshot per symbol |
+| `equilima-collect-macro` | daily 07:00 ET | BLS + Treasury (+ optional BEA/FRED) |
 | `equilima-collect-edgar` | weekly (Sun) | companyfacts + filing index |
+
+DuckDB is single-writer; timers are staggered and each run is short. `db.connect`
+retries briefly on the lock, and the read path falls back to live data if the DB
+is held (e.g. during the one-time `prices-full` backfill).
 
 Keys via `EnvironmentFile=/etc/webapps/equilima.env` — all optional for the core
 (prices + BLS + Treasury run keyless): `SEC_USER_AGENT` (recommended for EDGAR),

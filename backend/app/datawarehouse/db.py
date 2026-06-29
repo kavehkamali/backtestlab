@@ -8,6 +8,7 @@ should open read_only=True.
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 
 import duckdb
@@ -20,13 +21,25 @@ def warehouse_path() -> Path:
     return Path.home() / ".equilima_data" / "market.duckdb"
 
 
-def connect(read_only: bool = False) -> duckdb.DuckDBPyConnection:
+def connect(read_only: bool = False, retries: int = 8, retry_wait: float = 1.5) -> duckdb.DuckDBPyConnection:
+    """Open the warehouse. DuckDB is single-writer with an exclusive lock, so
+    briefly retry when another short collector holds it. Callers reading from the
+    web app should pass read_only=True and fall back to live data if this raises
+    (e.g. during the long one-time backfill)."""
     p = warehouse_path()
     p.parent.mkdir(parents=True, exist_ok=True)
-    # A read-only handle on a not-yet-created file would fail; ensure schema first.
     if read_only and not p.exists():
         init_schema()
-    return duckdb.connect(str(p), read_only=read_only)
+    last = None
+    for _ in range(max(1, retries)):
+        try:
+            return duckdb.connect(str(p), read_only=read_only)
+        except duckdb.IOException as e:
+            if "lock" not in str(e).lower():
+                raise
+            last = e
+            time.sleep(retry_wait)
+    raise last
 
 
 _SCHEMA = """
@@ -98,6 +111,22 @@ CREATE TABLE IF NOT EXISTS filing_text (
     text       VARCHAR,
     fetched_at TIMESTAMP DEFAULT now(),
     PRIMARY KEY (accession, section)
+);
+
+-- Full Yahoo Finance snapshot per symbol (the entire .info dict as JSON) plus
+-- a few extracted columns for querying. Latest snapshot upserted; refreshed
+-- continuously by the info/quotes collectors.
+CREATE TABLE IF NOT EXISTS yf_info (
+    symbol      VARCHAR PRIMARY KEY,
+    fetched_at  TIMESTAMP,
+    name        VARCHAR,
+    asset_class VARCHAR,
+    sector      VARCHAR,
+    industry    VARCHAR,
+    price       DOUBLE,
+    market_cap  BIGINT,
+    pe_trailing DOUBLE,
+    info_json   VARCHAR          -- complete yfinance .info dict, JSON-encoded
 );
 
 CREATE TABLE IF NOT EXISTS macro_series (

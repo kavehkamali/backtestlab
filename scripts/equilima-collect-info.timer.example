@@ -1,0 +1,10 @@
+[Unit]
+Description=Equilima Yahoo full-info collector (daily)
+
+[Timer]
+OnCalendar=*-*-* 20:00 America/New_York
+Persistent=true
+Unit=equilima-collect@info.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Equilima latest-quote collector (every 30 min, market hours)
+
+[Timer]
+OnCalendar=Mon..Fri 09..16:00/30 America/New_York
+Persistent=false
+Unit=equilima-collect@quotes.service
+
+[Install]
+WantedBy=timers.target

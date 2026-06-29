@@ -9,6 +9,7 @@ User=neo
 WorkingDirectory=/srv/webapps/equilima/current
 # Keys: FRED_API_KEY, SEC_USER_AGENT, BLS_API_KEY (optional).
 EnvironmentFile=-/etc/webapps/equilima.env
+Environment=PYTHONUNBUFFERED=1
 # Reuse the web app's venv (has duckdb/yfinance/httpx from backend/requirements.txt).
 ExecStart=/srv/webapps/equilima/current/.venv/bin/python /srv/webapps/equilima/current/scripts/collect.py %i
 TimeoutStartSec=3600
