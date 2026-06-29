@@ -1,0 +1,11 @@
+[Unit]
+Description=Equilima EOD price collector (daily after US close)
+
+[Timer]
+# 18:30 America/New_York, after the US market close.
+OnCalendar=Mon..Fri 18:30 America/New_York
+Persistent=true
+Unit=equilima-collect@prices.service
+
+[Install]
+WantedBy=timers.target

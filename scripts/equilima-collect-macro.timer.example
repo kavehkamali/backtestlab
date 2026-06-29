@@ -1,0 +1,10 @@
+[Unit]
+Description=Equilima macro/gov collector (daily morning)
+
+[Timer]
+OnCalendar=*-*-* 07:00 America/New_York
+Persistent=true
+Unit=equilima-collect@macro.service
+
+[Install]
+WantedBy=timers.target

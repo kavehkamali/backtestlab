@@ -11,3 +11,4 @@ python-dateutil
 passlib[bcrypt]
 python-jose[cryptography]
 httpx
+duckdb

@@ -1,0 +1,10 @@
+[Unit]
+Description=Equilima SEC EDGAR collector (weekly)
+
+[Timer]
+OnCalendar=Sun 05:00 America/New_York
+Persistent=true
+Unit=equilima-collect@edgar.service
+
+[Install]
+WantedBy=timers.target
