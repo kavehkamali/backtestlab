@@ -40,7 +40,7 @@ EDGAR_BASE = "https://data.sec.gov"
 
 
 def _ua() -> str:
-    return os.environ.get("SEC_USER_AGENT", "Equilima Research info@equilima.com")
+    return os.environ.get("SEC_USER_AGENT", "Equilima Research data@equilima.com")
 
 
 def _get(client: httpx.Client, url: str):
