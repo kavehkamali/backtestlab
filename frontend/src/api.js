@@ -492,6 +492,33 @@ export async function agentHealth() {
   } catch { return { status: 'offline' }; }
 }
 
+/** Warehouse OHLCV history for pro charts. Returns {available, bars}. */
+export async function fetchWarehousePrices(symbol, days = 0) {
+  try {
+    const res = await fetch(`${BASE}/warehouse/prices/${encodeURIComponent(symbol)}${days ? `?days=${days}` : ''}`, { headers: { ...authHeaders() } });
+    if (!res.ok) return { available: false, bars: [] };
+    return await res.json();
+  } catch { return { available: false, bars: [] }; }
+}
+
+/** EDGAR financial-statement time series. {available, annual, quarterly}. */
+export async function fetchWarehouseFinancials(symbol) {
+  try {
+    const res = await fetch(`${BASE}/warehouse/financials/${encodeURIComponent(symbol)}`, { headers: { ...authHeaders() } });
+    if (!res.ok) return { available: false, annual: [], quarterly: [] };
+    return await res.json();
+  } catch { return { available: false, annual: [], quarterly: [] }; }
+}
+
+/** Recent SEC filings feed. {available, filings}. */
+export async function fetchWarehouseFilings(symbol, limit = 25) {
+  try {
+    const res = await fetch(`${BASE}/warehouse/filings/${encodeURIComponent(symbol)}?limit=${limit}`, { headers: { ...authHeaders() } });
+    if (!res.ok) return { available: false, filings: [] };
+    return await res.json();
+  } catch { return { available: false, filings: [] }; }
+}
+
 /** Live symbol search (any global ticker/crypto/commodity/etf/index). Best-effort. */
 export async function searchSymbols(q) {
   const query = String(q || '').trim();

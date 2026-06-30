@@ -6,6 +6,7 @@ import SnowflakeChart from './SnowflakeChart';
 import { buildResearchPriceChartRows, formatResearchPriceXTick } from '../utils/marketHeroChart';
 import TerminalPanel from './terminal/TerminalPanel';
 import ComparePanel from './ComparePanel';
+import ResearchDashboard from './research/ResearchDashboard';
 
 const RESEARCH_RECENTS_KEY = 'eq_research_recent_symbols_v1';
 const DEFAULT_RESEARCH_SHORTCUTS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'JPM', 'V', 'WMT', 'UNH', 'XOM'];
@@ -1547,6 +1548,7 @@ function ResearchFundamentals({
   const [macroLoading, setMacroLoading] = useState(false);
   const [macroError, setMacroError] = useState('');
   const [liveResults, setLiveResults] = useState([]);
+  const [agentIntent, setAgentIntent] = useState(''); // agent query/subtab -> card ordering
   const symbolRef = useRef(symbol);
 
   useEffect(() => {
@@ -1642,6 +1644,7 @@ function ResearchFundamentals({
   useEffect(() => {
     const onAssistantQuery = (e) => {
       const detail = e.detail || {};
+      if (detail.userMessage || detail.message) setAgentIntent(String(detail.userMessage || detail.message));
       const target = resolveResearchTargetFromAssistant(detail);
       if (!target) return;
       if (target.stock === false && target.chartable === false) openChartAsset(target);
@@ -1666,6 +1669,7 @@ function ResearchFundamentals({
   useEffect(() => {
     const onSub = (e) => {
       const sub = e.detail?.sub;
+      if (sub) setAgentIntent(sub === 'fundamentals' ? 'financials' : sub);
       if (sub === 'terminal' || sub === 'chart') setTab('terminal');
       else if (sub === 'backtest') setTab('backtest');
       else if (sub === 'fundamentals') setTab('summary');
@@ -1783,19 +1787,6 @@ function ResearchFundamentals({
       else loadSymbol(target?.symbol || next);
     }
   };
-  const adaptiveAsset = !!data && data.asset_class && data.asset_class !== 'stock';
-  const activeTabs = adaptiveAsset
-    ? ASSET_RESEARCH_TABS
-    : assetContext?.stock === false
-    ? ASSET_TABS.filter((t) => !(t.chartOnly && assetContext.chartable === false))
-    : TABS;
-  const effectiveTab = tab === 'backtest'
-    ? tab
-    : activeTabs.some((t) => t.id === tab)
-    ? tab
-    : (activeTabs[0]?.id || tab);
-  const showResearchTabs = view !== 'backtest' && (data || assetContext?.stock === false);
-
   return (
     <div className="space-y-4">
       <div className="space-y-2">
@@ -1863,68 +1854,34 @@ function ResearchFundamentals({
         </div>
       </div>
 
-      {showResearchTabs && (
-        <div className="flex gap-0.5 border-b border-zinc-200/80 overflow-x-auto">
-          {activeTabs.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`px-4 py-2 text-xs font-medium whitespace-nowrap transition-all border-b-2 ${
-                effectiveTab === t.id ? 'text-indigo-700 border-indigo-500' : 'text-zinc-500 border-transparent hover:text-zinc-800'
-              }`}>{t.label}</button>
-          ))}
-        </div>
-      )}
+      {loading && <div className="flex items-center justify-center h-48 text-zinc-500 dark:text-zinc-400"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...</div>}
+      {error && <div className="p-4 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-900">{error}</div>}
 
-      {!data && assetContext?.stock === false && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 ring-1 ring-zinc-200/70">
-          <div>
-            <div className="text-xs font-semibold text-zinc-900">{assetContext.name}</div>
-            <div className="text-[10px] uppercase tracking-wide text-zinc-500">{assetContext.type} · {assetContext.symbol}</div>
-          </div>
-          <span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-100">
-            {assetContext.chartable === false ? 'Macro research' : 'Market research'}
-          </span>
-        </div>
-      )}
-
-      {loading && <div className="flex items-center justify-center h-48 text-zinc-500"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...</div>}
-      {error && <div className="p-4 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80">{error}</div>}
-
-      {(data || tab === 'backtest' || assetContext?.stock === false || tab === 'terminal') && !loading && (
+      {!loading && (
         <>
-          {effectiveTab === 'overview' && adaptiveAsset && <AssetResearch data={data} />}
-          {effectiveTab === 'overview' && !adaptiveAsset && assetContext?.stock === false && (
-            <AssetOverviewTab
-              asset={assetContext}
-              macroData={macroData}
-              macroLoading={macroLoading}
-              onOpenTab={setTab}
-            />
-          )}
-          {effectiveTab === 'summary' && data && <SummaryTab data={data} />}
-          {effectiveTab === 'financials' && data && <FinancialsTab data={data} />}
-          {effectiveTab === 'ownership' && data && <OwnershipTab data={data} />}
-          {effectiveTab === 'risk' && data && <RiskTab data={data} />}
-          {effectiveTab === 'news' && data && <NewsTab data={data} />}
-          {effectiveTab === 'macro' && assetContext?.stock === false && (
-            <AssetMacroTab asset={assetContext} macroData={macroData} macroLoading={macroLoading} macroError={macroError} />
-          )}
-          {effectiveTab === 'asset_news' && adaptiveAsset && <NewsTab data={data} />}
-          {effectiveTab === 'asset_news' && !adaptiveAsset && assetContext?.stock === false && (
-            <AssetNewsTab asset={assetContext} macroData={macroData} macroLoading={macroLoading} />
-          )}
-          {effectiveTab === 'terminal' && (
+          {/* Backtest tool */}
+          {view === 'backtest' || tab === 'backtest' ? (
+            <ComparePanel strategies={strategies} onCompare={onCompare} results={compareResults} loading={compareLoading} />
+          ) : tab === 'terminal' ? (
             <div className="overflow-hidden rounded-xl ring-1 ring-zinc-200/70 dark:ring-zinc-800">
               <TerminalPanel embedded symbol={symbol} />
             </div>
-          )}
-          {effectiveTab === 'backtest' && (
-            <ComparePanel
-              strategies={strategies}
-              onCompare={onCompare}
-              results={compareResults}
-              loading={compareLoading}
-            />
-          )}
+          ) : data ? (
+            /* Adaptive, card-based research dashboard (all asset classes) */
+            <ResearchDashboard symbol={symbol} data={data} intent={agentIntent} onNavigate={onNavigate} />
+          ) : assetContext?.stock === false ? (
+            /* Macro-only FRED-style series (not a tradable yfinance symbol) */
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+                <div>
+                  <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{assetContext.name}</div>
+                  <div className="text-[10px] uppercase tracking-wide text-zinc-500">{assetContext.type} · {assetContext.symbol}</div>
+                </div>
+                <span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-300">Macro research</span>
+              </div>
+              <AssetMacroTab asset={assetContext} macroData={macroData} macroLoading={macroLoading} macroError={macroError} />
+            </>
+          ) : null}
         </>
       )}
     </div>
