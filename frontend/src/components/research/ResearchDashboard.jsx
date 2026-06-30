@@ -4,7 +4,7 @@ import { fetchWarehouseFinancials, fetchWarehouseFilings } from '../../api';
 import ProChart from './ProChart';
 import {
   Panel, KeyStatsCard, PerformanceCard, RiskCard, ValuationCard, TargetsCard,
-  FinancialsCard, FilingsCard, AboutCard, money, num, pct,
+  FinancialsCard, FilingsCard, AboutCard, RangeCard, money, num, pct,
 } from './cards';
 
 const CLASS_LABEL = {
@@ -20,6 +20,7 @@ function buildRegistry(dark) {
   return [
     { id: 'keystats', classes: '*', span: 2, prio: 90, ok: (c) => !!c.s, node: (c) => <KeyStatsCard s={c.s} ac={c.ac} /> },
     { id: 'performance', classes: '*', span: 1, prio: 80, ok: (c) => c.rm?.performance && Object.keys(c.rm.performance).length, node: (c) => <PerformanceCard perf={c.rm.performance} /> },
+    { id: 'range', classes: '*', span: 1, prio: 75, ok: (c) => c.s.low_52w != null && c.s.high_52w != null && c.s.price != null, node: (c) => <RangeCard s={c.s} /> },
     { id: 'valuation', classes: ['stock', 'etf'], span: 1, prio: 70, ok: (c) => c.s.pe_trailing != null || c.s.price_to_book != null, node: (c) => <ValuationCard s={c.s} /> },
     { id: 'targets', classes: ['stock'], span: 1, prio: 65, ok: (c) => c.s.target_mean != null || c.s.recommendation, node: (c) => <TargetsCard s={c.s} /> },
     { id: 'financials', classes: ['stock'], span: 2, prio: 60, ok: (c) => c.financials?.annual?.length, node: (c) => <FinancialsCard financials={c.financials} dark={dark} /> },

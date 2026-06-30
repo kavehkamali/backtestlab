@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from 'recharts';
@@ -105,15 +106,24 @@ export function KeyStatsCard({ s, ac }) {
 export function PerformanceCard({ perf }) {
   const entries = Object.entries(perf || {});
   if (!entries.length) return null;
+  const maxAbs = Math.max(...entries.map(([, v]) => Math.abs(Number(v) || 0)), 1);
   return (
-    <Panel title="Performance">
-      <div className="flex flex-wrap gap-2">
-        {entries.map(([k, v]) => (
-          <div key={k} className={`min-w-[64px] rounded-xl px-3 py-2 text-center ${v >= 0 ? 'bg-emerald-500/10' : 'bg-rose-500/10'}`}>
-            <div className="text-[10px] text-zinc-400">{k}</div>
-            <div className={`font-mono text-sm font-bold ${toneCls(v)}`}>{pct(v)}</div>
-          </div>
-        ))}
+    <Panel title="Performance" sub="Total return by period">
+      <div className="space-y-1.5">
+        {entries.map(([k, v]) => {
+          const w = Math.min(48, (Math.abs(v) / maxAbs) * 48);
+          return (
+            <div key={k} className="flex items-center gap-2">
+              <span className="w-9 shrink-0 text-[11px] font-medium text-zinc-400">{k}</span>
+              <div className="relative h-5 flex-1 overflow-hidden rounded bg-zinc-50 dark:bg-zinc-800/50">
+                <div className="absolute left-1/2 top-0 h-5 w-px bg-zinc-300 dark:bg-zinc-600" />
+                <div className={`absolute top-0 h-5 ${v >= 0 ? 'rounded-r bg-emerald-500/70' : 'rounded-l bg-rose-500/70'}`}
+                  style={v >= 0 ? { left: '50%', width: `${w}%` } : { right: '50%', width: `${w}%` }} />
+              </div>
+              <span className={`w-16 shrink-0 text-right font-mono text-[11px] font-semibold ${toneCls(v)}`}>{pct(v)}</span>
+            </div>
+          );
+        })}
       </div>
     </Panel>
   );
@@ -129,6 +139,32 @@ export function RiskCard({ rm }) {
         ['Max Drawdown', rm.max_drawdown != null ? `${rm.max_drawdown}%` : '—', toneCls(rm.max_drawdown)],
         ['VaR 95%', rm.var_95 != null ? `${rm.var_95}%` : '—'], ['Beta', num(rm.beta)],
       ]} />
+    </Panel>
+  );
+}
+
+export function RangeCard({ s }) {
+  const lo = s.low_52w, hi = s.high_52w, px = s.price;
+  if (lo == null || hi == null || px == null || hi <= lo) return null;
+  const posPct = Math.max(0, Math.min(100, ((px - lo) / (hi - lo)) * 100));
+  const dlo = s.day_low, dhi = s.day_high;
+  return (
+    <Panel title="Price Range">
+      <div className="text-[10px] uppercase tracking-wide text-zinc-400">52-week</div>
+      <div className="relative mt-2 h-2 rounded-full bg-gradient-to-r from-rose-400/40 via-zinc-200 to-emerald-400/40 dark:via-zinc-700">
+        <div className="absolute -top-1 h-4 w-1 -translate-x-1/2 rounded-full bg-zinc-900 dark:bg-zinc-100" style={{ left: `${posPct}%` }} />
+      </div>
+      <div className="mt-1 flex justify-between font-mono text-[11px]">
+        <span className="text-rose-600 dark:text-rose-400">${num(lo)}</span>
+        <span className="font-semibold text-zinc-700 dark:text-zinc-200">${num(px)}</span>
+        <span className="text-emerald-600 dark:text-emerald-400">${num(hi)}</span>
+      </div>
+      {(dlo != null && dhi != null) && (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <Stat label="Day Low" value={`$${num(dlo)}`} />
+          <Stat label="Day High" value={`$${num(dhi)}`} />
+        </div>
+      )}
     </Panel>
   );
 }
@@ -178,31 +214,47 @@ export function TargetsCard({ s }) {
 }
 
 export function FinancialsCard({ financials, dark }) {
-  const ann = financials?.annual || [];
-  if (!ann.length) return null;
-  const data = ann.map((r) => ({
-    period: String(r.period_end).slice(0, 4),
-    revenue: r.revenue, net_income: r.net_income, margin: r.revenue ? (r.net_income / r.revenue) * 100 : null,
+  const annual = financials?.annual || [];
+  const quarterly = financials?.quarterly || [];
+  const [mode, setMode] = useState(annual.length ? 'annual' : 'quarterly');
+  const src = (mode === 'annual' ? annual : quarterly);
+  if (!annual.length && !quarterly.length) return null;
+  const rows = src.length ? src : (annual.length ? annual : quarterly);
+
+  const data = rows.map((r) => ({
+    period: mode === 'annual' ? String(r.period_end).slice(0, 4) : `${String(r.fy).slice(2)}${r.fp || ''}`,
+    revenue: r.revenue, net_income: r.net_income,
+    margin: r.revenue ? Math.round((r.net_income / r.revenue) * 1000) / 10 : null,
   }));
-  const latest = ann[ann.length - 1];
+  const latest = rows[rows.length - 1] || {};
+  const axis = dark ? '#9ca3af' : '#6b7280';
+  const toggle = (m, label) => (
+    <button onClick={() => setMode(m)} disabled={(m === 'annual' ? annual : quarterly).length === 0}
+      className={`h-6 rounded px-2 text-[10px] font-semibold transition disabled:opacity-30 ${mode === m ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400'}`}>{label}</button>
+  );
+
   return (
-    <Panel title="Financials" sub="Annual · SEC EDGAR (XBRL)">
+    <Panel title="Financials" sub="SEC EDGAR (XBRL)"
+      actions={<div className="flex rounded-md bg-zinc-100 p-0.5 dark:bg-zinc-800">{toggle('annual', 'Annual')}{toggle('quarterly', 'Quarterly')}</div>}>
       <div className="grid grid-cols-3 gap-2">
         <Stat label="Revenue" value={money(latest.revenue)} />
         <Stat label="Net Income" value={money(latest.net_income)} tone={toneCls(latest.net_income)} />
-        <Stat label="Diluted EPS" value={latest.eps_diluted != null ? `$${num(latest.eps_diluted)}` : '—'} />
+        <Stat label="Net Margin" value={latest.revenue ? `${((latest.net_income / latest.revenue) * 100).toFixed(1)}%` : '—'} />
       </div>
-      <div className="mt-3 h-44">
+      <div className="mt-3 h-48">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+          <ComposedChart data={data} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={dark ? '#1f2937' : '#eef0f3'} />
-            <XAxis dataKey="period" tick={{ fontSize: 10, fill: dark ? '#9ca3af' : '#6b7280' }} tickLine={false} axisLine={false} />
-            <YAxis tickFormatter={(v) => compact(v)} tick={{ fontSize: 9, fill: dark ? '#9ca3af' : '#6b7280' }} width={42} tickLine={false} axisLine={false} />
-            <Tooltip formatter={(v, n) => [money(v), n === 'revenue' ? 'Revenue' : 'Net income']} contentStyle={{ fontSize: 11, borderRadius: 8, background: dark ? '#18181b' : '#fff', border: `1px solid ${dark ? '#374151' : '#e5e7eb'}` }} />
-            <Bar dataKey="revenue" radius={[3, 3, 0, 0]} fill="#6366f1" />
-            <Bar dataKey="net_income" radius={[3, 3, 0, 0]}>
+            <XAxis dataKey="period" tick={{ fontSize: 10, fill: axis }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+            <YAxis yAxisId="l" tickFormatter={(v) => compact(v)} tick={{ fontSize: 9, fill: axis }} width={42} tickLine={false} axisLine={false} />
+            <YAxis yAxisId="r" orientation="right" tickFormatter={(v) => `${v}%`} tick={{ fontSize: 9, fill: '#f59e0b' }} width={34} tickLine={false} axisLine={false} />
+            <Tooltip formatter={(v, n) => n === 'margin' ? [`${v}%`, 'Net margin'] : [money(v), n === 'revenue' ? 'Revenue' : 'Net income']}
+              contentStyle={{ fontSize: 11, borderRadius: 8, background: dark ? '#18181b' : '#fff', border: `1px solid ${dark ? '#374151' : '#e5e7eb'}` }} />
+            <Bar yAxisId="l" dataKey="revenue" radius={[3, 3, 0, 0]} fill="#6366f1" name="revenue" />
+            <Bar yAxisId="l" dataKey="net_income" radius={[3, 3, 0, 0]} name="net_income">
               {data.map((d, i) => <Cell key={i} fill={d.net_income >= 0 ? '#10b981' : '#f43f5e'} />)}
             </Bar>
+            <Line yAxisId="r" type="monotone" dataKey="margin" stroke="#f59e0b" strokeWidth={2} dot={false} name="margin" />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
