@@ -16,7 +16,16 @@ router = APIRouter(prefix="/api/research", tags=["research"])
 
 
 def _compute_chart(symbol: str):
-    """2y daily close+volume series (shared by all asset classes)."""
+    """2y daily close+volume series (shared by all asset classes).
+    Warehouse-first (local DuckDB), falling back to live yfinance on miss/lock."""
+    try:
+        from .datawarehouse import read as wh_read
+        rows = wh_read.prices(symbol, lookback_days=520)
+        if rows:
+            return [{"date": r["date"], "close": round(float(r["close"]), 2),
+                     "volume": int(r["volume"] or 0)} for r in rows if r.get("close") is not None]
+    except Exception:
+        pass
     chart = []
     try:
         df = fetch_price_cached(symbol, period="2y")
@@ -819,18 +828,8 @@ def _research_compute(symbol: str):
         except Exception:
             pass
 
-        # ─── Price chart data (1Y) ───
-        chart = []
-        try:
-            df = fetch_price_cached(symbol, period="2y")
-            for i in range(len(df)):
-                chart.append({
-                    "date": df.index[i].strftime("%Y-%m-%d"),
-                    "close": round(float(df["close"].iloc[i]), 2),
-                    "volume": int(df["volume"].iloc[i]),
-                })
-        except Exception:
-            pass
+        # ─── Price chart data (warehouse-first, live fallback) ───
+        chart = _compute_chart(symbol)
 
         return {
             "asset_class": "stock",

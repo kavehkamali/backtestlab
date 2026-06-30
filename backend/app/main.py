@@ -2167,6 +2167,17 @@ async def agent_route(request: Request):
         raise HTTPException(status_code=502, detail=f"Router unavailable: {str(e)}")
 
 
+@app.get("/api/warehouse/health")
+async def warehouse_health():
+    """Data-platform coverage/freshness. Best-effort; reports available=false if
+    the DuckDB warehouse can't be read (e.g. a collector holds the write lock)."""
+    try:
+        from .datawarehouse import read as wh_read
+        return wh_read.coverage()
+    except Exception as e:
+        return {"available": False, "error": str(e)}
+
+
 @app.get("/api/agent/health")
 async def agent_health():
     try:
