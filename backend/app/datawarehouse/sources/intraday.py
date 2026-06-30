@@ -71,15 +71,26 @@ def _fetch(batch, interval):
     return rows
 
 
+def _curated_subset() -> list[str]:
+    """The active intraday set, defined in code (not a DB flag): curated stocks
+    + the non-stock asset classes."""
+    from ..universe import _stock_symbols, ASSET_CLASS_SYMBOLS
+    syms = list(_stock_symbols())
+    for items in ASSET_CLASS_SYMBOLS.values():
+        syms.extend(sym for sym, _ in items)
+    # de-dup, preserve order
+    seen, out = set(), []
+    for s in syms:
+        if s not in seen:
+            seen.add(s)
+            out.append(s)
+    return out
+
+
 def collect_intraday(symbols: list[str] | None = None, intervals=DEFAULT_INTERVALS, chunk: int = 60) -> dict:
     started = datetime.utcnow()
     if symbols is None:
-        con = connect()
-        try:
-            symbols = [r[0] for r in con.execute(
-                "SELECT symbol FROM symbols WHERE active AND intraday ORDER BY symbol").fetchall()]
-        finally:
-            con.close()
+        symbols = _curated_subset()
 
     total = 0
     note = ""
