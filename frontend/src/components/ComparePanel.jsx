@@ -136,12 +136,15 @@ export default function ComparePanel({ strategies, onCompare, results, loading }
   }, [capital, period, runCompare, selected, strategies, symbol]);
 
   const mergedEquity = [];
-  if (results?.length) {
-    const maxLen = Math.max(...results.map(r => r.equity_curve.length));
+  // Guard: only use rows that actually carry an equity_curve (a partial/error
+  // result row otherwise throws and white-screens the page).
+  const validResults = (results || []).filter(r => Array.isArray(r?.equity_curve) && r.equity_curve.length);
+  if (validResults.length) {
+    const maxLen = Math.max(...validResults.map(r => r.equity_curve.length));
     const step = Math.max(1, Math.floor(maxLen / 500));
     for (let i = 0; i < maxLen; i += step) {
       const point = {};
-      results.forEach(r => {
+      validResults.forEach(r => {
         if (i < r.equity_curve.length) {
           point.date = r.equity_curve[i].date;
           point[r.strategy] = r.equity_curve[i].equity;
@@ -150,7 +153,7 @@ export default function ComparePanel({ strategies, onCompare, results, loading }
       mergedEquity.push(point);
     }
     const lastPoint = {};
-    results.forEach(r => {
+    validResults.forEach(r => {
       const last = r.equity_curve[r.equity_curve.length - 1];
       lastPoint.date = last.date;
       lastPoint[r.strategy] = last.equity;

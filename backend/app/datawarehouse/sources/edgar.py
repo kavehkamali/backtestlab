@@ -69,9 +69,12 @@ def _company_facts(client, cik: str, symbol: str, all_tags: bool) -> list[tuple]
                     end = p.get("end")
                     if not end or p.get("val") is None:
                         continue
+                    # PK columns must be non-null in DuckDB — coerce missing
+                    # fy/fp/accn so a fact without them doesn't fail the batch.
                     rows.append((cik, symbol, taxonomy, tag, unit,
-                                 p.get("fy"), p.get("fp"), end, _f(p.get("val")),
-                                 p.get("form"), p.get("filed")))
+                                 int(p["fy"]) if p.get("fy") is not None else 0,
+                                 p.get("fp") or "NA", end, _f(p.get("val")),
+                                 p.get("form") or "NA", p.get("filed"), p.get("accn") or "NA"))
     return rows
 
 
@@ -139,9 +142,9 @@ def collect_edgar(symbols: list[str] | None = None, max_companies: int | None = 
                     if facts:
                         con.executemany(
                             """INSERT INTO fundamentals_facts
-                               (cik,symbol,taxonomy,tag,unit,fy,fp,period_end,value,form,filed)
-                               VALUES (?,?,?,?,?,?,?,?,?,?,?)
-                               ON CONFLICT (cik,tag,unit,period_end,form) DO UPDATE SET
+                               (cik,symbol,taxonomy,tag,unit,fy,fp,period_end,value,form,filed,accn)
+                               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                               ON CONFLICT (cik,taxonomy,tag,unit,period_end,fy,fp,accn) DO UPDATE SET
                                  value=excluded.value, filed=excluded.filed, symbol=excluded.symbol""",
                             facts)
                         fact_n += len(facts)

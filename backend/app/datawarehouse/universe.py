@@ -93,14 +93,21 @@ def build_universe(full_market: bool | None = None) -> int:
 
     curated = _stock_symbols()
     cik_map = _fetch_cik_map()
-    if full_market and cik_map:
-        stocks = sorted(set(curated) | set(cik_map.keys()))
-    else:
-        stocks = curated
 
+    # SEC tickers use dots for share classes (BRK.B); yfinance wants dashes
+    # (BRK-B). Curated symbols keep exchange suffixes like RY.TO untouched.
     rows: list[tuple] = []
-    for sym in stocks:
-        rows.append((sym, None, "stock", cik_map.get(sym), None, "USD"))
+    seen: set[str] = set()
+    for sym in curated:
+        if sym not in seen:
+            seen.add(sym)
+            rows.append((sym, None, "stock", cik_map.get(sym), None, "USD"))
+    if full_market and cik_map:
+        for sec_sym, cik in cik_map.items():
+            yf_sym = sec_sym.replace(".", "-")
+            if yf_sym not in seen:
+                seen.add(yf_sym)
+                rows.append((yf_sym, None, "stock", cik, None, "USD"))
     for asset_class, items in ASSET_CLASS_SYMBOLS.items():
         for sym, name in items:
             rows.append((sym, name, asset_class, None, None, "USD"))

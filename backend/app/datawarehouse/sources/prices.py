@@ -19,9 +19,20 @@ import yfinance as yf
 from ..db import connect
 
 
+# A symbol with fewer than this many bars is treated as un-backfilled, so a
+# full history fetch runs even though a recent bar exists (e.g. one written by
+# the `quotes` collector). Prevents quotes from poisoning incremental backfill.
+MIN_HISTORY_BARS = 250
+
+
 def _last_date(con, symbol: str):
     row = con.execute("SELECT max(date) FROM prices_daily WHERE symbol = ?", [symbol]).fetchone()
     return row[0] if row else None
+
+
+def _row_count(con, symbol: str) -> int:
+    row = con.execute("SELECT count(*) FROM prices_daily WHERE symbol = ?", [symbol]).fetchone()
+    return int(row[0]) if row and row[0] is not None else 0
 
 
 def _fetch_yf(symbol: str, start=None, full: bool = False) -> pd.DataFrame:
@@ -55,6 +66,10 @@ def _fetch_stooq(symbol: str) -> pd.DataFrame:
 
 
 def _collect_one(con, symbol: str, full: bool) -> int:
+    # Force a full backfill if history is sparse (e.g. only a `quotes` bar
+    # exists) so incremental runs never leave a symbol with just recent data.
+    if not full and _row_count(con, symbol) < MIN_HISTORY_BARS:
+        full = True
     last = None if full else _last_date(con, symbol)
     start = (last + timedelta(days=1)) if last else None
     if start and start > datetime.utcnow().date():
@@ -127,33 +142,47 @@ def _i(v):
         return 0
 
 
-def collect_prices(symbols: list[str] | None = None, full: bool = False) -> dict:
-    con = connect()
+def collect_prices(symbols: list[str] | None = None, full: bool = False, chunk: int = 40) -> dict:
+    """Process symbols in chunks, reopening the DuckDB connection per chunk so the
+    single-writer lock is released between chunks — lets the 30-min quotes timer
+    and web reads interleave even during the multi-hour full backfill."""
     started = datetime.utcnow()
-    total = 0
-    ok = True
-    note = ""
-    try:
-        if symbols is None:
+    if symbols is None:
+        con = connect()
+        try:
             symbols = [r[0] for r in con.execute(
                 "SELECT symbol FROM symbols WHERE active ORDER BY symbol").fetchall()]
-        done = 0
-        for sym in symbols:
-            try:
-                total += _collect_one(con, sym, full)
-            except Exception as e:  # one bad symbol must not kill the run
-                note += f"{sym}:{type(e).__name__}; "
-            done += 1
-            if done % 50 == 0:
-                print(f"[prices] {done}/{len(symbols)} symbols, {total} rows so far")
+        finally:
+            con.close()
+
+    total = 0
+    note = ""
+    done = 0
+    for i in range(0, len(symbols), chunk):
+        batch = symbols[i:i + chunk]
+        con = connect()
+        try:
+            for sym in batch:
+                try:
+                    total += _collect_one(con, sym, full)
+                except Exception as e:  # one bad symbol must not kill the run
+                    note += f"{sym}:{type(e).__name__}; "
+                done += 1
+        finally:
+            con.close()
+        if done % 200 == 0 or done == len(symbols):
+            print(f"[prices] {done}/{len(symbols)} symbols, {total} rows so far", flush=True)
+
+    con = connect()
+    try:
         con.execute(
             """INSERT INTO collector_runs (collector,started_at,finished_at,ok,rows,note)
                VALUES ('prices',?,?,?,?,?)""",
-            [started, datetime.utcnow(), ok, total, note[:2000]],
+            [started, datetime.utcnow(), True, total, note[:2000]],
         )
     finally:
         con.close()
-    print(f"[prices] done: {total} rows across {len(symbols)} symbols")
+    print(f"[prices] done: {total} rows across {len(symbols)} symbols", flush=True)
     return {"rows": total, "symbols": len(symbols)}
 
 

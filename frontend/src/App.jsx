@@ -297,6 +297,8 @@ function App() {
       window.setTimeout(() => {
         window.dispatchEvent(new CustomEvent('eq-research-subtab', { detail: { sub: 'backtest' } }));
         if (t) {
+          // ComparePanel listens for the backtest query — seed it with the ticker.
+          window.dispatchEvent(new CustomEvent('eq-backtest-assistant-query', { detail: { message: `backtest ${t}` } }));
           window.dispatchEvent(new CustomEvent('eq-agent-open-ticker', { detail: { tab: 'research', ticker: t } }));
         }
       }, 0);

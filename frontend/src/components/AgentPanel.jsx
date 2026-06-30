@@ -2079,10 +2079,28 @@ export default function AgentPanel({
   const [streamingText, setStreamingText] = useState('');
   const [liveRoute, setLiveRoute] = useState(null); // LLM workspace routing decision
   const [lastRun, setLastRun] = useState(null); // { mode, url, elapsedMs }
+  const lastNavRouteRef = useRef('');
   const scrollRef = useRef(null);
   const streamTextRef = useRef('');
   const streamTickerRef = useRef('');
   const [hydrated, setHydrated] = useState(false);
+
+  // Drive the host tabs from the agent's routing decision so asking a question
+  // takes the user to the relevant page (research / chart / screener / backtest).
+  useEffect(() => {
+    if (!embedded || !onNavigate || !liveRoute?.tab) return;
+    const ticker = (liveRoute.ticker || '').toUpperCase();
+    let dest = null;
+    if (liveRoute.tab === 'screener') dest = 'screener';
+    else if (liveRoute.tab === 'backtest') dest = 'backtest';
+    else if (liveRoute.tab === 'research') dest = liveRoute.researchSubtab === 'chart' ? 'terminal' : 'research';
+    else if (ticker) dest = 'research'; // macro/news/overview that names a concrete asset
+    if (!dest) return;
+    const key = `${dest}|${ticker}`;
+    if (lastNavRouteRef.current === key) return;
+    lastNavRouteRef.current = key;
+    onNavigate(dest, ticker);
+  }, [embedded, onNavigate, liveRoute]);
   const resizeRef = useRef({ startX: 0, startWidth: panelWidth });
   const [resultCursor, setResultCursor] = useState(-1);
 

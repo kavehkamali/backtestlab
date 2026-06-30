@@ -101,15 +101,11 @@ systemctl enable --now \
   equilima-collect-prices.timer equilima-collect-macro.timer equilima-collect-edgar.timer \
   equilima-collect-info.timer equilima-collect-quotes.timer
 
-echo "==> Initial schema + universe (via VPN namespace if enabled)"
+echo "==> Initial schema + universe (via the unit: correct env + VPN wrapper)"
 mkdir -p "$(dirname "$WHPATH")"; chown "$SVC_USER:$SVC_USER" "$(dirname "$WHPATH")" 2>/dev/null || true
-WH="HOME=/home/$SVC_USER EQUILIMA_WAREHOUSE_PATH=$WHPATH"
-KEYS=$( grep -E '^(SEC_USER_AGENT|BEA_API_KEY|BLS_API_KEY|FRED_API_KEY)=' /etc/webapps/equilima.env 2>/dev/null | xargs )
-if [ -n "$EXEC_PREFIX" ]; then
-  ${EXEC_PREFIX}env $WH $KEYS "$PY" "$APP_DIR/scripts/collect.py" universe || true
-else
-  sudo -u "$SVC_USER" env $WH $KEYS "$PY" "$APP_DIR/scripts/collect.py" universe || true
-fi
+# Run through the templated unit so EnvironmentFile (keys, incl. SEC_USER_AGENT
+# with spaces) and the netns wrapper apply exactly as the timers will.
+systemctl start equilima-collect@universe.service || true
 
 if [ -r "$VPN_CONF" ]; then
   echo "==> VPN egress check:"; "$APP_DIR/scripts/vpn/proton-netns.sh" status || true

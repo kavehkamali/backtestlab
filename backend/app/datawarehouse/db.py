@@ -88,8 +88,10 @@ CREATE TABLE IF NOT EXISTS fundamentals_facts (
     value      DOUBLE,
     form       VARCHAR,             -- 10-K | 10-Q | ...
     filed      DATE,
+    accn       VARCHAR,             -- filing accession (distinguishes restatements)
     source     VARCHAR DEFAULT 'sec_edgar',
-    PRIMARY KEY (cik, tag, unit, period_end, form)
+    -- Key by fy/fp/accn so distinct fiscal framings & amended filings don't collapse.
+    PRIMARY KEY (cik, taxonomy, tag, unit, period_end, fy, fp, accn)
 );
 
 CREATE TABLE IF NOT EXISTS filings (

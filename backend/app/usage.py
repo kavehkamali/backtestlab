@@ -196,7 +196,9 @@ def apply_ip_override(info: dict[str, Any], override: dict[str, Any] | None, aut
         "force_signup": bool(override.get("force_signup")),
         "note": override.get("note") or "",
     }
-    if override.get("force_signup"):
+    # Authenticated users are never gated, even on a flagged IP — they already
+    # have an account, so force_signup/force_prompt must not apply to them.
+    if override.get("force_signup") and not authenticated:
         out.update(
             {
                 "authenticated": authenticated,
@@ -207,7 +209,7 @@ def apply_ip_override(info: dict[str, Any], override: dict[str, Any] | None, aut
             }
         )
         return out
-    if override.get("force_prompt"):
+    if override.get("force_prompt") and not authenticated:
         out.update(
             {
                 "authenticated": authenticated,

@@ -22,8 +22,10 @@ def _compute_chart(symbol: str):
         from .datawarehouse import read as wh_read
         rows = wh_read.prices(symbol, lookback_days=520)
         if rows:
-            return [{"date": r["date"], "close": round(float(r["close"]), 2),
-                     "volume": int(r["volume"] or 0)} for r in rows if r.get("close") is not None]
+            result = [{"date": r["date"], "close": round(float(r["close"]), 2),
+                       "volume": int(r["volume"] or 0)} for r in rows if r.get("close") is not None]
+            if result:  # only trust the warehouse if it actually has closes
+                return result
     except Exception:
         pass
     chart = []
