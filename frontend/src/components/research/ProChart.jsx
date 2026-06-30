@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { createChart, CandlestickSeries, AreaSeries, HistogramSeries } from 'lightweight-charts';
 import { Loader2, CandlestickChart as CandleIcon, AreaChart as AreaIcon } from 'lucide-react';
-import { fetchWarehousePrices, fetchTerminalChart } from '../../api';
+import { fetchWarehousePrices, fetchWarehouseIntraday, fetchTerminalChart } from '../../api';
 
 // Broker-style timeframe presets: each sets a bar interval + how far back.
 // Intraday/weekly/monthly come live from the terminal endpoint; daily uses the
@@ -99,16 +99,22 @@ export default function ProChart({ symbol, height = 380, defaultType = 'area' })
     return () => { cancelled = true; };
   }, [symbol]);
 
-  // Load intraday bars when an intraday timeframe is selected.
+  // Load intraday bars when an intraday timeframe is selected — cached warehouse
+  // bars first, live terminal feed as fallback.
   useEffect(() => {
     setIntradayBars(null);
     if (!preset.intraday) return;
     let cancelled = false;
     setLoading(true);
-    fetchTerminalChart(symbol, preset.period, preset.interval)
-      .then((r) => { if (!cancelled) setIntradayBars((r?.data || []).filter((b) => b.close != null)); })
-      .catch(() => { if (!cancelled) setIntradayBars([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    (async () => {
+      const wh = await fetchWarehouseIntraday(symbol, preset.interval);
+      if (cancelled) return;
+      if (wh?.available && wh.bars?.length) { setIntradayBars(wh.bars); setLoading(false); return; }
+      const live = await fetchTerminalChart(symbol, preset.period, preset.interval).catch(() => null);
+      if (cancelled) return;
+      setIntradayBars((live?.data || []).filter((b) => b.close != null));
+      setLoading(false);
+    })();
     return () => { cancelled = true; };
   }, [symbol, preset]);
 

@@ -98,30 +98,33 @@ def build_universe(full_market: bool | None = None) -> int:
     # (BRK-B). Curated symbols keep exchange suffixes like RY.TO untouched.
     rows: list[tuple] = []
     seen: set[str] = set()
+    # 7th field = intraday flag: curated stocks + non-stock asset classes get
+    # intraday bars; the broad full-market extras do not (too many to poll).
     for sym in curated:
         if sym not in seen:
             seen.add(sym)
-            rows.append((sym, None, "stock", cik_map.get(sym), None, "USD"))
+            rows.append((sym, None, "stock", cik_map.get(sym), None, "USD", True))
     if full_market and cik_map:
         for sec_sym, cik in cik_map.items():
             yf_sym = sec_sym.replace(".", "-")
             if yf_sym not in seen:
                 seen.add(yf_sym)
-                rows.append((yf_sym, None, "stock", cik, None, "USD"))
+                rows.append((yf_sym, None, "stock", cik, None, "USD", False))
     for asset_class, items in ASSET_CLASS_SYMBOLS.items():
         for sym, name in items:
-            rows.append((sym, name, asset_class, None, None, "USD"))
+            rows.append((sym, name, asset_class, None, None, "USD", True))
 
     con = connect()
     try:
         con.executemany(
             """
-            INSERT INTO symbols (symbol, name, asset_class, cik, exchange, currency)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO symbols (symbol, name, asset_class, cik, exchange, currency, intraday)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (symbol) DO UPDATE SET
                 name        = COALESCE(excluded.name, symbols.name),
                 asset_class = excluded.asset_class,
                 cik         = COALESCE(excluded.cik, symbols.cik),
+                intraday    = excluded.intraday OR symbols.intraday,
                 active      = TRUE
             """,
             rows,

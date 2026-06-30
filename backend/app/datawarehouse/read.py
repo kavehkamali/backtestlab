@@ -65,6 +65,30 @@ def ohlc(symbol: str, lookback_days: int | None = None):
     return out[-lookback_days:] if lookback_days else out
 
 
+def intraday(symbol: str, interval: str = "5m", limit: int = 1500):
+    """Intraday OHLCV bars (epoch seconds for lightweight-charts), or None."""
+    con = _ro()
+    if con is None:
+        return None
+    try:
+        rows = con.execute(
+            """SELECT epoch(ts) AS t, open, high, low, close, volume
+               FROM prices_intraday WHERE symbol = ? AND interval = ?
+               ORDER BY ts DESC LIMIT ?""",
+            [symbol.upper(), interval, limit],
+        ).fetchall()
+    except Exception:
+        return None
+    finally:
+        con.close()
+    if not rows:
+        return None
+    out = [{"time": int(t), "open": o, "high": h, "low": l, "close": c,
+            "volume": int(v) if v is not None else 0} for t, o, h, l, c, v in rows]
+    out.reverse()  # ascending
+    return out
+
+
 # EDGAR XBRL tag -> friendly metric name (the statement lines we surface).
 _FIN_TAGS = {
     "Revenues": "revenue",

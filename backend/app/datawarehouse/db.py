@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS symbols (
     exchange    VARCHAR,
     currency    VARCHAR,
     active      BOOLEAN DEFAULT TRUE,
+    intraday    BOOLEAN DEFAULT FALSE,   -- collect intraday bars for this symbol
     added_at    TIMESTAMP DEFAULT now()
 );
 
@@ -65,6 +66,19 @@ CREATE TABLE IF NOT EXISTS prices_daily (
     volume    BIGINT,
     source    VARCHAR,
     PRIMARY KEY (symbol, date)
+);
+
+CREATE TABLE IF NOT EXISTS prices_intraday (
+    symbol   VARCHAR,
+    interval VARCHAR,            -- 5m | 15m | 1h
+    ts       TIMESTAMP,          -- UTC bar time
+    open     DOUBLE,
+    high     DOUBLE,
+    low      DOUBLE,
+    close    DOUBLE,
+    volume   BIGINT,
+    source   VARCHAR,
+    PRIMARY KEY (symbol, interval, ts)
 );
 
 CREATE TABLE IF NOT EXISTS corporate_actions (
@@ -166,6 +180,11 @@ def init_schema() -> None:
     con = duckdb.connect(str(p))
     try:
         con.execute(_SCHEMA)
+        # Migrations for pre-existing DBs (CREATE IF NOT EXISTS won't alter).
+        try:
+            con.execute("ALTER TABLE symbols ADD COLUMN IF NOT EXISTS intraday BOOLEAN DEFAULT FALSE")
+        except Exception:
+            pass
     finally:
         con.close()
 

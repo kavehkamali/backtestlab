@@ -501,6 +501,15 @@ export async function fetchWarehousePrices(symbol, days = 0) {
   } catch { return { available: false, bars: [] }; }
 }
 
+/** Cached intraday bars (epoch seconds). {available, bars}. */
+export async function fetchWarehouseIntraday(symbol, interval = '5m') {
+  try {
+    const res = await fetch(`${BASE}/warehouse/intraday/${encodeURIComponent(symbol)}?interval=${interval}`, { headers: { ...authHeaders() } });
+    if (!res.ok) return { available: false, bars: [] };
+    return await res.json();
+  } catch { return { available: false, bars: [] }; }
+}
+
 /** EDGAR financial-statement time series. {available, annual, quarterly}. */
 export async function fetchWarehouseFinancials(symbol) {
   try {

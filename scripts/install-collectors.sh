@@ -94,12 +94,13 @@ write_timer macro  "*-*-* 07:00 America/New_York"             macro
 write_timer edgar  "Sun 05:00 America/New_York"                edgar
 write_timer info   "*-*-* 20:00 America/New_York"             info
 write_timer quotes "Mon..Fri 09..16:00/30 America/New_York"   quotes
+write_timer intraday "Mon..Fri 09..16:15/30 America/New_York" intraday
 
 echo "==> Enable timers"
 systemctl daemon-reload
 systemctl enable --now \
   equilima-collect-prices.timer equilima-collect-macro.timer equilima-collect-edgar.timer \
-  equilima-collect-info.timer equilima-collect-quotes.timer
+  equilima-collect-info.timer equilima-collect-quotes.timer equilima-collect-intraday.timer
 
 echo "==> Initial schema + universe (via the unit: correct env + VPN wrapper)"
 mkdir -p "$(dirname "$WHPATH")"; chown "$SVC_USER:$SVC_USER" "$(dirname "$WHPATH")" 2>/dev/null || true

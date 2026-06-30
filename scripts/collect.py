@@ -10,6 +10,7 @@ Usage:
   python scripts/collect.py macro          # BLS + Treasury (+ optional BEA/FRED)
   python scripts/collect.py info           # full Yahoo .info snapshot per symbol
   python scripts/collect.py quotes         # fast batch latest-bar refresh (frequent)
+  python scripts/collect.py intraday       # cache 5m/1h bars for the active subset
   python scripts/collect.py all            # universe -> prices -> info -> macro
 
 Keys via env / EnvironmentFile: FRED_API_KEY, SEC_USER_AGENT, optional BLS_API_KEY.
@@ -27,7 +28,7 @@ sys.path.insert(0, os.path.abspath(_BACKEND))
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "all"
     from app.datawarehouse import db, universe
-    from app.datawarehouse.sources import prices, edgar, macro, info
+    from app.datawarehouse.sources import prices, edgar, macro, info, intraday
 
     db.init_schema()
 
@@ -51,6 +52,8 @@ def main():
         info.collect_info()
     elif cmd == "quotes":
         info.collect_quotes()
+    elif cmd == "intraday":
+        intraday.collect_intraday()
     elif cmd == "all":
         universe.build_universe()
         prices.collect_prices(full=False)

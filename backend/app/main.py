@@ -2178,6 +2178,17 @@ async def warehouse_prices(symbol: str, days: int = 0):
         return {"available": False, "symbol": symbol.upper(), "bars": []}
 
 
+@app.get("/api/warehouse/intraday/{symbol}")
+async def warehouse_intraday(symbol: str, interval: str = "5m"):
+    """Cached intraday bars (epoch seconds). {available, interval, bars}."""
+    try:
+        from .datawarehouse import read as wh_read
+        bars = wh_read.intraday(symbol, interval=interval)
+        return {"available": bool(bars), "symbol": symbol.upper(), "interval": interval, "bars": bars or []}
+    except Exception:
+        return {"available": False, "interval": interval, "bars": []}
+
+
 @app.get("/api/warehouse/financials/{symbol}")
 async def warehouse_financials(symbol: str):
     """EDGAR financial-statement time series. {available, annual, quarterly}."""
