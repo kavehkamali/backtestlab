@@ -35,8 +35,10 @@ up() {
   ip link add "$IF" type wireguard
   ip link set "$IF" netns "$NETNS"
 
-  local wgconf; wgconf=$(mktemp)
-  cat > "$wgconf" <<EOF
+  # Keep the wg config inside /etc/wireguard — `wg` is often AppArmor-confined
+  # and cannot read a /tmp file (fopen: Permission denied).
+  local wgconf="/etc/wireguard/.${IF}.setconf"
+  ( umask 077; cat > "$wgconf" <<EOF
 [Interface]
 PrivateKey = $priv
 [Peer]
@@ -45,6 +47,7 @@ Endpoint = $endpoint
 AllowedIPs = 0.0.0.0/0, ::/0
 PersistentKeepalive = 25
 EOF
+  )
   ip netns exec "$NETNS" wg setconf "$IF" "$wgconf"
   rm -f "$wgconf"
 
