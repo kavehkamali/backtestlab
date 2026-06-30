@@ -61,6 +61,10 @@ User=$SVC_RUN_USER
 WorkingDirectory=$APP_DIR
 EnvironmentFile=-/etc/webapps/equilima.env
 Environment=PYTHONUNBUFFERED=1
+# Pin HOME + warehouse path: under VPN the unit runs as root+setpriv (HOME would
+# otherwise be /root), so the DuckDB path must not depend on \$HOME.
+Environment=HOME=/home/$SVC_USER
+Environment=EQUILIMA_WAREHOUSE_PATH=/home/$SVC_USER/.equilima_data/market.duckdb
 ExecStart=${EXEC_PREFIX}$PY $APP_DIR/scripts/collect.py %i
 TimeoutStartSec=7200
 Nice=10
@@ -95,10 +99,12 @@ systemctl enable --now \
   equilima-collect-info.timer equilima-collect-quotes.timer
 
 echo "==> Initial schema + universe (via VPN namespace if enabled)"
+WH="HOME=/home/$SVC_USER EQUILIMA_WAREHOUSE_PATH=/home/$SVC_USER/.equilima_data/market.duckdb"
+KEYS=$( grep -E '^(SEC_USER_AGENT|BEA_API_KEY|BLS_API_KEY|FRED_API_KEY)=' /etc/webapps/equilima.env 2>/dev/null | xargs )
 if [ -n "$EXEC_PREFIX" ]; then
-  ${EXEC_PREFIX}env $( grep -E '^(SEC_USER_AGENT|BEA_API_KEY|BLS_API_KEY|FRED_API_KEY)=' /etc/webapps/equilima.env 2>/dev/null | xargs ) "$PY" "$APP_DIR/scripts/collect.py" universe || true
+  ${EXEC_PREFIX}env $WH $KEYS "$PY" "$APP_DIR/scripts/collect.py" universe || true
 else
-  sudo -u "$SVC_USER" env $( grep -E '^(SEC_USER_AGENT|BEA_API_KEY|BLS_API_KEY|FRED_API_KEY)=' /etc/webapps/equilima.env 2>/dev/null | xargs ) "$PY" "$APP_DIR/scripts/collect.py" universe || true
+  sudo -u "$SVC_USER" env $WH $KEYS "$PY" "$APP_DIR/scripts/collect.py" universe || true
 fi
 
 if [ -r "$VPN_CONF" ]; then
