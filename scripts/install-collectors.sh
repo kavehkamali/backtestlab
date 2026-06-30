@@ -7,6 +7,9 @@ set -euo pipefail
 APP_DIR="${EQUILIMA_APP_DIR:-/srv/webapps/equilima/current}"
 SVC_USER="${EQUILIMA_SVC_USER:-neo}"
 PY="$APP_DIR/.venv/bin/python"
+# Warehouse lives in the web app's data dir (web service is ProtectHome=yes and
+# can't read /home/neo, but /srv/webdata/equilima is in its ReadWritePaths).
+WHPATH="${EQUILIMA_WAREHOUSE_PATH:-/srv/webdata/equilima/.equilima_data/market.duckdb}"
 
 echo "==> App dir: $APP_DIR  user: $SVC_USER"
 [ -x "$PY" ] || { echo "Missing venv python at $PY — deploy the web app first." >&2; exit 1; }
@@ -64,7 +67,7 @@ Environment=PYTHONUNBUFFERED=1
 # Pin HOME + warehouse path: under VPN the unit runs as root+setpriv (HOME would
 # otherwise be /root), so the DuckDB path must not depend on \$HOME.
 Environment=HOME=/home/$SVC_USER
-Environment=EQUILIMA_WAREHOUSE_PATH=/home/$SVC_USER/.equilima_data/market.duckdb
+Environment=EQUILIMA_WAREHOUSE_PATH=$WHPATH
 ExecStart=${EXEC_PREFIX}$PY $APP_DIR/scripts/collect.py %i
 TimeoutStartSec=7200
 Nice=10
@@ -99,7 +102,8 @@ systemctl enable --now \
   equilima-collect-info.timer equilima-collect-quotes.timer
 
 echo "==> Initial schema + universe (via VPN namespace if enabled)"
-WH="HOME=/home/$SVC_USER EQUILIMA_WAREHOUSE_PATH=/home/$SVC_USER/.equilima_data/market.duckdb"
+mkdir -p "$(dirname "$WHPATH")"; chown "$SVC_USER:$SVC_USER" "$(dirname "$WHPATH")" 2>/dev/null || true
+WH="HOME=/home/$SVC_USER EQUILIMA_WAREHOUSE_PATH=$WHPATH"
 KEYS=$( grep -E '^(SEC_USER_AGENT|BEA_API_KEY|BLS_API_KEY|FRED_API_KEY)=' /etc/webapps/equilima.env 2>/dev/null | xargs )
 if [ -n "$EXEC_PREFIX" ]; then
   ${EXEC_PREFIX}env $WH $KEYS "$PY" "$APP_DIR/scripts/collect.py" universe || true

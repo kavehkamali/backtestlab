@@ -19,7 +19,8 @@ Two delivery tracks:
 
 ```
 Neo (private Dell host)
-├── DuckDB warehouse: ~/.equilima_data/market.duckdb         (analytics store)
+├── DuckDB warehouse: /srv/webdata/equilima/.equilima_data/market.duckdb  (analytics store;
+│     in the web app's ReadWritePaths since it is ProtectHome=yes and can't read /home/neo)
 ├── SQLite (existing): ~/.equilima_data/equilima.db          (users/usage — unchanged)
 ├── backend/app/datawarehouse/                               (importable: read + collect)
 │   ├── db.py            DuckDB connection + idempotent schema
