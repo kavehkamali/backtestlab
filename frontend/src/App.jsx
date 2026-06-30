@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchStrategies, compareStrategies, getStoredUser, signout, checkInteraction, trackPageView } from './api';
+import { fetchStrategies, compareStrategies, getStoredUser, signout, checkInteraction, trackPageView, fetchMe } from './api';
 import ScreenerPanel from './components/ScreenerPanel';
 import ResearchPanel from './components/ResearchPanel';
 import Header from './components/Header';
@@ -126,6 +126,14 @@ function App() {
     fetchStrategies().then(d => setStrategies(d.strategies)).catch(() => {});
   }, []);
 
+  // Validate a stored session on load: if the token is expired/invalid the
+  // backend treats the user as anonymous (and gates them) while the UI still
+  // shows "logged in". Clear the dead session so they're prompted to re-login.
+  useEffect(() => {
+    if (!localStorage.getItem('eq_token')) return;
+    fetchMe().catch(() => { signout(); setUser(null); });
+  }, []);
+
   useEffect(() => {
     syncSiteThemeUserMeta(user);
   }, [user]);
@@ -151,7 +159,14 @@ function App() {
   useEffect(() => {
     const onGate = (e) => {
       const info = e.detail || {};
-      if (user) return;
+      if (user) {
+        // Authenticated users are never gated server-side — a gate here means
+        // the stored token is stale/invalid. Drop it and prompt re-login.
+        signout();
+        setUser(null);
+        openUsageAuth(info);
+        return;
+      }
       if (info.force_signup || (info.show_prompt && !softPromptShown)) {
         setSoftPromptShown(true);
         openUsageAuth(info);
