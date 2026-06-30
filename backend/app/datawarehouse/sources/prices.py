@@ -65,21 +65,17 @@ def _fetch_stooq(symbol: str) -> pd.DataFrame:
     return df
 
 
-def _collect_one(con, symbol: str, full: bool) -> int:
-    # Force a full backfill if history is sparse (e.g. only a `quotes` bar
-    # exists) so incremental runs never leave a symbol with just recent data.
-    if not full and _row_count(con, symbol) < MIN_HISTORY_BARS:
-        full = True
-    last = None if full else _last_date(con, symbol)
+def _fetch_rows(symbol: str, last, full: bool):
+    """Fetch price + action rows for a symbol. NO DB connection held — the slow
+    network fetch happens outside the warehouse lock so reads/other collectors
+    can use the DB meanwhile."""
     start = (last + timedelta(days=1)) if last else None
     if start and start > datetime.utcnow().date():
-        return 0  # already current
-
+        return [], []  # already current
     df = _fetch_yf(symbol, start=start, full=full)
     source = "yfinance"
     price_rows: list[tuple] = []
     action_rows: list[tuple] = []
-
     if df is not None and not df.empty:
         for idx, r in df.iterrows():
             d = idx.date() if hasattr(idx, "date") else pd.to_datetime(idx).date()
@@ -104,7 +100,10 @@ def _collect_one(con, symbol: str, full: bool) -> int:
             price_rows.append((symbol, d, _f(r.get("open")), _f(r.get("high")),
                                _f(r.get("low")), _f(r.get("close")), _f(r.get("close")),
                                _i(r.get("volume")), source))
+    return price_rows, action_rows
 
+
+def _write_rows(con, price_rows, action_rows):
     if price_rows:
         con.executemany(
             """INSERT INTO prices_daily (symbol,date,open,high,low,close,adj_close,volume,source)
@@ -122,7 +121,6 @@ def _collect_one(con, symbol: str, full: bool) -> int:
                ON CONFLICT (symbol,date,type) DO UPDATE SET value=excluded.value""",
             action_rows,
         )
-    return len(price_rows)
 
 
 def _f(v):
@@ -160,17 +158,41 @@ def collect_prices(symbols: list[str] | None = None, full: bool = False, chunk: 
     done = 0
     for i in range(0, len(symbols), chunk):
         batch = symbols[i:i + chunk]
+
+        # Phase 1 — plan (brief lock): decide full/last per symbol.
+        plans = {}
         con = connect()
         try:
             for sym in batch:
-                try:
-                    total += _collect_one(con, sym, full)
-                except Exception as e:  # one bad symbol must not kill the run
-                    note += f"{sym}:{type(e).__name__}; "
-                done += 1
+                do_full = full or _row_count(con, sym) < MIN_HISTORY_BARS
+                plans[sym] = (do_full, None if do_full else _last_date(con, sym))
         finally:
             con.close()
-        if done % 200 == 0 or done == len(symbols):
+
+        # Phase 2 — fetch (NO lock): the slow network work, lock-free.
+        fetched = []
+        for sym in batch:
+            do_full, last = plans[sym]
+            try:
+                pr, ar = _fetch_rows(sym, last, do_full)
+                fetched.append((pr, ar))
+                total += len(pr)
+            except Exception as e:
+                note += f"{sym}:{type(e).__name__}; "
+            done += 1
+
+        # Phase 3 — write (brief lock): flush the whole chunk at once.
+        con = connect()
+        try:
+            for pr, ar in fetched:
+                try:
+                    _write_rows(con, pr, ar)
+                except Exception as e:
+                    note += f"write:{type(e).__name__}; "
+        finally:
+            con.close()
+
+        if done % 200 == 0 or done >= len(symbols):
             print(f"[prices] {done}/{len(symbols)} symbols, {total} rows so far", flush=True)
 
     con = connect()
