@@ -177,7 +177,7 @@ CREATE TABLE IF NOT EXISTS collector_runs (
 def init_schema() -> None:
     p = warehouse_path()
     p.parent.mkdir(parents=True, exist_ok=True)
-    con = duckdb.connect(str(p))
+    con = connect()  # retries on the single-writer lock instead of failing hard
     try:
         con.execute(_SCHEMA)
         # Migrations for pre-existing DBs (CREATE IF NOT EXISTS won't alter).
