@@ -42,6 +42,104 @@ def prices(symbol: str, lookback_days: int | None = None):
     return out
 
 
+def ohlc(symbol: str, lookback_days: int | None = None):
+    """Full OHLCV bars ascending for pro candlestick charts, or None."""
+    con = _ro()
+    if con is None:
+        return None
+    try:
+        rows = con.execute(
+            """SELECT date, open, high, low, close, adj_close, volume
+               FROM prices_daily WHERE symbol = ? ORDER BY date""",
+            [symbol.upper()],
+        ).fetchall()
+    except Exception:
+        return None
+    finally:
+        con.close()
+    if not rows:
+        return None
+    out = [{"date": str(d), "open": o, "high": h, "low": l, "close": c,
+            "adj_close": a, "volume": int(v) if v is not None else 0}
+           for d, o, h, l, c, a, v in rows]
+    return out[-lookback_days:] if lookback_days else out
+
+
+# EDGAR XBRL tag -> friendly metric name (the statement lines we surface).
+_FIN_TAGS = {
+    "Revenues": "revenue",
+    "RevenueFromContractWithCustomerExcludingAssessedTax": "revenue",
+    "GrossProfit": "gross_profit",
+    "OperatingIncomeLoss": "operating_income",
+    "NetIncomeLoss": "net_income",
+    "ResearchAndDevelopmentExpense": "rnd",
+    "EarningsPerShareDiluted": "eps_diluted",
+    "Assets": "assets",
+    "Liabilities": "liabilities",
+    "StockholdersEquity": "equity",
+    "CashAndCashEquivalentsAtCarryingValue": "cash",
+    "NetCashProvidedByUsedInOperatingActivities": "operating_cash_flow",
+}
+
+
+def financials(symbol: str):
+    """EDGAR fundamentals as annual + quarterly time series, or None.
+    Returns {annual:[{period_end,fy,...metrics}], quarterly:[...]}."""
+    con = _ro()
+    if con is None:
+        return None
+    try:
+        rows = con.execute(
+            """SELECT tag, fp, fy, period_end, form, value
+               FROM fundamentals_facts
+               WHERE symbol = ? AND tag IN ({})
+               ORDER BY period_end""".format(",".join("?" * len(_FIN_TAGS))),
+            [symbol.upper(), *_FIN_TAGS.keys()],
+        ).fetchall()
+    except Exception:
+        return None
+    finally:
+        con.close()
+    if not rows:
+        return None
+    annual, quarterly = {}, {}
+    for tag, fp, fy, period_end, form, value in rows:
+        metric = _FIN_TAGS.get(tag)
+        if not metric or value is None:
+            continue
+        bucket = annual if (fp == "FY" or form == "10-K") else quarterly
+        key = str(period_end)
+        row = bucket.setdefault(key, {"period_end": key, "fy": fy, "fp": fp})
+        row[metric] = value
+    ann = sorted(annual.values(), key=lambda r: r["period_end"])[-12:]
+    qtr = sorted(quarterly.values(), key=lambda r: r["period_end"])[-16:]
+    if not ann and not qtr:
+        return None
+    return {"annual": ann, "quarterly": qtr}
+
+
+def filings(symbol: str, limit: int = 25):
+    """Recent SEC filings feed, or None."""
+    con = _ro()
+    if con is None:
+        return None
+    try:
+        rows = con.execute(
+            """SELECT form, filed, period, primary_doc_url, title
+               FROM filings WHERE symbol = ? AND filed IS NOT NULL
+               ORDER BY filed DESC LIMIT ?""",
+            [symbol.upper(), limit],
+        ).fetchall()
+    except Exception:
+        return None
+    finally:
+        con.close()
+    if not rows:
+        return None
+    return [{"form": f, "filed": str(fd), "period": str(p) if p else None,
+             "url": u, "title": t} for f, fd, p, u, t in rows]
+
+
 def info(symbol: str):
     """Return the cached full Yahoo .info dict, or None."""
     con = _ro()

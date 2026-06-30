@@ -2167,6 +2167,41 @@ async def agent_route(request: Request):
         raise HTTPException(status_code=502, detail=f"Router unavailable: {str(e)}")
 
 
+@app.get("/api/warehouse/prices/{symbol}")
+async def warehouse_prices(symbol: str, days: int = 0):
+    """Full OHLCV history from the warehouse for pro charts. {available, bars}."""
+    try:
+        from .datawarehouse import read as wh_read
+        bars = wh_read.ohlc(symbol, lookback_days=days or None)
+        return {"available": bool(bars), "symbol": symbol.upper(), "bars": bars or []}
+    except Exception:
+        return {"available": False, "symbol": symbol.upper(), "bars": []}
+
+
+@app.get("/api/warehouse/financials/{symbol}")
+async def warehouse_financials(symbol: str):
+    """EDGAR financial-statement time series. {available, annual, quarterly}."""
+    try:
+        from .datawarehouse import read as wh_read
+        fin = wh_read.financials(symbol)
+        if not fin:
+            return {"available": False, "annual": [], "quarterly": []}
+        return {"available": True, "symbol": symbol.upper(), **fin}
+    except Exception:
+        return {"available": False, "annual": [], "quarterly": []}
+
+
+@app.get("/api/warehouse/filings/{symbol}")
+async def warehouse_filings(symbol: str, limit: int = 25):
+    """Recent SEC filings feed. {available, filings}."""
+    try:
+        from .datawarehouse import read as wh_read
+        f = wh_read.filings(symbol, limit=min(max(limit, 1), 100))
+        return {"available": bool(f), "symbol": symbol.upper(), "filings": f or []}
+    except Exception:
+        return {"available": False, "filings": []}
+
+
 @app.get("/api/warehouse/health")
 async def warehouse_health():
     """Data-platform coverage/freshness. Best-effort; reports available=false if
