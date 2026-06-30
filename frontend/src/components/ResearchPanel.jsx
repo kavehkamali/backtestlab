@@ -1787,6 +1787,9 @@ function ResearchFundamentals({
       else loadSymbol(target?.symbol || next);
     }
   };
+  // Local nav for the dashboard (open the full terminal view in-panel).
+  const onNavigate = (t) => { if (t === 'terminal') setTab('terminal'); };
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
