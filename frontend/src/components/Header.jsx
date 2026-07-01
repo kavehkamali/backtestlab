@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   User,
   LogOut,
@@ -9,7 +9,10 @@ import {
   FileText,
   Shield,
   BookOpen,
+  Sun,
+  Moon,
 } from 'lucide-react';
+import { getStoredSiteMode, setStoredSiteMode } from '../siteTheme';
 
 const TABS = [
   { id: 'research', label: 'Research', short: 'Research' },
@@ -24,6 +27,36 @@ const TAB_PATHS = {
 };
 
 const SUPPORT_EMAIL = 'info@equilima.com';
+
+function ThemeButton() {
+  const [dark, setDark] = useState(() => getStoredSiteMode() === 'dark');
+  useEffect(() => {
+    const on = () => setDark(getStoredSiteMode() === 'dark');
+    window.addEventListener('eq-theme-changed', on);
+    window.addEventListener('storage', on);
+    return () => {
+      window.removeEventListener('eq-theme-changed', on);
+      window.removeEventListener('storage', on);
+    };
+  }, []);
+  const toggle = useCallback(() => {
+    const next = !dark;
+    setDark(next);
+    setStoredSiteMode(next ? 'dark' : 'light');
+  }, [dark]);
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={dark}
+      aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+      onClick={toggle}
+      className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--eq-text3)] transition-colors hover:bg-[var(--eq-card2)] hover:text-[var(--eq-text)]"
+    >
+      {dark ? <Sun className="h-[15px] w-[15px]" strokeWidth={1.8} /> : <Moon className="h-[15px] w-[15px]" strokeWidth={1.8} />}
+    </button>
+  );
+}
 
 function UserMenu({ user, setActiveTab, onSignOut }) {
   const [open, setOpen] = useState(false);
@@ -51,7 +84,7 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
   };
 
   const itemClass =
-    'w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm text-zinc-700 hover:bg-zinc-50 rounded-lg transition-colors dark:text-zinc-200 dark:hover:bg-zinc-800/80';
+    'w-full flex items-center gap-2.5 px-3 py-2 text-left text-[12.5px] text-[var(--eq-text2)] hover:bg-[var(--eq-card2)] hover:text-[var(--eq-text)] rounded-lg transition-colors';
 
   return (
     <div className="relative z-[200]" ref={rootRef}>
@@ -62,15 +95,15 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
         aria-expanded={open}
         aria-controls="user-menu"
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1.5 max-w-[200px] pl-2 pr-1.5 py-1.5 rounded-lg transition-colors ${
-          open
-            ? 'bg-zinc-100 text-zinc-900 ring-1 ring-zinc-200/80 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-600'
-            : 'bg-zinc-50 text-zinc-700 hover:bg-zinc-100 ring-1 ring-transparent hover:ring-zinc-200/60 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:hover:ring-zinc-700'
+        className={`flex h-8 items-center gap-1.5 max-w-[200px] rounded-lg pl-2.5 pr-1.5 transition-colors ${
+          open ? 'bg-[var(--eq-card2)] text-[var(--eq-text)]' : 'text-[var(--eq-text2)] hover:bg-[var(--eq-card2)] hover:text-[var(--eq-text)]'
         }`}
       >
-        <User className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-        <span className="text-xs truncate">{user.name || user.email}</span>
-        <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--eq-accent-soft)]">
+          <User className="h-3 w-3 text-[var(--eq-accent)]" strokeWidth={2} />
+        </span>
+        <span className="hidden text-xs sm:block truncate">{user.name || user.email}</span>
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-[var(--eq-text3)] transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
@@ -78,18 +111,18 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
           id="user-menu"
           role="menu"
           aria-labelledby="user-menu-button"
-          className="absolute right-0 top-full mt-1.5 w-56 py-1.5 rounded-xl bg-white shadow-lg shadow-zinc-900/10 ring-1 ring-zinc-200/70 z-[300] dark:bg-zinc-900 dark:ring-zinc-700 dark:shadow-black/30"
+          className="absolute right-0 top-full z-[300] mt-2 w-56 rounded-xl border border-[var(--eq-border)] bg-[var(--eq-elev)] py-1.5 shadow-[var(--eq-shadow-pop)]"
         >
-          <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800">
-            <p className="text-[11px] text-zinc-500 uppercase tracking-wide dark:text-zinc-400">Signed in</p>
-            <p className="text-xs text-zinc-900 font-medium truncate dark:text-zinc-100" title={user.email}>
+          <div className="border-b border-[var(--eq-border)] px-3 pb-2 pt-1">
+            <p className="eq-label">Signed in</p>
+            <p className="truncate text-xs font-medium text-[var(--eq-text)]" title={user.email}>
               {user.email}
             </p>
           </div>
 
           <div className="p-1">
             <button type="button" role="menuitem" className={itemClass} onClick={goAccount}>
-              <Settings className="w-4 h-4 text-zinc-400" />
+              <Settings className="h-4 w-4 text-[var(--eq-text3)]" strokeWidth={1.8} />
               Account & security
             </button>
             <a
@@ -98,7 +131,7 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
               className={itemClass}
               onClick={() => setOpen(false)}
             >
-              <HelpCircle className="w-4 h-4 text-zinc-400" />
+              <HelpCircle className="h-4 w-4 text-[var(--eq-text3)]" strokeWidth={1.8} />
               Help & support
             </a>
             <a
@@ -107,12 +140,12 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
               className={itemClass}
               onClick={() => setOpen(false)}
             >
-              <Mail className="w-4 h-4 text-zinc-400" />
+              <Mail className="h-4 w-4 text-[var(--eq-text3)]" strokeWidth={1.8} />
               Contact us
             </a>
           </div>
 
-          <div className="border-t border-zinc-100 mx-2 dark:border-zinc-800" />
+          <div className="mx-2 border-t border-[var(--eq-border)]" />
           <div className="p-1">
             <a
               role="menuitem"
@@ -122,7 +155,7 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
               className={itemClass}
               onClick={() => setOpen(false)}
             >
-              <Shield className="w-4 h-4 text-zinc-400" />
+              <Shield className="h-4 w-4 text-[var(--eq-text3)]" strokeWidth={1.8} />
               Privacy policy
             </a>
             <a
@@ -133,23 +166,23 @@ function UserMenu({ user, setActiveTab, onSignOut }) {
               className={itemClass}
               onClick={() => setOpen(false)}
             >
-              <FileText className="w-4 h-4 text-zinc-400" />
+              <FileText className="h-4 w-4 text-[var(--eq-text3)]" strokeWidth={1.8} />
               Terms of service
             </a>
           </div>
 
-          <div className="border-t border-zinc-100 mx-2 dark:border-zinc-800" />
+          <div className="mx-2 border-t border-[var(--eq-border)]" />
           <div className="p-1">
             <button
               type="button"
               role="menuitem"
-              className={`${itemClass} text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40`}
+              className={`${itemClass} !text-[var(--eq-loss)] hover:!bg-[var(--eq-loss-soft)]`}
               onClick={() => {
                 setOpen(false);
                 onSignOut();
               }}
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="h-4 w-4" strokeWidth={1.8} />
               Sign out
             </button>
           </div>
@@ -180,74 +213,64 @@ export default function Header({
     if (onOpenLearn) onOpenLearn();
   };
 
+  const navItem = (tab, compact = false) => {
+    const active = activeTab === tab.id;
+    return (
+      <button
+        key={tab.id}
+        onClick={() => handleTab(tab.id)}
+        className={`relative px-3 py-2 font-medium transition-colors ${compact ? 'text-[11.5px] px-2' : 'text-[13px]'} ${
+          active ? 'text-[var(--eq-text)]' : 'text-[var(--eq-text3)] hover:text-[var(--eq-text2)]'
+        }`}
+      >
+        {compact ? tab.short : tab.label}
+        {/* Active underline indicator */}
+        <span
+          className={`pointer-events-none absolute inset-x-2 -bottom-px h-[2px] rounded-full transition-all duration-200 ${
+            active ? 'bg-[var(--eq-accent)] opacity-100' : 'opacity-0'
+          }`}
+        />
+      </button>
+    );
+  };
+
   return (
-    <header className="border-b border-zinc-200/50 bg-white/90 backdrop-blur-md overflow-visible relative z-40 shadow-sm shadow-zinc-900/[0.02] dark:border-zinc-800/80 dark:bg-zinc-950/90 dark:shadow-none">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 flex items-center justify-between gap-2">
+    <header className="sticky top-0 z-40 border-b border-[var(--eq-border)] bg-[color-mix(in_srgb,var(--eq-bg)_82%,transparent)] backdrop-blur-xl">
+      <div className="mx-auto flex h-[52px] max-w-[1680px] items-center justify-between gap-2 px-3 sm:px-6">
         <button
           type="button"
           onClick={() => handleTab('research')}
-          className="flex shrink-0 items-center gap-2 rounded-md px-1 py-0.5 text-left transition hover:bg-zinc-100/80 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 dark:hover:bg-zinc-800/70"
+          className="flex shrink-0 items-center gap-2 rounded-md px-1 py-0.5 text-left transition hover:opacity-80 focus:outline-none"
           aria-label="Go to Research"
         >
-          <img
-            src="/logo-mark.svg"
-            alt=""
-            width={24}
-            height={24}
-            className="w-5 h-5 sm:w-6 sm:h-6 shrink-0"
-            aria-hidden
-          />
-          <h1 className="text-base sm:text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Equilima</h1>
+          <img src="/logo-mark.svg" alt="" width={22} height={22} className="h-[22px] w-[22px] shrink-0" aria-hidden />
+          <h1 className="text-[15px] font-semibold tracking-tight text-[var(--eq-text)]">Equilima</h1>
         </button>
 
-        <nav className="hidden md:flex items-center gap-1">
-          <div className="flex gap-0.5 bg-zinc-100/80 rounded-lg p-1 dark:bg-zinc-900/80">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => handleTab(tab.id)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200/60 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-600'
-                    : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+        {/* Desktop nav — underline indicator */}
+        <nav className="hidden h-full items-center md:flex">
+          {TABS.map((t) => navItem(t))}
           {onOpenLearn && (
             <button
               type="button"
               onClick={openLearn}
-              className="ml-1 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 transition-colors dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800/60"
+              className="ml-1 inline-flex items-center gap-1.5 px-3 py-2 text-[13px] font-medium text-[var(--eq-text3)] transition-colors hover:text-[var(--eq-text2)]"
             >
-              <BookOpen className="w-3.5 h-3.5" />
-              Market Blog
+              <BookOpen className="h-3.5 w-3.5" strokeWidth={1.8} />
+              Blog
             </button>
           )}
         </nav>
 
-        <nav className="md:hidden flex-1 min-w-0 overflow-x-auto no-scrollbar mx-1">
-          <div className="flex gap-0.5 bg-zinc-100/80 rounded-lg p-0.5 w-max items-center dark:bg-zinc-900/80">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => handleTab(tab.id)}
-                className={`px-2 py-1 rounded-md text-[11px] font-medium whitespace-nowrap transition-all ${
-                  activeTab === tab.id
-                    ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
-                    : 'text-zinc-500 dark:text-zinc-400'
-                }`}
-              >
-                {tab.short}
-              </button>
-            ))}
+        {/* Mobile nav */}
+        <nav className="no-scrollbar mx-1 min-w-0 flex-1 overflow-x-auto md:hidden">
+          <div className="flex w-max items-center">
+            {TABS.map((t) => navItem(t, true))}
             {onOpenLearn && (
               <button
                 type="button"
                 onClick={openLearn}
-                className="px-2 py-1 rounded-md text-[11px] font-medium text-zinc-500 whitespace-nowrap dark:text-zinc-400"
+                className="whitespace-nowrap px-2 py-2 text-[11.5px] font-medium text-[var(--eq-text3)]"
               >
                 Blog
               </button>
@@ -255,19 +278,23 @@ export default function Header({
           </div>
         </nav>
 
-        <div className="flex items-center gap-1.5 shrink-0 relative z-[200]">
+        <div className="relative z-[200] flex shrink-0 items-center gap-1">
+          <ThemeButton />
           {user ? (
             <UserMenu user={user} setActiveTab={setActiveTab} onSignOut={onSignOut} />
           ) : (
             <>
-              <button onClick={onSignIn} className="hidden sm:block px-2 py-1.5 rounded-lg text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
-                Sign In
+              <button
+                onClick={onSignIn}
+                className="hidden h-8 items-center rounded-lg px-2.5 text-xs font-medium text-[var(--eq-text2)] transition-colors hover:bg-[var(--eq-card2)] hover:text-[var(--eq-text)] sm:flex"
+              >
+                Sign in
               </button>
               <button
                 onClick={onSignUp}
-                className="px-2 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-500 shadow-sm dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 dark:shadow-none"
+                className="flex h-8 items-center rounded-lg bg-[var(--eq-text)] px-3 text-xs font-semibold text-[var(--eq-bg)] transition-opacity hover:opacity-85"
               >
-                Sign Up
+                Sign up
               </button>
             </>
           )}

@@ -28,16 +28,16 @@ function callToneKey(value) {
 }
 
 function signalStyle(tone) {
-  if (tone === 'buy') return 'border-emerald-200/90 bg-gradient-to-br from-emerald-50 to-teal-50 text-emerald-950 dark:border-emerald-900/60 dark:from-emerald-950/45 dark:to-teal-950/25 dark:text-emerald-100';
-  if (tone === 'sell') return 'border-rose-200/90 bg-gradient-to-br from-rose-50 to-orange-50 text-rose-950 dark:border-rose-900/60 dark:from-rose-950/45 dark:to-orange-950/25 dark:text-rose-100';
-  return 'border-amber-200/90 bg-gradient-to-br from-amber-50 to-stone-50 text-amber-950 dark:border-amber-900/60 dark:from-amber-950/35 dark:to-zinc-900/80 dark:text-amber-100';
+  if (tone === 'buy') return 'border-[var(--eq-gain)]/25 bg-[var(--eq-gain-soft)] text-[var(--eq-text)]';
+  if (tone === 'sell') return 'border-[var(--eq-loss)]/25 bg-[var(--eq-loss-soft)] text-[var(--eq-text)]';
+  return 'border-amber-200/90 bg-gradient-to-br from-amber-50 to-stone-50 text-amber-950';
 }
 
 function callToneClass(value) {
   const v = callToneKey(value);
-  if (v === 'buy') return 'bg-emerald-100 text-emerald-800 ring-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-100 dark:ring-emerald-800';
-  if (v === 'sell') return 'bg-rose-100 text-rose-800 ring-rose-200 dark:bg-rose-900/50 dark:text-rose-100 dark:ring-rose-800';
-  return 'bg-amber-100 text-amber-800 ring-amber-200 dark:bg-amber-900/50 dark:text-amber-100 dark:ring-amber-800';
+  if (v === 'buy') return 'bg-[var(--eq-gain-soft)] text-[var(--eq-gain)] ring-[var(--eq-gain)]/25';
+  if (v === 'sell') return 'bg-[var(--eq-loss-soft)] text-[var(--eq-loss)] ring-[var(--eq-loss)]/25';
+  return 'bg-amber-100 text-amber-800 ring-[var(--eq-warn)]/25';
 }
 
 function SignalCard({ item }) {
@@ -84,17 +84,17 @@ function MacroChart({ chart }) {
   const rows = useMemo(() => mergeSeries(chart), [chart]);
   if (!rows.length) return null;
   return (
-    <div className="rounded-lg border border-zinc-200/70 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/75">
+    <div className="rounded-lg border border-[var(--eq-border)] bg-[var(--eq-card)] p-4 shadow-sm">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{chart.title}</h3>
+          <h3 className="text-sm font-semibold text-[var(--eq-text)]">{chart.title}</h3>
           {chart.title?.includes('Indexed') && (
-            <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">Each line starts at 100 so the trend is comparable.</p>
+            <p className="mt-0.5 text-[11px] text-[var(--eq-text3)]">Each line starts at 100 so the trend is comparable.</p>
           )}
         </div>
         <div className="flex flex-wrap gap-3">
           {(chart.series || []).map((s) => (
-            <span key={s.key} className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span key={s.key} className="inline-flex items-center gap-1.5 text-[11px] text-[var(--eq-text3)]">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
               {s.label}
             </span>
@@ -104,17 +104,17 @@ function MacroChart({ chart }) {
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={rows} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" />
+            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-[var(--eq-grid)]" />
             <XAxis
               dataKey="date"
               minTickGap={32}
               tick={{ fontSize: 11, fill: 'currentColor' }}
-              className="text-zinc-500 dark:text-zinc-400"
+              className="text-[var(--eq-text3)]"
             />
             <YAxis
               width={46}
               tick={{ fontSize: 11, fill: 'currentColor' }}
-              className="text-zinc-500 dark:text-zinc-400"
+              className="text-[var(--eq-text3)]"
             />
             <Tooltip
               contentStyle={{
@@ -146,25 +146,25 @@ function MacroBarChart({ chart }) {
   const rows = (chart.bars || []).filter((row) => row.value != null);
   if (!rows.length) return null;
   return (
-    <div className="rounded-lg border border-zinc-200/70 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/75">
+    <div className="rounded-lg border border-[var(--eq-border)] bg-[var(--eq-card)] p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{chart.title}</h3>
-        <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{chart.subtitle || '3M % change'}</span>
+        <h3 className="text-sm font-semibold text-[var(--eq-text)]">{chart.title}</h3>
+        <span className="text-[11px] text-[var(--eq-text3)]">{chart.subtitle || '3M % change'}</span>
       </div>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={rows} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-200 dark:text-zinc-800" />
+            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-[var(--eq-grid)]" />
             <XAxis
               dataKey="label"
               interval={0}
               tick={{ fontSize: 10, fill: 'currentColor' }}
-              className="text-zinc-500 dark:text-zinc-400"
+              className="text-[var(--eq-text3)]"
             />
             <YAxis
               width={44}
               tick={{ fontSize: 11, fill: 'currentColor' }}
-              className="text-zinc-500 dark:text-zinc-400"
+              className="text-[var(--eq-text3)]"
             />
             <Tooltip
               contentStyle={{
@@ -190,7 +190,7 @@ function InlineText({ text }) {
   const parts = String(text || '').split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
   return parts.map((part, idx) => {
     if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={idx} className="font-semibold text-zinc-900 dark:text-zinc-100">{part.slice(2, -2)}</strong>;
+      return <strong key={idx} className="font-semibold text-[var(--eq-text)]">{part.slice(2, -2)}</strong>;
     }
     return <span key={idx}>{part.replace(/\*/g, '')}</span>;
   });
@@ -199,18 +199,18 @@ function InlineText({ text }) {
 function AnalysisText({ text }) {
   const lines = String(text || '').split(/\n+/).map((x) => x.trim()).filter(Boolean);
   return (
-    <div className="space-y-3 text-sm leading-6 text-zinc-700 dark:text-zinc-200">
+    <div className="space-y-3 text-sm leading-6 text-[var(--eq-text2)]">
       {lines.map((line, idx) => {
         const heading = line.replace(/^#{1,4}\s*/, '').replace(/\*\*/g, '');
         const isHeading = /^#{1,4}\s+/.test(line) || (/^[A-Z][A-Za-z /&-]{2,}:$/.test(heading) && heading.length < 48);
         const isBullet = /^([-+\u2022*]|\d+\.)\s+/.test(line);
         const clean = line.replace(/^([-+\u2022*]|\d+\.)\s+/, '').replace(/^#{1,4}\s*/, '');
         if (isHeading) {
-          return <h4 key={idx} className="pt-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{heading.replace(/:$/, '')}</h4>;
+          return <h4 key={idx} className="pt-1 text-xs font-semibold uppercase tracking-wide text-[var(--eq-text3)]">{heading.replace(/:$/, '')}</h4>;
         }
         return isBullet ? (
           <div key={idx} className="flex gap-2">
-            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-indigo-500" />
+            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[var(--eq-accent)]" />
             <p><InlineText text={clean} /></p>
           </div>
         ) : (
@@ -245,39 +245,39 @@ function ChartMenu({ charts, selected, onToggle, onReset }) {
   }, [charts]);
 
   return (
-    <div className="rounded-lg border border-zinc-200/70 bg-white dark:border-zinc-800 dark:bg-zinc-900/75">
+    <div className="rounded-lg border border-[var(--eq-border)] bg-[var(--eq-card)]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
       >
-        <span className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-          <SlidersHorizontal className="h-4 w-4 text-indigo-500" />
+        <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--eq-text)]">
+          <SlidersHorizontal className="h-4 w-4 text-[var(--eq-accent)]" />
           Macro chart menu
-          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] text-indigo-700 ring-1 ring-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-200 dark:ring-indigo-900">
+          <span className="rounded-full bg-[var(--eq-accent-soft)] px-2 py-0.5 text-[11px] text-[var(--eq-accent)] ring-1 ring-[var(--eq-accent-ring)]">
             {selected.length} selected
           </span>
         </span>
-        <ChevronDown className={`h-4 w-4 text-zinc-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-4 w-4 text-[var(--eq-text3)] transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
-        <div className="border-t border-zinc-200/70 p-4 dark:border-zinc-800">
+        <div className="border-t border-[var(--eq-border)] p-4">
           <div className="mb-3 flex flex-wrap gap-2">
-            <button type="button" onClick={onReset} className="rounded-md bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700">
+            <button type="button" onClick={onReset} className="rounded-md bg-[var(--eq-card2)] px-2.5 py-1 text-xs font-medium text-[var(--eq-text2)] hover:bg-[var(--eq-border)]">
               Default
             </button>
             <button
               type="button"
               onClick={() => charts.forEach((chart) => { if (!selected.includes(chart.id)) onToggle(chart.id); })}
-              className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-200"
+              className="rounded-md bg-[var(--eq-gain-soft)] px-2.5 py-1 text-xs font-medium text-[var(--eq-gain)] hover:bg-[var(--eq-gain-soft)]"
             >
               Select all
             </button>
             <button
               type="button"
               onClick={() => selected.forEach((id) => onToggle(id))}
-              className="rounded-md bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-200"
+              className="rounded-md bg-[var(--eq-loss-soft)] px-2.5 py-1 text-xs font-medium text-[var(--eq-loss)] hover:bg-[var(--eq-loss-soft)]"
             >
               Clear
             </button>
@@ -286,19 +286,19 @@ function ChartMenu({ charts, selected, onToggle, onReset }) {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {groups.map(([group, items]) => (
               <div key={group}>
-                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{group}</div>
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--eq-text3)]">{group}</div>
                 <div className="space-y-1.5">
                   {items.map((chart) => {
                     const checked = selected.includes(chart.id);
                     return (
                       <label key={chart.id} className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs ring-1 transition ${
                         checked
-                          ? 'bg-indigo-50 text-indigo-800 ring-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-100 dark:ring-indigo-900'
-                          : 'bg-zinc-50 text-zinc-600 ring-zinc-100 hover:bg-zinc-100 dark:bg-zinc-950 dark:text-zinc-300 dark:ring-zinc-800 dark:hover:bg-zinc-800'
+                          ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent-strong)] ring-[var(--eq-accent-ring)]'
+                          : 'bg-[var(--eq-card2)] text-[var(--eq-text2)] ring-[var(--eq-border)] hover:bg-[var(--eq-card2)]'
                       }`}>
                         <input
                           type="checkbox"
-                          className="h-3.5 w-3.5 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                          className="h-3.5 w-3.5 rounded border-[var(--eq-border2)] text-[var(--eq-accent)] focus:ring-[var(--eq-accent-ring)]"
                           checked={checked}
                           onChange={() => onToggle(chart.id)}
                         />
@@ -350,7 +350,7 @@ export default function MacroPanel() {
 
   if (loading) {
     return (
-      <div className="flex h-72 items-center justify-center text-sm text-zinc-500 dark:text-zinc-400">
+      <div className="flex h-72 items-center justify-center text-sm text-[var(--eq-text3)]">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading macro data and daily agent analysis...
       </div>
     );
@@ -358,13 +358,13 @@ export default function MacroPanel() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/35 dark:text-red-100">
+      <div className="rounded-lg border border-red-200 bg-[var(--eq-loss-soft)] p-4 text-sm text-[var(--eq-loss)]">
         <div className="flex items-center gap-2 font-semibold"><AlertTriangle className="h-4 w-4" /> Macro unavailable</div>
         <p className="mt-1">{error}</p>
         <button
           type="button"
           onClick={load}
-          className="mt-3 inline-flex items-center gap-2 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+          className="mt-3 inline-flex items-center gap-2 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-[var(--eq-bg)] hover:bg-red-700"
         >
           <RefreshCw className="h-3.5 w-3.5" /> Retry
         </button>
@@ -386,13 +386,13 @@ export default function MacroPanel() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">Macro</h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <h2 className="text-xl font-semibold tracking-tight text-[var(--eq-text)]">Macro</h2>
+          <p className="text-sm text-[var(--eq-text3)]">
             Live macro dashboard with one cached agent analysis per visitor per day.
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-          <Brain className="h-4 w-4 text-indigo-500" />
+        <div className="flex items-center gap-2 rounded-lg border border-[var(--eq-border)] bg-[var(--eq-card)] px-3 py-2 text-xs text-[var(--eq-text2)]">
+          <Brain className="h-4 w-4 text-[var(--eq-accent)]" />
           <span>{data.analysis?.cached ? "Using today's cached agent view" : 'Fresh agent view generated'}</span>
         </div>
       </div>
@@ -415,16 +415,16 @@ export default function MacroPanel() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.25fr_.75fr]">
-        <div className="rounded-lg border border-zinc-200/70 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/75">
+        <div className="rounded-lg border border-[var(--eq-border)] bg-[var(--eq-card)] p-5 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Agent Macro View</h3>
-            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{data.updated_at}</span>
+            <h3 className="text-sm font-semibold text-[var(--eq-text)]">Agent Macro View</h3>
+            <span className="text-[11px] text-[var(--eq-text3)]">{data.updated_at}</span>
           </div>
           <AnalysisText text={data.analysis?.text} />
         </div>
 
-        <div className="rounded-lg border border-zinc-200/70 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/75">
-          <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Macro Headlines</h3>
+        <div className="rounded-lg border border-[var(--eq-border)] bg-[var(--eq-card)] p-5 shadow-sm">
+          <h3 className="mb-3 text-sm font-semibold text-[var(--eq-text)]">Macro Headlines</h3>
           <div className="space-y-3">
             {(data.news || []).slice(0, 8).map((n, idx) => (
               <a
@@ -432,10 +432,10 @@ export default function MacroPanel() {
                 href={n.url || undefined}
                 target="_blank"
                 rel="noreferrer"
-                className="block rounded-md border border-zinc-100 p-3 text-sm hover:border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/60"
+                className="block rounded-md border border-[var(--eq-grid)] p-3 text-sm hover:border-[var(--eq-border)] hover:bg-[var(--eq-card2)]"
               >
-                <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{n.symbol} {n.publisher ? `/ ${n.publisher}` : ''}</div>
-                <div className="mt-1 leading-snug text-zinc-800 dark:text-zinc-100">{n.title}</div>
+                <div className="text-[11px] font-semibold text-[var(--eq-text3)]">{n.symbol} {n.publisher ? `/ ${n.publisher}` : ''}</div>
+                <div className="mt-1 leading-snug text-[var(--eq-text)]">{n.title}</div>
               </a>
             ))}
           </div>

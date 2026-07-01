@@ -71,10 +71,10 @@ export default function WatchlistSidebar() {
   const focusedSymbol = state.panes[state.focusedPane]?.symbol;
 
   return (
-    <div className="flex flex-col h-full bg-zinc-50 border-r border-zinc-200/80 dark:bg-zinc-950 dark:border-zinc-800">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-200/80 dark:border-zinc-800">
-        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold dark:text-zinc-400">Watchlist</span>
-        {loading && <Loader2 className="w-3 h-3 animate-spin text-zinc-600" />}
+    <div className="flex flex-col h-full bg-[var(--eq-card2)] border-r border-[var(--eq-border)]">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--eq-border)]">
+        <span className="text-[10px] text-[var(--eq-text3)] uppercase tracking-wider font-semibold">Watchlist</span>
+        {loading && <Loader2 className="w-3 h-3 animate-spin text-[var(--eq-text2)]" />}
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -86,26 +86,26 @@ export default function WatchlistSidebar() {
               key={sym}
               onClick={() => handleClick(sym)}
               className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors group ${
-                active ? 'bg-zinc-200/80 dark:bg-zinc-800' : 'hover:bg-zinc-50 dark:hover:bg-zinc-900'
+                active ? 'bg-[var(--eq-border)]' : 'hover:bg-[var(--eq-card2)]'
               }`}
             >
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{sym}</div>
+                <div className="text-xs font-semibold text-[var(--eq-text)]">{sym}</div>
                 {p ? (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-zinc-500">${p.price}</span>
-                    <span className={`text-[10px] font-mono ${p.change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    <span className="text-[10px] text-[var(--eq-text3)]">${p.price}</span>
+                    <span className={`text-[10px] font-mono ${p.change >= 0 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>
                       {p.change > 0 ? '+' : ''}{p.change}%
                     </span>
                   </div>
                 ) : (
-                  <div className="text-[10px] text-zinc-600">Loading...</div>
+                  <div className="text-[10px] text-[var(--eq-text2)]">Loading...</div>
                 )}
               </div>
               {p?.sparkline && <MiniSpark data={p.sparkline} />}
               <button
                 onClick={e => { e.stopPropagation(); dispatch({ type: 'REMOVE_FROM_WATCHLIST', symbol: sym }); }}
-                className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-600 transition-opacity"
+                className="opacity-0 group-hover:opacity-100 text-[var(--eq-text2)] hover:text-[var(--eq-loss)] transition-opacity"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -115,17 +115,17 @@ export default function WatchlistSidebar() {
       </div>
 
       {/* Add symbol */}
-      <div className="border-t border-zinc-200/80 p-2 dark:border-zinc-800">
+      <div className="border-t border-[var(--eq-border)] p-2">
         {adding ? (
           <form onSubmit={handleAdd} className="flex gap-1">
             <input type="text" value={addInput} onChange={e => setAddInput(e.target.value)}
               autoFocus placeholder="AAPL"
-              className="flex-1 bg-white ring-1 ring-zinc-200/80 rounded px-2 py-1 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-zinc-300/80 dark:bg-zinc-900 dark:ring-zinc-600 dark:text-zinc-100" />
-            <button type="submit" className="px-2 py-1 bg-zinc-800 rounded text-xs text-white dark:bg-zinc-100 dark:text-zinc-900">Add</button>
+              className="flex-1 bg-[var(--eq-card)] ring-1 ring-[var(--eq-border)] rounded px-2 py-1 text-xs text-[var(--eq-text)] placeholder:text-[var(--eq-text3)] focus:outline-none focus:ring-[var(--eq-border2)]" />
+            <button type="submit" className="px-2 py-1 bg-[var(--eq-text)] rounded text-xs text-[var(--eq-bg)]">Add</button>
           </form>
         ) : (
           <button onClick={() => setAdding(true)}
-            className="flex items-center gap-1 w-full px-2 py-1.5 rounded text-[10px] text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-900">
+            className="flex items-center gap-1 w-full px-2 py-1.5 rounded text-[10px] text-[var(--eq-text3)] hover:text-[var(--eq-text)] hover:bg-[var(--eq-card2)] transition-colors">
             <Plus className="w-3 h-3" /> Add Symbol
           </button>
         )}

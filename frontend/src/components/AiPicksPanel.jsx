@@ -6,7 +6,7 @@ const scoreColor = (score) => {
   if (score >= 72) return 'bg-emerald-500';
   if (score >= 62) return 'bg-lime-500';
   if (score >= 54) return 'bg-amber-500';
-  return 'bg-zinc-400';
+  return 'bg-[var(--eq-text3)]';
 };
 
 function fmtCap(v) {
@@ -29,29 +29,29 @@ function fmtPct(v) {
 
 function metricTone(label, rawValue) {
   const n = Number(rawValue);
-  if (!Number.isFinite(n)) return 'bg-zinc-50 text-zinc-500 dark:bg-zinc-950/30 dark:text-zinc-400';
+  if (!Number.isFinite(n)) return 'bg-[var(--eq-card2)] text-[var(--eq-text3)]';
   if (label === 'P/E') {
-    if (n > 0 && n <= 25) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300';
-    if (n <= 45) return 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-200';
-    return 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300';
+    if (n > 0 && n <= 25) return 'bg-[var(--eq-gain-soft)] text-[var(--eq-gain)]';
+    if (n <= 45) return 'bg-yellow-50 text-yellow-700';
+    return 'bg-[var(--eq-loss-soft)] text-[var(--eq-loss)]';
   }
   if (label === 'Rev') {
-    if (n >= 15) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300';
-    if (n >= 3) return 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-200';
-    if (n < 0) return 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300';
+    if (n >= 15) return 'bg-[var(--eq-gain-soft)] text-[var(--eq-gain)]';
+    if (n >= 3) return 'bg-yellow-50 text-yellow-700';
+    if (n < 0) return 'bg-[var(--eq-loss-soft)] text-[var(--eq-loss)]';
   }
   if (label === 'ROE') {
-    if (n >= 20) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300';
-    if (n >= 8) return 'bg-yellow-50 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-200';
-    if (n < 0) return 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300';
+    if (n >= 20) return 'bg-[var(--eq-gain-soft)] text-[var(--eq-gain)]';
+    if (n >= 8) return 'bg-yellow-50 text-yellow-700';
+    if (n < 0) return 'bg-[var(--eq-loss-soft)] text-[var(--eq-loss)]';
   }
-  return 'bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-300';
+  return 'bg-sky-50 text-sky-700';
 }
 
 function ConsensusBadge({ consensus }) {
   if (!consensus) {
     return (
-      <div className="inline-flex w-full items-center justify-center rounded-md bg-zinc-50 px-2 py-1 text-[10px] font-medium text-zinc-500 ring-1 ring-zinc-100 dark:bg-zinc-950/30 dark:ring-zinc-800">
+      <div className="inline-flex w-full items-center justify-center rounded-md bg-[var(--eq-card2)] px-2 py-1 text-[10px] font-medium text-[var(--eq-text3)] ring-1 ring-[var(--eq-border)]">
         Consensus unavailable
       </div>
     );
@@ -59,14 +59,14 @@ function ConsensusBadge({ consensus }) {
   const rating = consensus.rating || 'Consensus';
   const r = rating.toLowerCase();
   const tone = r.includes('strong') && r.includes('buy')
-    ? 'bg-emerald-600 text-white shadow-sm dark:bg-emerald-500 dark:text-emerald-950'
+    ? 'bg-[var(--eq-gain)] text-[var(--eq-bg)] shadow-sm'
     : r.includes('buy')
-      ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-900'
+      ? 'bg-[var(--eq-gain-soft)] text-[var(--eq-gain)] ring-1 ring-[var(--eq-gain)]/25'
       : r.includes('hold')
-        ? 'bg-zinc-100 text-zinc-700 ring-1 ring-zinc-100 dark:bg-zinc-800 dark:text-zinc-200 dark:ring-zinc-700'
+        ? 'bg-[var(--eq-card2)] text-[var(--eq-text2)] ring-1 ring-[var(--eq-border)]'
         : r.includes('sell')
-          ? 'bg-red-100 text-red-700 ring-1 ring-red-100 dark:bg-red-950/40 dark:text-red-200 dark:ring-red-900'
-          : 'bg-yellow-50 text-yellow-700 ring-1 ring-yellow-100 dark:bg-yellow-950/30 dark:text-yellow-200 dark:ring-yellow-900';
+          ? 'bg-red-100 text-[var(--eq-loss)] ring-1 ring-[var(--eq-loss)]/25'
+          : 'bg-yellow-50 text-yellow-700 ring-1 ring-yellow-100';
   const details = [
     consensus.target ? `$${consensus.target}` : null,
     consensus.analysts ? `${consensus.analysts} analysts` : null,
@@ -83,12 +83,12 @@ function SentimentBadge({ sentiment }) {
   const value = sentiment || 'mixed';
   const s = value.toLowerCase();
   const tone = s.includes('bull')
-    ? 'bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/30 dark:text-emerald-300 dark:ring-emerald-900'
+    ? 'bg-[var(--eq-gain-soft)] text-[var(--eq-gain)] ring-[var(--eq-gain)]/25'
     : s.includes('bear')
-      ? 'bg-red-50 text-red-700 ring-red-100 dark:bg-red-950/30 dark:text-red-300 dark:ring-red-900'
+      ? 'bg-[var(--eq-loss-soft)] text-[var(--eq-loss)] ring-[var(--eq-loss)]/25'
       : s.includes('hype')
-        ? 'bg-yellow-50 text-yellow-700 ring-yellow-200 dark:bg-yellow-950/30 dark:text-yellow-200 dark:ring-yellow-800'
-        : 'bg-zinc-50 text-zinc-600 ring-zinc-100 dark:bg-zinc-950/30 dark:text-zinc-300 dark:ring-zinc-800';
+        ? 'bg-yellow-50 text-yellow-700 ring-yellow-200'
+        : 'bg-[var(--eq-card2)] text-[var(--eq-text2)] ring-[var(--eq-border)]';
   return (
     <div className={`inline-flex items-center justify-between gap-2 rounded-md px-2 py-1 text-[10px] ring-1 ${tone}`}>
       <span className="font-semibold">Sentiment</span>
@@ -120,8 +120,8 @@ function AgentRecommendation({ note, risk, tone = 'sky' }) {
   const text = note || risk;
   if (!text) return null;
   const colors = tone === 'orange'
-    ? 'bg-yellow-50 text-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-200'
-    : 'bg-sky-50 text-sky-800 dark:bg-sky-950/30 dark:text-sky-200';
+    ? 'bg-yellow-50 text-yellow-800'
+    : 'bg-sky-50 text-sky-800';
   return (
     <div className={`mt-2 flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[10px] leading-4 ${colors}`}>
       <Sparkles className="mt-0.5 h-3 w-3 shrink-0" />
@@ -136,25 +136,25 @@ function PickCard({ pick, onOpenTicker }) {
     <button
       type="button"
       onClick={() => onOpenTicker?.(pick.symbol)}
-      className="w-full text-left rounded-lg bg-white/90 p-3 ring-1 ring-zinc-200/70 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition dark:bg-zinc-900/80 dark:ring-zinc-800"
+      className="w-full text-left rounded-lg bg-[var(--eq-card)]/90 p-3 ring-1 ring-[var(--eq-border)] shadow-sm hover:shadow-md hover:-translate-y-0.5 transition"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-zinc-950 dark:text-zinc-100">{pick.symbol}</span>
-            <span className="text-[10px] text-zinc-500">{pick.country}</span>
+            <span className="font-semibold text-[var(--eq-text)]">{pick.symbol}</span>
+            <span className="text-[10px] text-[var(--eq-text3)]">{pick.country}</span>
           </div>
-          <p className="truncate text-xs text-zinc-600 dark:text-zinc-400">{pick.name}</p>
+          <p className="truncate text-xs text-[var(--eq-text2)]">{pick.name}</p>
         </div>
         <div className="text-right shrink-0">
-          <div className={`ml-auto h-8 w-8 rounded-md ${scoreColor(score)} text-white text-xs font-bold grid place-items-center`}>
+          <div className={`ml-auto h-8 w-8 rounded-md ${scoreColor(score)} text-[var(--eq-bg)] text-xs font-bold grid place-items-center`}>
             {Math.round(score)}
           </div>
         </div>
       </div>
       <AgentRecommendation note={pick.agent_note} risk={pick.agent_risk} />
       <FundamentalsGrid item={pick} />
-      <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-zinc-500">
+      <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-[var(--eq-text3)]">
         <span>{pick.sector || '—'}</span>
         {pick.price && <span>${pick.price}</span>}
       </div>
@@ -164,7 +164,7 @@ function PickCard({ pick, onOpenTicker }) {
       {pick.candidate_sources?.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
           {pick.candidate_sources.slice(0, 3).map((source) => (
-            <span key={source} className="rounded bg-sky-50 px-1.5 py-0.5 text-[10px] text-sky-700 dark:bg-sky-950/30 dark:text-sky-300">
+            <span key={source} className="rounded bg-sky-50 px-1.5 py-0.5 text-[10px] text-sky-700">
               {source}
             </span>
           ))}
@@ -176,27 +176,27 @@ function PickCard({ pick, onOpenTicker }) {
 
 function RedditBuzzCard({ item, onOpenTicker }) {
   return (
-    <div className="rounded-lg bg-white p-3 ring-1 ring-zinc-200/70 shadow-sm dark:bg-zinc-900/80 dark:ring-zinc-800">
+    <div className="rounded-lg bg-[var(--eq-card)] p-3 ring-1 ring-[var(--eq-border)] shadow-sm">
       <button type="button" onClick={() => onOpenTicker?.(item.symbol)} className="w-full text-left">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-zinc-950 dark:text-zinc-100">{item.symbol}</span>
+              <span className="font-semibold text-[var(--eq-text)]">{item.symbol}</span>
             </div>
-            <div className="mt-1 text-xs text-zinc-500">{item.subreddits?.map((s) => `r/${s}`).join(' · ')}</div>
+            <div className="mt-1 text-xs text-[var(--eq-text3)]">{item.subreddits?.map((s) => `r/${s}`).join(' · ')}</div>
           </div>
-          <div className="grid h-9 w-9 place-items-center rounded-md bg-orange-500 text-xs font-bold text-white">
+          <div className="grid h-9 w-9 place-items-center rounded-md bg-orange-500 text-xs font-bold text-[var(--eq-bg)]">
             {Math.round(item.buzz_score)}
           </div>
         </div>
       </button>
-      <div className="mt-3 grid grid-cols-2 gap-1 text-[10px] text-zinc-600 dark:text-zinc-400">
+      <div className="mt-3 grid grid-cols-2 gap-1 text-[10px] text-[var(--eq-text2)]">
         <span>{item.mentions} mentions</span>
         <span>{item.recommendations} bullish</span>
       </div>
       <AgentRecommendation note={item.agent_note} risk={item.agent_risk} tone="orange" />
       <FundamentalsGrid item={item} />
-      <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-zinc-500">
+      <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-[var(--eq-text3)]">
         <span>{item.sector || 'Reddit buzz'}</span>
         {item.price && <span>${item.price}</span>}
       </div>
@@ -204,14 +204,14 @@ function RedditBuzzCard({ item, onOpenTicker }) {
         <SentimentBadge sentiment={item.agent_sentiment} />
         <ConsensusBadge consensus={item.consensus} />
       </div>
-      <div className="mt-2 space-y-1 border-t border-zinc-100 pt-2 dark:border-zinc-800">
+      <div className="mt-2 space-y-1 border-t border-[var(--eq-grid)] pt-2">
         {(item.examples || []).slice(0, 2).map((ex) => (
           <a
             key={ex.url}
             href={ex.url}
             target="_blank"
             rel="noreferrer"
-            className="flex items-start gap-1.5 text-[10px] leading-4 text-zinc-500 hover:text-orange-600 dark:text-zinc-400 dark:hover:text-orange-300"
+            className="flex items-start gap-1.5 text-[10px] leading-4 text-[var(--eq-text3)] hover:text-orange-600"
           >
             <ExternalLink className="mt-0.5 h-3 w-3 shrink-0" />
             <span className="line-clamp-2">{ex.title}</span>
@@ -268,29 +268,29 @@ export default function AiPicksPanel({ onOpenTicker }) {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="flex items-center gap-2 text-xs font-medium uppercase text-zinc-500">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase text-[var(--eq-text3)]">
             <Brain className="h-4 w-4" /> AI-ranked stock shortlist
           </div>
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">Picks</h2>
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--eq-text)]">Picks</h2>
         </div>
         <button
           type="button"
           onClick={() => (view === 'reddit' ? loadReddit(true) : load(true))}
           disabled={view === 'reddit' ? redditLoading : loading}
-          className="inline-flex items-center gap-2 rounded-md bg-zinc-950 px-3 py-2 text-xs font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-950"
+          className="inline-flex items-center gap-2 rounded-md bg-[var(--eq-text)] px-3 py-2 text-xs font-medium text-[var(--eq-bg)] disabled:opacity-60"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${(view === 'reddit' ? redditLoading : loading) ? 'animate-spin' : ''}`} /> Refresh
         </button>
       </div>
 
-      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-200 dark:bg-red-950/30 dark:text-red-200 dark:ring-red-900">{error}</div>}
+      {error && <div className="rounded-lg bg-[var(--eq-loss-soft)] p-3 text-sm text-[var(--eq-loss)] ring-1 ring-[var(--eq-loss)]/25">{error}</div>}
 
-      <div className="flex flex-wrap gap-1 rounded-lg bg-zinc-100 p-1 ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
+      <div className="flex flex-wrap gap-1 rounded-lg bg-[var(--eq-card2)] p-1 ring-1 ring-[var(--eq-border)]">
         <button
           type="button"
           onClick={() => setView('agent')}
           className={`inline-flex min-w-32 flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition ${
-            view === 'agent' ? 'bg-white text-zinc-950 shadow-sm dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
+            view === 'agent' ? 'bg-[var(--eq-card)] text-[var(--eq-text)] shadow-sm' : 'text-[var(--eq-text3)] hover:text-[var(--eq-text)]'
           }`}
         >
           <Brain className="h-3.5 w-3.5" /> AI Picks
@@ -299,35 +299,35 @@ export default function AiPicksPanel({ onOpenTicker }) {
           type="button"
           onClick={() => setView('reddit')}
           className={`inline-flex min-w-32 flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-medium transition ${
-            view === 'reddit' ? 'bg-white text-zinc-950 shadow-sm dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
+            view === 'reddit' ? 'bg-[var(--eq-card)] text-[var(--eq-text)] shadow-sm' : 'text-[var(--eq-text3)] hover:text-[var(--eq-text)]'
           }`}
         >
-          <span className="grid h-5 w-5 place-items-center rounded-full bg-orange-500 text-[10px] font-bold text-white">r/</span>
+          <span className="grid h-5 w-5 place-items-center rounded-full bg-orange-500 text-[10px] font-bold text-[var(--eq-bg)]">r/</span>
           Reddit Buzz
         </button>
       </div>
 
-      {view === 'agent' && <div className="grid gap-3 rounded-lg bg-white p-3 ring-1 ring-zinc-200 dark:bg-zinc-900/60 dark:ring-zinc-800 sm:grid-cols-3">
-        <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
-          <TrendingUp className="h-4 w-4 text-emerald-500" /> {data?.scored_count || 0} scored from {data?.universe_count || 0} candidates
+      {view === 'agent' && <div className="grid gap-3 rounded-lg bg-[var(--eq-card)] p-3 ring-1 ring-[var(--eq-border)] sm:grid-cols-3">
+        <div className="flex items-center gap-2 text-sm text-[var(--eq-text2)]">
+          <TrendingUp className="h-4 w-4 text-[var(--eq-gain)]" /> {data?.scored_count || 0} scored from {data?.universe_count || 0} candidates
         </div>
-        <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+        <div className="flex items-center gap-2 text-sm text-[var(--eq-text2)]">
           <Sparkles className="h-4 w-4 text-sky-500" /> Fundamentals, technicals, recent headlines and macro context
         </div>
-        <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+        <div className="flex items-center gap-2 text-sm text-[var(--eq-text2)]">
           <ShieldAlert className="h-4 w-4 text-amber-500" /> {data?.agent_reviewed ? 'Final picks selected by tab-1 agent' : 'Click a ticker for full agent research'}
         </div>
       </div>}
 
       {view === 'reddit' && (
-        <div className="grid gap-3 rounded-lg bg-white p-3 ring-1 ring-zinc-200 dark:bg-zinc-900/60 dark:ring-zinc-800 sm:grid-cols-3">
-          <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+        <div className="grid gap-3 rounded-lg bg-[var(--eq-card)] p-3 ring-1 ring-[var(--eq-border)] sm:grid-cols-3">
+          <div className="flex items-center gap-2 text-sm text-[var(--eq-text2)]">
             <MessageCircle className="h-4 w-4 text-orange-500" /> {redditData?.items?.length || 0} Reddit tickers ranked
           </div>
-          <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+          <div className="flex items-center gap-2 text-sm text-[var(--eq-text2)]">
             <Sparkles className="h-4 w-4 text-sky-500" /> {redditData?.agent_reviewed ? 'Final Reddit ideas selected by tab-1 agent' : 'Mention and engagement based'}
           </div>
-          <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+          <div className="flex items-center gap-2 text-sm text-[var(--eq-text2)]">
             <ShieldAlert className="h-4 w-4 text-amber-500" /> Social buzz, not recommendations
           </div>
         </div>
@@ -335,15 +335,15 @@ export default function AiPicksPanel({ onOpenTicker }) {
 
       {view === 'agent' && (loading && !data ? (
         <div className="grid gap-3 md:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => <div key={i} className="h-80 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-900" />)}
+          {[0, 1, 2, 3].map((i) => <div key={i} className="h-80 animate-pulse rounded-lg bg-[var(--eq-card2)]" />)}
         </div>
       ) : (
         <div className="grid gap-[1.125rem] md:grid-cols-2 xl:grid-cols-5">
           {columns.map((col) => (
             <section key={col.id} className="min-w-0">
               <div className="mb-2">
-                <h3 className="text-sm font-semibold text-zinc-950 dark:text-zinc-100">{col.title}</h3>
-                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{col.subtitle}</p>
+                <h3 className="text-sm font-semibold text-[var(--eq-text)]">{col.title}</h3>
+                <p className="mt-0.5 text-xs text-[var(--eq-text3)]">{col.subtitle}</p>
               </div>
               <div className="space-y-2">
                 {(col.picks || []).map((pick, idx) => (
@@ -357,7 +357,7 @@ export default function AiPicksPanel({ onOpenTicker }) {
 
       {view === 'reddit' && (redditLoading && !redditData ? (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => <div key={i} className="h-56 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-900" />)}
+          {[0, 1, 2, 3].map((i) => <div key={i} className="h-56 animate-pulse rounded-lg bg-[var(--eq-card2)]" />)}
         </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -367,7 +367,7 @@ export default function AiPicksPanel({ onOpenTicker }) {
         </div>
       ))}
 
-      <p className="text-xs text-zinc-500">{view === 'reddit' ? redditData?.disclaimer : data?.disclaimer || 'Research shortlist only. Verify independently before trading.'}</p>
+      <p className="text-xs text-[var(--eq-text3)]">{view === 'reddit' ? redditData?.disclaimer : data?.disclaimer || 'Research shortlist only. Verify independently before trading.'}</p>
     </div>
   );
 }

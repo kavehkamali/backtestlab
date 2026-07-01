@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Play, Loader2 } from 'lucide-react';
 
-const inputClass = 'w-full bg-zinc-50 rounded-lg px-3 py-2 text-zinc-900 text-sm ring-1 ring-zinc-200/80 focus:outline-none focus:ring-2 focus:ring-indigo-200';
-const cardClass = 'bg-white rounded-xl p-4 shadow-sm ring-1 ring-zinc-200/70';
+const inputClass = 'w-full bg-[var(--eq-card2)] rounded-lg px-3 py-2 text-[var(--eq-text)] text-sm ring-1 ring-[var(--eq-border)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]';
+const cardClass = 'bg-[var(--eq-card)] rounded-xl p-4 shadow-sm ring-1 ring-[var(--eq-border)]';
 
 export default function StrategyPanel({ strategies, onRun, loading }) {
   const [symbol, setSymbol] = useState('AAPL');
@@ -40,7 +40,7 @@ export default function StrategyPanel({ strategies, onRun, loading }) {
   return (
     <div className="space-y-4">
       <div className={cardClass}>
-        <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-2">
+        <label className="block text-xs text-[var(--eq-text3)] uppercase tracking-wider mb-2">
           Symbol
         </label>
         <input
@@ -53,7 +53,7 @@ export default function StrategyPanel({ strategies, onRun, loading }) {
       </div>
 
       <div className={cardClass}>
-        <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-2">
+        <label className="block text-xs text-[var(--eq-text3)] uppercase tracking-wider mb-2">
           Data History
         </label>
         <div className="flex gap-1.5">
@@ -69,8 +69,8 @@ export default function StrategyPanel({ strategies, onRun, loading }) {
               onClick={() => setPeriod(opt.value)}
               className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 period === opt.value
-                  ? 'bg-indigo-100 text-indigo-800 ring-1 ring-indigo-200'
-                  : 'bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200/60 hover:text-zinc-900'
+                  ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent-strong)] ring-1 ring-[var(--eq-accent-ring)]'
+                  : 'bg-[var(--eq-card2)] text-[var(--eq-text2)] ring-1 ring-[var(--eq-border)] hover:text-[var(--eq-text)]'
               }`}
             >
               {opt.label}
@@ -80,7 +80,7 @@ export default function StrategyPanel({ strategies, onRun, loading }) {
       </div>
 
       <div className={cardClass}>
-        <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-2">
+        <label className="block text-xs text-[var(--eq-text3)] uppercase tracking-wider mb-2">
           Strategy
         </label>
         <select
@@ -95,20 +95,20 @@ export default function StrategyPanel({ strategies, onRun, loading }) {
           ))}
         </select>
         {selected && (
-          <p className="mt-2 text-xs text-zinc-500">{selected.description}</p>
+          <p className="mt-2 text-xs text-[var(--eq-text3)]">{selected.description}</p>
         )}
       </div>
 
       {selected?.params?.length > 0 && (
         <div className={`${cardClass} space-y-3`}>
-          <label className="block text-xs text-zinc-500 uppercase tracking-wider">
+          <label className="block text-xs text-[var(--eq-text3)] uppercase tracking-wider">
             Parameters
           </label>
           {selected.params.map(p => (
             <div key={p.name}>
               <div className="flex justify-between text-xs mb-1">
-                <span className="text-zinc-600">{p.name.replace(/_/g, ' ')}</span>
-                <span className="text-indigo-600">{params[p.name] ?? p.default}</span>
+                <span className="text-[var(--eq-text2)]">{p.name.replace(/_/g, ' ')}</span>
+                <span className="text-[var(--eq-accent)]">{params[p.name] ?? p.default}</span>
               </div>
               <input
                 type="range"
@@ -120,7 +120,7 @@ export default function StrategyPanel({ strategies, onRun, loading }) {
                   ...params,
                   [p.name]: p.type === 'float' ? parseFloat(e.target.value) : parseInt(e.target.value),
                 })}
-                className="w-full accent-indigo-600 h-1"
+                className="w-full accent-[var(--eq-accent)] h-1"
               />
             </div>
           ))}
@@ -128,7 +128,7 @@ export default function StrategyPanel({ strategies, onRun, loading }) {
       )}
 
       <div className={cardClass}>
-        <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-2">
+        <label className="block text-xs text-[var(--eq-text3)] uppercase tracking-wider mb-2">
           Date Range (optional)
         </label>
         <div className="grid grid-cols-2 gap-2">
@@ -139,13 +139,13 @@ export default function StrategyPanel({ strategies, onRun, loading }) {
 
       <div className={`${cardClass} space-y-3`}>
         <div>
-          <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-1">
+          <label className="block text-xs text-[var(--eq-text3)] uppercase tracking-wider mb-1">
             Initial Capital ($)
           </label>
           <input type="text" inputMode="decimal" value={capital} onChange={e => setCapital(Number(e.target.value))} className={inputClass} />
         </div>
         <div>
-          <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-1">
+          <label className="block text-xs text-[var(--eq-text3)] uppercase tracking-wider mb-1">
             Commission (%)
           </label>
           <input type="text" inputMode="decimal" step="0.01" value={commission} onChange={e => setCommission(Number(e.target.value))} className={inputClass} />
@@ -155,7 +155,7 @@ export default function StrategyPanel({ strategies, onRun, loading }) {
       <button
         onClick={handleRun}
         disabled={loading}
-        className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors shadow-sm"
+        className="w-full flex items-center justify-center gap-2 bg-[var(--eq-accent)] hover:opacity-85 disabled:opacity-50 text-[var(--eq-bg)] font-medium py-3 rounded-xl transition-colors shadow-sm"
       >
         {loading ? (
           <><Loader2 className="w-4 h-4 animate-spin" /> Running...</>

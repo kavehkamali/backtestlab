@@ -134,15 +134,15 @@ export default function InteractiveSnowflake({ dims, values, onChange, enabled, 
           onClick={onToggle}
           className={`relative h-4 w-7 rounded-full transition-colors ring-1 ${
             enabled
-              ? 'bg-indigo-500 ring-indigo-500'
-              : 'bg-zinc-300 ring-zinc-400/60 hover:bg-zinc-400 dark:bg-zinc-700 dark:ring-zinc-600 dark:hover:bg-zinc-600'
+              ? 'bg-[var(--eq-accent)] ring-[var(--eq-accent)]'
+              : 'bg-[var(--eq-border2)] ring-[var(--eq-border2)] hover:bg-[var(--eq-text3)]'
           }`}
           aria-pressed={enabled}
           aria-label={`${enabled ? 'Disable' : 'Enable'} ${title} snowflake filter`}
         >
-          <div className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-all ${enabled ? 'left-3.5' : 'left-0.5'}`} />
+          <div className={`absolute top-0.5 h-3 w-3 rounded-full bg-[var(--eq-card)] shadow-sm transition-all ${enabled ? 'left-3.5' : 'left-0.5'}`} />
         </button>
-        <span className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">{title}</span>
+        <span className="text-[10px] text-[var(--eq-text3)] font-semibold uppercase tracking-wider">{title}</span>
       </div>
 
       <svg

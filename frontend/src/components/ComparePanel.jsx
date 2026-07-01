@@ -10,8 +10,8 @@ const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white rounded-lg px-3 py-2 text-xs shadow-md ring-1 ring-zinc-200/80">
-      <p className="text-zinc-500 mb-1">{label}</p>
+    <div className="bg-[var(--eq-card)] rounded-lg px-3 py-2 text-xs shadow-md ring-1 ring-[var(--eq-border)]">
+      <p className="text-[var(--eq-text3)] mb-1">{label}</p>
       {payload.map((p, i) => (
         <p key={i} style={{ color: p.color }}>
           {p.name}: ${p.value?.toLocaleString()}
@@ -21,8 +21,8 @@ function CustomTooltip({ active, payload, label }) {
   );
 }
 
-const inputClass = 'w-full bg-zinc-50 rounded-lg px-3 py-2 text-zinc-900 text-sm ring-1 ring-zinc-200/80 focus:outline-none focus:ring-2 focus:ring-indigo-200';
-const cardClass = 'bg-white rounded-xl p-4 shadow-sm ring-1 ring-zinc-200/70';
+const inputClass = 'w-full bg-[var(--eq-card2)] rounded-lg px-3 py-2 text-[var(--eq-text)] text-sm ring-1 ring-[var(--eq-border)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]';
+const cardClass = 'bg-[var(--eq-card)] rounded-xl p-4 shadow-sm ring-1 ring-[var(--eq-border)]';
 const BACKTEST_SYMBOL_HINTS = new Set([
   'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'NVDA', 'TSLA', 'META', 'JPM', 'V', 'WMT', 'UNH', 'XOM',
   'AMD', 'NFLX', 'CRM', 'ADBE', 'ORCL', 'QCOM', 'INTC', 'MU', 'PLTR', 'SHOP', 'COIN', 'SOFI',
@@ -168,12 +168,12 @@ export default function ComparePanel({ strategies, onCompare, results, loading }
       <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-6">
         <div className="space-y-4">
           <div className={cardClass}>
-            <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-2">Symbol</label>
+            <label className="block text-xs text-[var(--eq-text3)] uppercase tracking-wider mb-2">Symbol</label>
             <input type="text" value={symbol} onChange={e => setSymbol(e.target.value)} className={inputClass} />
           </div>
 
           <div className={cardClass}>
-            <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-2">Data History</label>
+            <label className="block text-xs text-[var(--eq-text3)] uppercase tracking-wider mb-2">Data History</label>
             <div className="flex gap-1.5">
               {[
                 { value: '1y', label: '1Y' },
@@ -187,8 +187,8 @@ export default function ComparePanel({ strategies, onCompare, results, loading }
                   onClick={() => setPeriod(opt.value)}
                   className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     period === opt.value
-                      ? 'bg-indigo-100 text-indigo-800 ring-1 ring-indigo-200'
-                      : 'bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200/60 hover:text-zinc-900'
+                      ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent-strong)] ring-1 ring-[var(--eq-accent-ring)]'
+                      : 'bg-[var(--eq-card2)] text-[var(--eq-text2)] ring-1 ring-[var(--eq-border)] hover:text-[var(--eq-text)]'
                   }`}
                 >
                   {opt.label}
@@ -198,7 +198,7 @@ export default function ComparePanel({ strategies, onCompare, results, loading }
           </div>
 
           <div className={cardClass}>
-            <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-2">Date Range</label>
+            <label className="block text-xs text-[var(--eq-text3)] uppercase tracking-wider mb-2">Date Range</label>
             <div className="grid grid-cols-2 gap-2">
               <input type="text" placeholder="YYYY-MM-DD" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputClass} />
               <input type="text" placeholder="YYYY-MM-DD" value={endDate} onChange={e => setEndDate(e.target.value)} className={inputClass} />
@@ -206,17 +206,17 @@ export default function ComparePanel({ strategies, onCompare, results, loading }
           </div>
 
           <div className={cardClass}>
-            <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-2">Initial Capital ($)</label>
+            <label className="block text-xs text-[var(--eq-text3)] uppercase tracking-wider mb-2">Initial Capital ($)</label>
             <input type="text" inputMode="decimal" value={capital} onChange={e => setCapital(Number(e.target.value))} className={inputClass} />
           </div>
 
           <div className={cardClass}>
-            <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-3">Strategies to Compare</label>
+            <label className="block text-xs text-[var(--eq-text3)] uppercase tracking-wider mb-3">Strategies to Compare</label>
             <div className="space-y-2">
               {strategies.map(s => (
                 <label key={s.id} className="flex items-center gap-2 cursor-pointer group">
-                  <input type="checkbox" checked={selected.includes(s.id)} onChange={() => toggleStrategy(s.id)} className="accent-indigo-600" />
-                  <span className={`text-sm ${selected.includes(s.id) ? 'text-zinc-900' : 'text-zinc-500'} group-hover:text-zinc-800 transition-colors`}>
+                  <input type="checkbox" checked={selected.includes(s.id)} onChange={() => toggleStrategy(s.id)} className="accent-[var(--eq-accent)]" />
+                  <span className={`text-sm ${selected.includes(s.id) ? 'text-[var(--eq-text)]' : 'text-[var(--eq-text3)]'} group-hover:text-[var(--eq-text)] transition-colors`}>
                     {s.name}
                   </span>
                 </label>
@@ -227,7 +227,7 @@ export default function ComparePanel({ strategies, onCompare, results, loading }
           <button
             onClick={handleRun}
             disabled={loading || selected.length < 2}
-            className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium py-3 rounded-xl transition-colors shadow-sm"
+            className="w-full flex items-center justify-center gap-2 bg-[var(--eq-accent)] hover:opacity-85 disabled:opacity-50 text-[var(--eq-bg)] font-medium py-3 rounded-xl transition-colors shadow-sm"
           >
             {loading ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Comparing...</>
@@ -239,13 +239,13 @@ export default function ComparePanel({ strategies, onCompare, results, loading }
 
         <div className="space-y-4">
           {loading && (
-            <div className="flex items-center justify-center h-64 text-zinc-500">
+            <div className="flex items-center justify-center h-64 text-[var(--eq-text3)]">
               <Loader2 className="w-6 h-6 animate-spin mr-2" /> Running comparisons...
             </div>
           )}
 
           {!loading && !results && (
-            <div className="flex items-center justify-center h-64 text-zinc-500 text-sm">
+            <div className="flex items-center justify-center h-64 text-[var(--eq-text3)] text-sm">
               Select strategies and run comparison
             </div>
           )}
@@ -253,7 +253,7 @@ export default function ComparePanel({ strategies, onCompare, results, loading }
           {results && (
             <>
               <div className={cardClass}>
-                <h3 className="text-sm font-medium text-zinc-600 mb-4">Equity Curves Comparison</h3>
+                <h3 className="text-sm font-medium text-[var(--eq-text2)] mb-4">Equity Curves Comparison</h3>
                 <ResponsiveContainer width="100%" height={350}>
                   <LineChart data={mergedEquity}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
@@ -283,10 +283,10 @@ export default function ComparePanel({ strategies, onCompare, results, loading }
               </div>
 
               <div className={`${cardClass} overflow-x-auto`}>
-                <h3 className="text-sm font-medium text-zinc-600 mb-4">Performance Comparison</h3>
+                <h3 className="text-sm font-medium text-[var(--eq-text2)] mb-4">Performance Comparison</h3>
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-zinc-500 border-b border-zinc-200">
+                    <tr className="text-[var(--eq-text3)] border-b border-[var(--eq-border)]">
                       <th className="text-left py-2 px-3">Strategy</th>
                       <th className="text-right py-2 px-3">Total %</th>
                       <th className="text-right py-2 px-3">Annual %</th>
@@ -303,27 +303,27 @@ export default function ComparePanel({ strategies, onCompare, results, loading }
                     {results.map((r, i) => {
                       const name = strategies.find(s => s.id === r.strategy)?.name || r.strategy;
                       return (
-                        <tr key={r.strategy} className="border-b border-zinc-100 hover:bg-zinc-50">
+                        <tr key={r.strategy} className="border-b border-[var(--eq-grid)] hover:bg-[var(--eq-card2)]">
                           <td className="py-2 px-3 font-medium" style={{ color: COLORS[i % COLORS.length] }}>
                             {name}
                           </td>
-                          <td className={`py-2 px-3 text-right ${r.total_return_pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                          <td className={`py-2 px-3 text-right ${r.total_return_pct >= 0 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>
                             {r.total_return_pct}%
                           </td>
-                          <td className={`py-2 px-3 text-right ${r.annual_return_pct >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                          <td className={`py-2 px-3 text-right ${r.annual_return_pct >= 0 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>
                             {r.annual_return_pct}%
                           </td>
-                          <td className={`py-2 px-3 text-right ${r.sharpe_ratio >= 1 ? 'text-emerald-600' : 'text-zinc-500'}`}>
+                          <td className={`py-2 px-3 text-right ${r.sharpe_ratio >= 1 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-text3)]'}`}>
                             {r.sharpe_ratio}
                           </td>
-                          <td className="py-2 px-3 text-right text-red-600">{r.max_drawdown_pct}%</td>
-                          <td className="py-2 px-3 text-right text-zinc-700">{r.win_rate}%</td>
-                          <td className="py-2 px-3 text-right text-zinc-500">{r.num_trades}</td>
-                          <td className={`py-2 px-3 text-right ${r.profit_factor >= 1.5 ? 'text-emerald-600' : 'text-zinc-500'}`}>
+                          <td className="py-2 px-3 text-right text-[var(--eq-loss)]">{r.max_drawdown_pct}%</td>
+                          <td className="py-2 px-3 text-right text-[var(--eq-text2)]">{r.win_rate}%</td>
+                          <td className="py-2 px-3 text-right text-[var(--eq-text3)]">{r.num_trades}</td>
+                          <td className={`py-2 px-3 text-right ${r.profit_factor >= 1.5 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-text3)]'}`}>
                             {r.profit_factor}
                           </td>
-                          <td className="py-2 px-3 text-right text-zinc-500">{r.sortino_ratio}</td>
-                          <td className="py-2 px-3 text-right text-zinc-500">{r.calmar_ratio}</td>
+                          <td className="py-2 px-3 text-right text-[var(--eq-text3)]">{r.sortino_ratio}</td>
+                          <td className="py-2 px-3 text-right text-[var(--eq-text3)]">{r.calmar_ratio}</td>
                         </tr>
                       );
                     })}

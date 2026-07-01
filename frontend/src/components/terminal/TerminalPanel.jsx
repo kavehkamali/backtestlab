@@ -96,7 +96,7 @@ function TerminalInner({ embedded = false, symbol }) {
   return (
     <div style={outerStyle}>
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-2 py-1.5 bg-zinc-50 border-b border-zinc-200/80 shrink-0 overflow-x-auto no-scrollbar dark:bg-zinc-950 dark:border-zinc-800">
+      <div className="flex items-center gap-2 px-2 py-1.5 bg-[var(--eq-card2)] border-b border-[var(--eq-border)] shrink-0 overflow-x-auto no-scrollbar">
         {/* Timeframe buttons */}
         <div className="flex gap-0.5">
           {TIMEFRAMES.map(tf => {
@@ -107,7 +107,7 @@ function TerminalInner({ embedded = false, symbol }) {
                 timeframe: tf.timeframe, interval: tf.interval,
               })}
                 className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
-                  active ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-200'
+                  active ? 'bg-[var(--eq-border)] text-[var(--eq-text)]' : 'text-[var(--eq-text3)] hover:text-[var(--eq-text2)]'
                 }`}>
                 {tf.label}
               </button>
@@ -115,7 +115,7 @@ function TerminalInner({ embedded = false, symbol }) {
           })}
         </div>
 
-        <div className="w-px h-5 bg-zinc-200/60 dark:bg-zinc-700" />
+        <div className="w-px h-5 bg-[var(--eq-border)]" />
 
         {/* Indicator toggles */}
         <div className="flex gap-0.5">
@@ -124,7 +124,7 @@ function TerminalInner({ embedded = false, symbol }) {
             return (
               <button key={ind.id} onClick={() => dispatch({ type: 'TOGGLE_INDICATOR', indicator: ind.id })}
                 className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
-                  active ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-500 dark:text-zinc-400 dark:hover:text-zinc-200'
+                  active ? 'bg-[var(--eq-border)] text-[var(--eq-text)]' : 'text-[var(--eq-text2)] hover:text-[var(--eq-text3)]'
                 }`}>
                 {ind.label}
               </button>
@@ -139,31 +139,31 @@ function TerminalInner({ embedded = false, symbol }) {
           {LAYOUTS.map(l => (
             <button key={l.n} onClick={() => dispatch({ type: 'SET_LAYOUT', value: l.n })} title={l.label}
               className={`p-1.5 rounded transition-all ${
-                state.layout === l.n ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-200'
+                state.layout === l.n ? 'bg-[var(--eq-border)] text-[var(--eq-text)]' : 'text-[var(--eq-text2)] hover:text-[var(--eq-text2)]'
               }`}>
               <l.icon className="w-3.5 h-3.5" />
             </button>
           ))}
         </div>
 
-        <div className="w-px h-5 bg-zinc-200/60 dark:bg-zinc-700" />
+        <div className="w-px h-5 bg-[var(--eq-border)]" />
 
         {/* Panel toggles */}
         {!embedded && (
           <button onClick={() => dispatch({ type: 'TOGGLE_WATCHLIST' })} title="Watchlist (W)"
-            className={`p-1.5 rounded transition-all ${state.showWatchlist ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-200'}`}>
+            className={`p-1.5 rounded transition-all ${state.showWatchlist ? 'bg-[var(--eq-border)] text-[var(--eq-text)]' : 'text-[var(--eq-text2)] hover:text-[var(--eq-text2)]'}`}>
             <List className="w-3.5 h-3.5" />
           </button>
         )}
         {!embedded && (
           <button onClick={() => dispatch({ type: 'TOGGLE_AI_PANEL' })} title="AI Insight (A)"
-            className={`p-1.5 rounded transition-all ${state.showAiPanel ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-600 dark:text-zinc-400 dark:hover:text-zinc-200'}`}>
+            className={`p-1.5 rounded transition-all ${state.showAiPanel ? 'bg-[var(--eq-border)] text-[var(--eq-text)]' : 'text-[var(--eq-text2)] hover:text-[var(--eq-text2)]'}`}>
             <Brain className="w-3.5 h-3.5" />
           </button>
         )}
 
         {/* Shortcut hint */}
-        <span className="text-[9px] text-zinc-700 ml-1 dark:text-zinc-400">
+        <span className="text-[9px] text-[var(--eq-text2)] ml-1">
           {embedded ? 'Keys: 1-4 layout · Tab focus' : 'Keys: 1-4 layout · W watch · A ai · Tab focus'}
         </span>
       </div>
@@ -195,7 +195,7 @@ function TerminalInner({ embedded = false, symbol }) {
 
         {/* AI Panel — hidden on mobile */}
         {!embedded && state.showAiPanel && (
-          <div className="hidden md:block border-l border-zinc-200/80 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950" style={{ width: 288, flexShrink: 0, height: '100%', overflow: 'auto' }}>
+          <div className="hidden md:block border-l border-[var(--eq-border)] bg-[var(--eq-card2)]" style={{ width: 288, flexShrink: 0, height: '100%', overflow: 'auto' }}>
             <AiInsightPanel
               symbol={focusedPane.symbol}
               timeframe={focusedPane.timeframe}

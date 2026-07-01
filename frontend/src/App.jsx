@@ -50,11 +50,11 @@ function AssistantEdgeRail({ onOpen }) {
     <button
       type="button"
       onClick={onOpen}
-      className="hidden xl:block sticky top-[74px] h-[calc(100dvh-92px)] rounded-full bg-zinc-200/40 ring-1 ring-zinc-300/50 transition-colors hover:bg-indigo-300/70 hover:ring-indigo-300 dark:bg-zinc-800/60 dark:ring-zinc-700 dark:hover:bg-indigo-700/70"
+      className="hidden xl:block sticky top-[74px] h-[calc(100dvh-92px)] rounded-full border border-[var(--eq-border)] bg-[var(--eq-card2)] transition-colors hover:border-[var(--eq-accent)] hover:bg-[var(--eq-accent-soft)]"
       aria-label="Open assistant"
       title="Open assistant"
     >
-      <span className="mx-auto mt-[calc(50vh-120px)] block h-16 w-1 rounded-full bg-zinc-400/70 dark:bg-zinc-500/80" />
+      <span className="mx-auto mt-[calc(50vh-120px)] block h-16 w-1 rounded-full bg-[var(--eq-text3)]" />
     </button>
   );
 }
@@ -384,7 +384,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 overflow-x-hidden dark:bg-zinc-950 dark:text-zinc-100">
+    <div className="min-h-screen overflow-x-hidden bg-[var(--eq-bg)] text-[var(--eq-text)]">
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -399,14 +399,10 @@ function App() {
       />
 
       <main
-        className="max-w-[1680px] mx-auto px-3 sm:px-6 pb-8 sm:pb-12 mt-2 sm:mt-4"
+        className="max-w-[1680px] mx-auto px-3 sm:px-6 pb-8 sm:pb-12 mt-3 sm:mt-5"
       >
           {error && (
-            <div
-              className={
-                'mb-4 p-3 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80 dark:bg-red-950/40 dark:text-red-200 dark:ring-red-900/50'
-              }
-            >
+            <div className="mb-4 rounded-xl border border-[var(--eq-loss)]/25 bg-[var(--eq-loss-soft)] p-3 text-sm text-[var(--eq-loss)]">
               {error}
             </div>
           )}

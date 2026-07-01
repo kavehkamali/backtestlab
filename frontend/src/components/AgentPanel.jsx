@@ -95,9 +95,9 @@ function fmtPctValue(value, digits = 1) {
 
 function toneClass(value) {
   const n = Number(value || 0);
-  if (n > 0) return 'text-emerald-600 dark:text-emerald-300';
-  if (n < 0) return 'text-rose-600 dark:text-rose-300';
-  return 'text-zinc-500 dark:text-zinc-400';
+  if (n > 0) return 'text-[var(--eq-gain)]';
+  if (n < 0) return 'text-[var(--eq-loss)]';
+  return 'text-[var(--eq-text3)]';
 }
 
 function numValue(value, fallback = null) {
@@ -417,13 +417,13 @@ function applyWorkspaceScreenIntent(rows, screener) {
 function inlineFormat(text) {
   if (!text) return '';
   return text
-    .replace(/`([^`]+)`/g, '<code class="bg-zinc-100 px-1 rounded text-indigo-700 text-[12px]">$1</code>')
-    .replace(/\*{3}([^*]+)\*{3}/g, '<strong class="text-zinc-900 font-semibold"><em>$1</em></strong>')
-    .replace(/\*{2}([^*]+)\*{2}/g, '<strong class="text-zinc-900 font-semibold">$1</strong>')
-    .replace(/__([^_]+)__/g, '<strong class="text-zinc-900 font-semibold">$1</strong>')
-    .replace(/(?<![<\w])\*([^*]+)\*(?![>\w])/g, '<em class="text-zinc-600">$1</em>')
-    .replace(/(?<![<\w])_([^_]+)_(?![>\w])/g, '<em class="text-zinc-600">$1</em>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="break-all text-indigo-600 hover:underline">$1</a>');
+    .replace(/`([^`]+)`/g, '<code class="bg-[var(--eq-card2)] px-1 rounded text-[var(--eq-accent)] text-[12px]">$1</code>')
+    .replace(/\*{3}([^*]+)\*{3}/g, '<strong class="text-[var(--eq-text)] font-semibold"><em>$1</em></strong>')
+    .replace(/\*{2}([^*]+)\*{2}/g, '<strong class="text-[var(--eq-text)] font-semibold">$1</strong>')
+    .replace(/__([^_]+)__/g, '<strong class="text-[var(--eq-text)] font-semibold">$1</strong>')
+    .replace(/(?<![<\w])\*([^*]+)\*(?![>\w])/g, '<em class="text-[var(--eq-text2)]">$1</em>')
+    .replace(/(?<![<\w])_([^_]+)_(?![>\w])/g, '<em class="text-[var(--eq-text2)]">$1</em>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="break-all text-[var(--eq-accent)] hover:underline">$1</a>');
 }
 
 function parseTable(lines, startIdx) {
@@ -462,26 +462,26 @@ function RenderMarkdown({ text }) {
       const table = parseTable(lines, i);
       if (table && table.headers.length > 0) {
         elements.push(
-          <div key={i} className="my-3 overflow-x-auto rounded-xl bg-zinc-50 ring-1 ring-zinc-200/60 dark:bg-zinc-900 dark:ring-zinc-800">
+          <div key={i} className="my-3 overflow-x-auto rounded-xl bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)]">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-zinc-200/80 bg-white">
+                <tr className="border-b border-[var(--eq-border)] bg-[var(--eq-card)]">
                   {table.headers.map((h, j) => (
-                    <th key={j} className="text-left py-2 px-3 text-zinc-500 font-semibold whitespace-nowrap"
+                    <th key={j} className="text-left py-2 px-3 text-[var(--eq-text3)] font-semibold whitespace-nowrap"
                       dangerouslySetInnerHTML={{ __html: inlineFormat(h) }} />
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {table.body.map((row, ri) => (
-                  <tr key={ri} className="border-b border-zinc-100 hover:bg-white">
+                  <tr key={ri} className="border-b border-[var(--eq-grid)] hover:bg-[var(--eq-card)]">
                     {row.map((cell, ci) => {
                       const numMatch = cell.match(/^([+-]?\d+\.?\d*)\s*%?$/);
                       const isPositive = numMatch && parseFloat(numMatch[1]) > 0;
                       const isNegative = numMatch && parseFloat(numMatch[1]) < 0;
-                      const color = isPositive ? 'text-emerald-600' : isNegative ? 'text-red-600' : 'text-zinc-600';
+                      const color = isPositive ? 'text-[var(--eq-gain)]' : isNegative ? 'text-[var(--eq-loss)]' : 'text-[var(--eq-text2)]';
                       return (
-                        <td key={ci} className={`py-1.5 px-3 whitespace-nowrap ${ci === 0 ? 'text-zinc-900 font-medium' : color}`}
+                        <td key={ci} className={`py-1.5 px-3 whitespace-nowrap ${ci === 0 ? 'text-[var(--eq-text)] font-medium' : color}`}
                           dangerouslySetInnerHTML={{ __html: inlineFormat(cell) }} />
                       );
                     })}
@@ -497,16 +497,16 @@ function RenderMarkdown({ text }) {
     }
 
     // Headings
-    if (trimmed.startsWith('#### ')) { elements.push(<h4 key={i} className="text-sm font-bold text-zinc-900 mt-2 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(5)) }} />); i++; continue; }
-    if (trimmed.startsWith('### ')) { elements.push(<h3 key={i} className="text-base font-bold text-zinc-900 mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(4)) }} />); i++; continue; }
-    if (trimmed.startsWith('## ')) { elements.push(<h2 key={i} className="text-lg font-bold text-zinc-900 mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(3)) }} />); i++; continue; }
-    if (trimmed.startsWith('# ')) { elements.push(<h1 key={i} className="text-xl font-bold text-zinc-900 mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(2)) }} />); i++; continue; }
-    if (/^([-]{3,}|[*]{3,}|[_]{3,})\s*$/.test(trimmed) && !/[a-zA-Z]/.test(trimmed)) { elements.push(<hr key={i} className="border-zinc-200 my-2" />); i++; continue; }
+    if (trimmed.startsWith('#### ')) { elements.push(<h4 key={i} className="text-sm font-bold text-[var(--eq-text)] mt-2 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(5)) }} />); i++; continue; }
+    if (trimmed.startsWith('### ')) { elements.push(<h3 key={i} className="text-base font-bold text-[var(--eq-text)] mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(4)) }} />); i++; continue; }
+    if (trimmed.startsWith('## ')) { elements.push(<h2 key={i} className="text-lg font-bold text-[var(--eq-text)] mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(3)) }} />); i++; continue; }
+    if (trimmed.startsWith('# ')) { elements.push(<h1 key={i} className="text-xl font-bold text-[var(--eq-text)] mt-3 mb-1" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(2)) }} />); i++; continue; }
+    if (/^([-]{3,}|[*]{3,}|[_]{3,})\s*$/.test(trimmed) && !/[a-zA-Z]/.test(trimmed)) { elements.push(<hr key={i} className="border-[var(--eq-border)] my-2" />); i++; continue; }
     // Unordered list
     if (/^[-*+]\s/.test(trimmed)) {
       elements.push(
-          <div key={i} className="ml-2 my-1 flex min-w-0 gap-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-          <span className="text-indigo-500 mt-0.5 shrink-0">•</span>
+          <div key={i} className="ml-2 my-1 flex min-w-0 gap-2 text-sm leading-relaxed text-[var(--eq-text2)]">
+          <span className="text-[var(--eq-accent)] mt-0.5 shrink-0">•</span>
           <span className="min-w-0 break-words" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.replace(/^[-*+]\s/, '')) }} />
         </div>
       );
@@ -516,8 +516,8 @@ function RenderMarkdown({ text }) {
     if (/^\d+\.\s/.test(trimmed)) {
       const num = trimmed.match(/^(\d+)\./)[1];
       elements.push(
-        <div key={i} className="ml-2 my-1 flex min-w-0 gap-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-          <span className="text-indigo-500 mt-0.5 shrink-0 w-4 text-right">{num}.</span>
+        <div key={i} className="ml-2 my-1 flex min-w-0 gap-2 text-sm leading-relaxed text-[var(--eq-text2)]">
+          <span className="text-[var(--eq-accent)] mt-0.5 shrink-0 w-4 text-right">{num}.</span>
           <span className="min-w-0 break-words" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.replace(/^\d+\.\s/, '')) }} />
         </div>
       );
@@ -525,13 +525,13 @@ function RenderMarkdown({ text }) {
     }
     // Blockquote
     if (trimmed.startsWith('> ')) {
-      elements.push(<div key={i} className="border-l-2 border-indigo-200 pl-3 my-1 text-sm text-zinc-500 italic leading-relaxed" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(2)) }} />);
+      elements.push(<div key={i} className="border-l-2 border-[var(--eq-accent-ring)] pl-3 my-1 text-sm text-[var(--eq-text3)] italic leading-relaxed" dangerouslySetInnerHTML={{ __html: inlineFormat(trimmed.slice(2)) }} />);
       i++; continue;
     }
     // Empty line
     if (trimmed === '') { elements.push(<div key={i} className="h-2" />); i++; continue; }
     // Regular paragraph
-    elements.push(<p key={i} className="my-1.5 min-w-0 break-words text-sm leading-relaxed text-zinc-600 dark:text-zinc-300" dangerouslySetInnerHTML={{ __html: inlineFormat(line) }} />);
+    elements.push(<p key={i} className="my-1.5 min-w-0 break-words text-sm leading-relaxed text-[var(--eq-text2)]" dangerouslySetInnerHTML={{ __html: inlineFormat(line) }} />);
     i++;
   }
 
@@ -570,24 +570,24 @@ function TickerInsightCard({ ticker, onNavigate }) {
   }
 
   return (
-    <div className="bg-zinc-50 rounded-xl p-3 mt-3 ring-1 ring-zinc-200/70 shadow-sm">
+    <div className="bg-[var(--eq-card2)] rounded-xl p-3 mt-3 ring-1 ring-[var(--eq-border)] shadow-sm">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <span className="text-sm font-bold text-zinc-900">{ticker}</span>
-          {s.name && <span className="text-[10px] text-zinc-500 ml-2">{s.name}</span>}
+          <span className="text-sm font-bold text-[var(--eq-text)]">{ticker}</span>
+          {s.name && <span className="text-[10px] text-[var(--eq-text3)] ml-2">{s.name}</span>}
         </div>
         <div className="text-right">
-          <span className="text-sm font-bold text-zinc-900">${last.toFixed(2)}</span>
-          <span className={`text-[10px] ml-1 ${up ? 'text-emerald-600' : 'text-red-600'}`}>{up ? '+' : ''}{changePct}%</span>
+          <span className="text-sm font-bold text-[var(--eq-text)]">${last.toFixed(2)}</span>
+          <span className={`text-[10px] ml-1 ${up ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>{up ? '+' : ''}{changePct}%</span>
         </div>
       </div>
 
       {s.pe_trailing && (
         <div className="flex gap-3 mb-2 text-[10px] flex-wrap">
-          {s.market_cap_fmt && <span className="text-zinc-500">MCap <span className="text-zinc-800">{s.market_cap_fmt}</span></span>}
-          {s.pe_trailing && <span className="text-zinc-500">P/E <span className="text-zinc-800">{s.pe_trailing.toFixed(1)}</span></span>}
-          {s.dividend_yield_pct && <span className="text-zinc-500">Div <span className="text-zinc-800">{s.dividend_yield_pct}%</span></span>}
-          {s.eps_trailing && <span className="text-zinc-500">EPS <span className="text-zinc-800">${s.eps_trailing.toFixed(2)}</span></span>}
+          {s.market_cap_fmt && <span className="text-[var(--eq-text3)]">MCap <span className="text-[var(--eq-text)]">{s.market_cap_fmt}</span></span>}
+          {s.pe_trailing && <span className="text-[var(--eq-text3)]">P/E <span className="text-[var(--eq-text)]">{s.pe_trailing.toFixed(1)}</span></span>}
+          {s.dividend_yield_pct && <span className="text-[var(--eq-text3)]">Div <span className="text-[var(--eq-text)]">{s.dividend_yield_pct}%</span></span>}
+          {s.eps_trailing && <span className="text-[var(--eq-text3)]">EPS <span className="text-[var(--eq-text)]">${s.eps_trailing.toFixed(2)}</span></span>}
         </div>
       )}
 
@@ -595,7 +595,7 @@ function TickerInsightCard({ ticker, onNavigate }) {
       <div className="flex gap-3">
         {/* Price chart */}
         <div className="flex-1 min-w-0">
-          <div className="text-[9px] text-zinc-500 mb-1">6M Price</div>
+          <div className="text-[9px] text-[var(--eq-text3)] mb-1">6M Price</div>
           <ResponsiveContainer width="100%" height={60}>
             <AreaChart data={chart.slice(-126)}>
               <defs><linearGradient id={`ag_${ticker}`} x1="0" y1="0" x2="0" y2="1">
@@ -611,7 +611,7 @@ function TickerInsightCard({ ticker, onNavigate }) {
         {/* Monthly returns bar */}
         {monthlyData.length > 2 && (
           <div style={{ width: 100 }}>
-            <div className="text-[9px] text-zinc-500 mb-1">Monthly</div>
+            <div className="text-[9px] text-[var(--eq-text3)] mb-1">Monthly</div>
             <ResponsiveContainer width="100%" height={60}>
               <BarChart data={monthlyData}>
                 <Bar dataKey="ret" radius={[2, 2, 0, 0]}>
@@ -625,7 +625,7 @@ function TickerInsightCard({ ticker, onNavigate }) {
         {/* Mini snowflake */}
         {sf && (
           <div style={{ width: 65 }}>
-            <div className="text-[9px] text-zinc-500 mb-1 text-center">Quality</div>
+            <div className="text-[9px] text-[var(--eq-text3)] mb-1 text-center">Quality</div>
             <SnowflakeChart data={sf} size={55} mini />
           </div>
         )}
@@ -635,7 +635,7 @@ function TickerInsightCard({ ticker, onNavigate }) {
       {Object.keys(perf).length > 0 && (
         <div className="flex gap-1.5 mt-2 flex-wrap">
           {Object.entries(perf).map(([k, v]) => (
-            <span key={k} className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${v >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+            <span key={k} className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${v >= 0 ? 'bg-[var(--eq-gain-soft)] text-[var(--eq-gain)]' : 'bg-[var(--eq-loss-soft)] text-[var(--eq-loss)]'}`}>
               {k}: {v > 0 ? '+' : ''}{v}%
             </span>
           ))}
@@ -643,17 +643,17 @@ function TickerInsightCard({ ticker, onNavigate }) {
       )}
 
       {/* Navigation links */}
-      <div className="flex gap-2 mt-2 pt-2 border-t border-zinc-200/80">
+      <div className="flex gap-2 mt-2 pt-2 border-t border-[var(--eq-border)]">
         <button onClick={() => onNavigate('research', ticker)}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-indigo-600 hover:bg-indigo-50 transition-colors">
+          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-[var(--eq-accent)] hover:bg-[var(--eq-accent-soft)] transition-colors">
           <FileText className="w-3 h-3" /> Full Research
         </button>
         <button onClick={() => onNavigate('terminal', ticker)}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-indigo-600 hover:bg-indigo-50 transition-colors">
+          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-[var(--eq-accent)] hover:bg-[var(--eq-accent-soft)] transition-colors">
           <BarChart3 className="w-3 h-3" /> Chart
         </button>
         <button onClick={() => onNavigate('screener', ticker)}
-          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-indigo-600 hover:bg-indigo-50 transition-colors">
+          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] text-[var(--eq-accent)] hover:bg-[var(--eq-accent-soft)] transition-colors">
           <Search className="w-3 h-3" /> Screener
         </button>
       </div>
@@ -673,20 +673,20 @@ function Message({ msg, onNavigate, tickerDisplay = 'cards' }) {
     : [];
 
   const tickerLinks = tickers.length > 0 && tickerDisplay === 'links' && (
-    <div className="mt-3 flex flex-wrap gap-1.5 border-t border-zinc-200/70 pt-2 dark:border-zinc-800">
+    <div className="mt-3 flex flex-wrap gap-1.5 border-t border-[var(--eq-border)] pt-2">
       {tickers.map((ticker) => (
-        <span key={ticker} className="inline-flex overflow-hidden rounded-full ring-1 ring-indigo-100 dark:ring-indigo-900">
+        <span key={ticker} className="inline-flex overflow-hidden rounded-full ring-1 ring-[var(--eq-accent-ring)]">
           <button
             type="button"
             onClick={() => onNavigate?.('research', ticker)}
-            className="bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-200"
+            className="bg-[var(--eq-accent-soft)] px-2.5 py-1 text-[10px] font-semibold text-[var(--eq-accent)] hover:bg-[var(--eq-accent-soft)]"
           >
             {ticker} research
           </button>
           <button
             type="button"
             onClick={() => onNavigate?.('terminal', ticker)}
-            className="border-l border-indigo-100 bg-white px-2 py-1 text-[10px] font-semibold text-zinc-500 hover:text-indigo-700 dark:border-indigo-900 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:text-indigo-200"
+            className="border-l border-[var(--eq-accent-ring)] bg-[var(--eq-card)] px-2 py-1 text-[10px] font-semibold text-[var(--eq-text3)] hover:text-[var(--eq-accent)]"
           >
             chart
           </button>
@@ -698,12 +698,12 @@ function Message({ msg, onNavigate, tickerDisplay = 'cards' }) {
   return (
     <div className={`flex min-w-0 gap-3 ${isUser ? 'justify-end' : ''}`}>
       {!isUser && (
-        <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
-          <Bot className="w-4 h-4 text-indigo-600" />
+        <div className="w-7 h-7 rounded-lg bg-[var(--eq-accent-soft)] flex items-center justify-center shrink-0 mt-0.5">
+          <Bot className="w-4 h-4 text-[var(--eq-accent)]" />
         </div>
       )}
       <div
-        className={`min-w-0 max-w-[92%] overflow-hidden rounded-2xl px-4 py-3 sm:max-w-[88%] ${isUser ? 'bg-indigo-600 text-white dark:bg-zinc-700 dark:text-zinc-100' : 'bg-white shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-700'}`}
+        className={`min-w-0 max-w-[92%] overflow-hidden rounded-2xl px-4 py-3 sm:max-w-[88%] ${isUser ? 'bg-[var(--eq-accent)] text-[var(--eq-bg)]' : 'bg-[var(--eq-card)] shadow-sm ring-1 ring-[var(--eq-border)]'}`}
         style={{ overflowWrap: 'anywhere' }}
       >
         {isUser ? (
@@ -718,8 +718,8 @@ function Message({ msg, onNavigate, tickerDisplay = 'cards' }) {
         )}
       </div>
       {isUser && (
-        <div className="w-7 h-7 rounded-lg bg-zinc-200 flex items-center justify-center shrink-0 mt-0.5">
-          <User className="w-4 h-4 text-zinc-600" />
+        <div className="w-7 h-7 rounded-lg bg-[var(--eq-border)] flex items-center justify-center shrink-0 mt-0.5">
+          <User className="w-4 h-4 text-[var(--eq-text2)]" />
         </div>
       )}
     </div>
@@ -730,15 +730,15 @@ function AssistantLayoutSwitch({ layoutMode, setLayoutMode, assistantAvailable }
   if (!setLayoutMode) return null;
   const active = assistantAvailable && layoutMode !== 'chat' ? 'assistant' : 'chat';
   return (
-    <div className="flex items-center gap-0.5 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-900">
+    <div className="flex items-center gap-0.5 rounded-xl bg-[var(--eq-card2)] p-1">
       <button
         type="button"
         onClick={() => assistantAvailable && setLayoutMode('assistant')}
         disabled={!assistantAvailable}
         className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition ${
           active === 'assistant'
-            ? 'bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700'
-            : 'text-zinc-500 hover:text-zinc-900 disabled:opacity-40 dark:text-zinc-400 dark:hover:text-zinc-100'
+            ? 'bg-[var(--eq-card)] text-[var(--eq-text)] shadow-sm ring-1 ring-[var(--eq-border)]'
+            : 'text-[var(--eq-text3)] hover:text-[var(--eq-text)] disabled:opacity-40'
         }`}
       >
         <LayoutDashboard className="h-3.5 w-3.5" /> Assistant
@@ -748,8 +748,8 @@ function AssistantLayoutSwitch({ layoutMode, setLayoutMode, assistantAvailable }
         onClick={() => setLayoutMode('chat')}
         className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition ${
           active === 'chat'
-            ? 'bg-white text-zinc-950 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700'
-            : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
+            ? 'bg-[var(--eq-card)] text-[var(--eq-text)] shadow-sm ring-1 ring-[var(--eq-border)]'
+            : 'text-[var(--eq-text3)] hover:text-[var(--eq-text)]'
         }`}
       >
         <MessageSquare className="h-3.5 w-3.5" /> Chat
@@ -779,8 +779,8 @@ function AssistantChatColumn({
   const hasThread = messages.length > 0 || loading;
   const [historyExpanded, setHistoryExpanded] = useState(false);
   return (
-    <section className="flex h-full min-h-0 w-[410px] min-w-[370px] max-w-[480px] shrink-0 flex-col overflow-hidden border-r border-zinc-200/70 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="shrink-0 border-b border-zinc-200/70 px-4 py-3 dark:border-zinc-800">
+    <section className="flex h-full min-h-0 w-[410px] min-w-[370px] max-w-[480px] shrink-0 flex-col overflow-hidden border-r border-[var(--eq-border)] bg-[var(--eq-card)]">
+      <div className="shrink-0 border-b border-[var(--eq-border)] px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <AssistantLayoutSwitch
             layoutMode={layoutMode}
@@ -791,7 +791,7 @@ function AssistantChatColumn({
             <button
               type="button"
               onClick={createNewChat}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-950 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--eq-card2)] text-[var(--eq-text3)] hover:bg-[var(--eq-border)] hover:text-[var(--eq-text)]"
               title="New chat"
               aria-label="New chat"
             >
@@ -800,7 +800,7 @@ function AssistantChatColumn({
             <button
               type="button"
               onClick={() => setHistoryExpanded((v) => !v)}
-              className="inline-flex h-8 items-center gap-1 rounded-lg bg-zinc-100 px-2 text-[11px] font-semibold text-zinc-500 hover:bg-zinc-200 hover:text-zinc-950 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+              className="inline-flex h-8 items-center gap-1 rounded-lg bg-[var(--eq-card2)] px-2 text-[11px] font-semibold text-[var(--eq-text3)] hover:bg-[var(--eq-border)] hover:text-[var(--eq-text)]"
             >
               <MessageSquare className="h-3.5 w-3.5" />
               <ChevronDown className={`h-3.5 w-3.5 transition-transform ${historyExpanded ? 'rotate-180' : ''}`} />
@@ -808,7 +808,7 @@ function AssistantChatColumn({
           </div>
         </div>
       </div>
-      <div className="shrink-0 border-b border-zinc-200/70 bg-zinc-50/80 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="shrink-0 border-b border-[var(--eq-border)] bg-[var(--eq-card2)] px-4 py-3">
         <div className="flex items-stretch gap-2">
           <input
             type="text"
@@ -817,13 +817,13 @@ function AssistantChatColumn({
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder="Ask the agent..."
             disabled={loading}
-            className="min-w-0 flex-1 rounded-xl bg-white px-3.5 py-2.5 text-sm text-zinc-900 shadow-sm ring-1 ring-zinc-200/70 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-300/80 disabled:opacity-50 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700"
+            className="min-w-0 flex-1 rounded-xl bg-[var(--eq-card)] px-3.5 py-2.5 text-sm text-[var(--eq-text)] shadow-sm ring-1 ring-[var(--eq-border)] placeholder:text-[var(--eq-text3)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-border2)] disabled:opacity-50"
           />
           <button
             type="button"
             onClick={handleSend}
             disabled={loading || !input.trim()}
-            className="shrink-0 px-2.5 text-zinc-500 transition hover:text-zinc-950 disabled:opacity-30 dark:text-zinc-400 dark:hover:text-zinc-100"
+            className="shrink-0 px-2.5 text-[var(--eq-text3)] transition hover:text-[var(--eq-text)] disabled:opacity-30"
             title="Send"
             aria-label="Send"
           >
@@ -832,26 +832,26 @@ function AssistantChatColumn({
         </div>
       </div>
       {historyExpanded && (
-        <div className="flex max-h-52 shrink-0 overflow-hidden border-b border-zinc-200/70 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/70">
+        <div className="flex max-h-52 shrink-0 overflow-hidden border-b border-[var(--eq-border)] bg-[var(--eq-card2)]">
           {historyList}
         </div>
       )}
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        <div className="pointer-events-none absolute left-0 right-0 top-0 z-10 h-10 bg-gradient-to-b from-white to-transparent dark:from-zinc-950" />
-        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-10 h-14 bg-gradient-to-t from-white to-transparent dark:from-zinc-950" />
+        <div className="pointer-events-none absolute left-0 right-0 top-0 z-10 h-10 bg-gradient-to-b from-[var(--eq-card)] to-transparent" />
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-10 h-14 bg-gradient-to-t from-[var(--eq-card)] to-transparent" />
         <div ref={scrollRef} className="h-full overflow-y-auto px-4 py-4">
           {!hasThread && (
             <div className="flex min-h-full flex-col justify-center">
-              <h2 className="text-xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">Ask, then work the data.</h2>
-              <p className="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">Mention a ticker or market theme and the workspace updates beside the chat.</p>
+              <h2 className="text-xl font-semibold tracking-tight text-[var(--eq-text)]">Ask, then work the data.</h2>
+              <p className="mt-2 text-sm leading-6 text-[var(--eq-text3)]">Mention a ticker or market theme and the workspace updates beside the chat.</p>
               <div className="mt-5 grid gap-2">
                 {suggestions.slice(0, 3).map((s) => (
                   <button
                     type="button"
                     key={s}
                     onClick={() => setInput(s)}
-                    className="rounded-xl bg-white px-3 py-2.5 text-left text-xs text-zinc-600 ring-1 ring-zinc-200/70 hover:bg-zinc-50 hover:text-zinc-950 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-800 dark:hover:bg-zinc-800"
+                    className="rounded-xl bg-[var(--eq-card)] px-3 py-2.5 text-left text-xs text-[var(--eq-text2)] ring-1 ring-[var(--eq-border)] hover:bg-[var(--eq-card2)] hover:text-[var(--eq-text)]"
                   >
                     {s}
                   </button>
@@ -867,22 +867,22 @@ function AssistantChatColumn({
               ))}
               {loading && streamingText && (
                 <div className="flex gap-3">
-                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-200 dark:bg-zinc-800">
-                    <Bot className="h-4 w-4 text-zinc-600 dark:text-zinc-300" />
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--eq-border)]">
+                    <Bot className="h-4 w-4 text-[var(--eq-text2)]" />
                   </div>
-                  <div className="min-w-0 max-w-[92%] overflow-hidden rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-700" style={{ overflowWrap: 'anywhere' }}>
+                  <div className="min-w-0 max-w-[92%] overflow-hidden rounded-2xl bg-[var(--eq-card)] px-4 py-3 shadow-sm ring-1 ring-[var(--eq-border)]" style={{ overflowWrap: 'anywhere' }}>
                     <RenderMarkdown text={streamingText} />
-                    <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-zinc-400 dark:bg-zinc-500" />
+                    <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-[var(--eq-text3)]" />
                   </div>
                 </div>
               )}
               {loading && !streamingText && (
                 <div className="flex gap-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-200 dark:bg-zinc-800">
-                    <Bot className="h-4 w-4 text-zinc-600 dark:text-zinc-300" />
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--eq-border)]">
+                    <Bot className="h-4 w-4 text-[var(--eq-text2)]" />
                   </div>
-                  <div className="rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-700">
-                    <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  <div className="rounded-2xl bg-[var(--eq-card)] px-4 py-3 shadow-sm ring-1 ring-[var(--eq-border)]">
+                    <div className="flex items-center gap-2 text-xs text-[var(--eq-text3)]">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       {mode === 'full' ? 'Running multi-agent analysis...' : 'Thinking...'}
                     </div>
@@ -913,11 +913,11 @@ function mergeMacroSeries(chart) {
 function ResearchSnapshot({ ticker, research, chart, loading, onNavigate }) {
   if (!ticker) {
     return (
-      <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-        <div className="flex h-full min-h-[320px] flex-col items-center justify-center rounded-xl bg-zinc-50 px-6 text-center ring-1 ring-zinc-100 dark:bg-zinc-950 dark:ring-zinc-800">
-          <FileText className="mb-3 h-6 w-6 text-zinc-300 dark:text-zinc-600" />
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Research context</h3>
-          <p className="mt-1 max-w-sm text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+      <div className="rounded-xl bg-[var(--eq-card)] p-4 shadow-sm ring-1 ring-[var(--eq-border)]">
+        <div className="flex h-full min-h-[320px] flex-col items-center justify-center rounded-xl bg-[var(--eq-card2)] px-6 text-center ring-1 ring-[var(--eq-border)]">
+          <FileText className="mb-3 h-6 w-6 text-[var(--eq-text3)]" />
+          <h3 className="text-sm font-semibold text-[var(--eq-text)]">Research context</h3>
+          <p className="mt-1 max-w-sm text-xs leading-5 text-[var(--eq-text3)]">
             Mention a ticker in the chat, or choose one from the screener shortlist, and the workspace will load the matching research view.
           </p>
         </div>
@@ -933,15 +933,15 @@ function ResearchSnapshot({ ticker, research, chart, loading, onNavigate }) {
   const chartDateKey = chart?.[0]?.time ? 'time' : 'date';
 
   return (
-    <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+    <div className="rounded-xl bg-[var(--eq-card)] p-4 shadow-sm ring-1 ring-[var(--eq-border)]">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[11px] uppercase tracking-wide text-zinc-400">Research context</div>
-          <h3 className="mt-0.5 text-xl font-semibold text-zinc-950 dark:text-zinc-100">{ticker}</h3>
-          <p className="mt-0.5 max-w-md truncate text-xs text-zinc-500 dark:text-zinc-400">{summary.name || 'Research snapshot'}</p>
+          <div className="text-[11px] uppercase tracking-wide text-[var(--eq-text3)]">Research context</div>
+          <h3 className="mt-0.5 text-xl font-semibold text-[var(--eq-text)]">{ticker}</h3>
+          <p className="mt-0.5 max-w-md truncate text-xs text-[var(--eq-text3)]">{summary.name || 'Research snapshot'}</p>
         </div>
         <div className="text-right">
-          <div className="text-xl font-semibold text-zinc-950 dark:text-zinc-100">{summary.price != null ? `$${summary.price}` : (last ? `$${last.toFixed(2)}` : '—')}</div>
+          <div className="text-xl font-semibold text-[var(--eq-text)]">{summary.price != null ? `$${summary.price}` : (last ? `$${last.toFixed(2)}` : '—')}</div>
           <div className={`text-xs font-semibold ${toneClass(summary.change_pct ?? change)}`}>{summary.change_pct != null ? fmtPctValue(summary.change_pct) : fmtPctValue(change)}</div>
         </div>
       </div>
@@ -956,17 +956,17 @@ function ResearchSnapshot({ ticker, research, chart, loading, onNavigate }) {
                   <stop offset="100%" stopColor={up ? '#10b981' : '#f43f5e'} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-100 dark:text-zinc-800" />
-              <XAxis dataKey={chartDateKey} minTickGap={28} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
-              <YAxis domain={['auto', 'auto']} width={48} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-[var(--eq-grid)]" />
+              <XAxis dataKey={chartDateKey} minTickGap={28} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-[var(--eq-text3)]" />
+              <YAxis domain={['auto', 'auto']} width={48} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-[var(--eq-text3)]" />
               <Tooltip />
               <Area type="monotone" dataKey="close" stroke={up ? '#10b981' : '#f43f5e'} fill={`url(#assistant_focus_${ticker})`} strokeWidth={2} dot={false} />
             </AreaChart>
           </ResponsiveContainer>
         ) : loading ? (
-          <div className="flex h-full items-center justify-center rounded-xl bg-zinc-50 text-xs text-zinc-500 dark:bg-zinc-950">Loading chart…</div>
+          <div className="flex h-full items-center justify-center rounded-xl bg-[var(--eq-card2)] text-xs text-[var(--eq-text3)]">Loading chart…</div>
         ) : (
-          <div className="flex h-full items-center justify-center rounded-xl bg-zinc-50 text-xs text-zinc-500 dark:bg-zinc-950">No chart data</div>
+          <div className="flex h-full items-center justify-center rounded-xl bg-[var(--eq-card2)] text-xs text-[var(--eq-text3)]">No chart data</div>
         )}
       </div>
 
@@ -977,18 +977,18 @@ function ResearchSnapshot({ ticker, research, chart, loading, onNavigate }) {
           ['Forward P/E', summary.pe_forward != null ? Number(summary.pe_forward).toFixed(1) : '—'],
           ['Consensus', summary.recommendation || '—'],
         ].map(([label, value]) => (
-          <div key={label} className="rounded-lg bg-zinc-50 px-3 py-2 ring-1 ring-zinc-100 dark:bg-zinc-950 dark:ring-zinc-800">
-            <div className="text-[10px] text-zinc-400">{label}</div>
-            <div className="mt-0.5 truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{value}</div>
+          <div key={label} className="rounded-lg bg-[var(--eq-card2)] px-3 py-2 ring-1 ring-[var(--eq-border)]">
+            <div className="text-[10px] text-[var(--eq-text3)]">{label}</div>
+            <div className="mt-0.5 truncate text-sm font-semibold text-[var(--eq-text)]">{value}</div>
           </div>
         ))}
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <button type="button" onClick={() => onNavigate?.('research', ticker)} className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-200">
+        <button type="button" onClick={() => onNavigate?.('research', ticker)} className="rounded-lg bg-[var(--eq-accent-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--eq-accent)] hover:bg-[var(--eq-accent-soft)]">
           Full research
         </button>
-        <button type="button" onClick={() => onNavigate?.('terminal', ticker)} className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200">
+        <button type="button" onClick={() => onNavigate?.('terminal', ticker)} className="rounded-lg bg-[var(--eq-card2)] px-3 py-1.5 text-xs font-semibold text-[var(--eq-text2)] hover:bg-[var(--eq-border)]">
           Full chart
         </button>
       </div>
@@ -997,12 +997,12 @@ function ResearchSnapshot({ ticker, research, chart, loading, onNavigate }) {
 }
 
 function ScreenerMiniTable({ rows, onTickerSelect, onNavigate }) {
-  if (!rows?.length) return <div className="rounded-xl bg-zinc-50 p-4 text-sm text-zinc-500 dark:bg-zinc-950">No screener rows match.</div>;
+  if (!rows?.length) return <div className="rounded-xl bg-[var(--eq-card2)] p-4 text-sm text-[var(--eq-text3)]">No screener rows match.</div>;
   return (
-    <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+    <div className="overflow-hidden rounded-xl bg-[var(--eq-card)] shadow-sm ring-1 ring-[var(--eq-border)]">
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
-          <thead className="bg-zinc-50 text-[10px] uppercase tracking-wide text-zinc-400 dark:bg-zinc-950">
+          <thead className="bg-[var(--eq-card2)] text-[10px] uppercase tracking-wide text-[var(--eq-text3)]">
             <tr>
               <th className="px-3 py-2 text-left">Ticker</th>
               <th className="px-3 py-2 text-right">Score</th>
@@ -1014,23 +1014,23 @@ function ScreenerMiniTable({ rows, onTickerSelect, onNavigate }) {
           </thead>
           <tbody>
             {rows.slice(0, 12).map((row) => (
-              <tr key={row.symbol} className="border-t border-zinc-100 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/70">
+              <tr key={row.symbol} className="border-t border-[var(--eq-grid)] hover:bg-[var(--eq-card2)]">
                 <td className="px-3 py-2">
-                  <button type="button" onClick={() => onTickerSelect?.(row.symbol)} className="font-semibold text-indigo-700 hover:underline dark:text-indigo-300">{row.symbol}</button>
-                  <div className="max-w-[180px] truncate text-[10px] text-zinc-400">{row.name}</div>
+                  <button type="button" onClick={() => onTickerSelect?.(row.symbol)} className="font-semibold text-[var(--eq-accent)] hover:underline">{row.symbol}</button>
+                  <div className="max-w-[180px] truncate text-[10px] text-[var(--eq-text3)]">{row.name}</div>
                 </td>
-                <td className="px-3 py-2 text-right font-semibold text-zinc-800 dark:text-zinc-100">{row.buy_count}/{row.total_strategies}</td>
+                <td className="px-3 py-2 text-right font-semibold text-[var(--eq-text)]">{row.buy_count}/{row.total_strategies}</td>
                 <td className={`px-3 py-2 text-right font-mono ${toneClass(row.change_20d)}`}>{fmtPctValue(row.change_20d)}</td>
-                <td className="px-3 py-2 text-right font-mono text-zinc-600 dark:text-zinc-300">{row.rsi ?? '—'}</td>
-                <td className="px-3 py-2 text-right font-mono text-zinc-600 dark:text-zinc-300">{row.pe_ratio != null ? Number(row.pe_ratio).toFixed(1) : '—'}</td>
-                <td className="px-3 py-2 text-right text-zinc-500">{fmtCompact(row.market_cap)}</td>
+                <td className="px-3 py-2 text-right font-mono text-[var(--eq-text2)]">{row.rsi ?? '—'}</td>
+                <td className="px-3 py-2 text-right font-mono text-[var(--eq-text2)]">{row.pe_ratio != null ? Number(row.pe_ratio).toFixed(1) : '—'}</td>
+                <td className="px-3 py-2 text-right text-[var(--eq-text3)]">{fmtCompact(row.market_cap)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <div className="border-t border-zinc-100 px-3 py-2 dark:border-zinc-800">
-        <button type="button" onClick={() => onNavigate?.('screener')} className="text-[11px] font-semibold text-indigo-700 hover:underline dark:text-indigo-300">Open full screener</button>
+      <div className="border-t border-[var(--eq-grid)] px-3 py-2">
+        <button type="button" onClick={() => onNavigate?.('screener')} className="text-[11px] font-semibold text-[var(--eq-accent)] hover:underline">Open full screener</button>
       </div>
     </div>
   );
@@ -1091,21 +1091,21 @@ function compactAgentBullets(text) {
 function AgentBriefCard({ text }) {
   const bullets = useMemo(() => compactAgentBullets(text), [text]);
   return (
-    <div className="rounded-xl bg-white p-4 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-        <Bot className="h-4 w-4 text-indigo-500" /> Agent take
+    <div className="rounded-xl bg-[var(--eq-card)] p-4 ring-1 ring-[var(--eq-border)]">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--eq-text)]">
+        <Bot className="h-4 w-4 text-[var(--eq-accent)]" /> Agent take
       </div>
       {bullets.length ? (
         <div className="grid gap-1.5">
           {bullets.map((item, idx) => (
-            <div key={`${item}-${idx}`} className="flex min-w-0 gap-2 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500/70" />
+            <div key={`${item}-${idx}`} className="flex min-w-0 gap-2 text-xs leading-5 text-[var(--eq-text2)]">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--eq-accent)]" />
               <span className="min-w-0 break-words">{item}</span>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">Ask the agent. Tickers and themes will populate this workspace.</p>
+        <p className="text-sm text-[var(--eq-text3)]">Ask the agent. Tickers and themes will populate this workspace.</p>
       )}
     </div>
   );
@@ -1129,10 +1129,10 @@ function AssistantMiniVisuals({ chart, macro, rows, ticker }) {
   const up = chart?.length ? Number(chart[chart.length - 1]?.close || 0) >= Number(chart[0]?.close || 0) : true;
   return (
     <div className="grid gap-3 lg:grid-cols-3">
-      <div className="rounded-xl bg-white p-3 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+      <div className="rounded-xl bg-[var(--eq-card)] p-3 ring-1 ring-[var(--eq-border)]">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="truncate text-xs font-semibold text-zinc-800 dark:text-zinc-100">{ticker || 'Focus chart'}</div>
-          <BarChart3 className="h-3.5 w-3.5 text-zinc-400" />
+          <div className="truncate text-xs font-semibold text-[var(--eq-text)]">{ticker || 'Focus chart'}</div>
+          <BarChart3 className="h-3.5 w-3.5 text-[var(--eq-text3)]" />
         </div>
         <div className="h-24">
           {chart?.length ? (
@@ -1144,15 +1144,15 @@ function AssistantMiniVisuals({ chart, macro, rows, ticker }) {
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex h-full items-center justify-center rounded-lg bg-zinc-50 text-[11px] text-zinc-400 dark:bg-zinc-950">No ticker yet</div>
+            <div className="flex h-full items-center justify-center rounded-lg bg-[var(--eq-card2)] text-[11px] text-[var(--eq-text3)]">No ticker yet</div>
           )}
         </div>
       </div>
 
-      <div className="rounded-xl bg-white p-3 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+      <div className="rounded-xl bg-[var(--eq-card)] p-3 ring-1 ring-[var(--eq-border)]">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="truncate text-xs font-semibold text-zinc-800 dark:text-zinc-100">Macro pulse</div>
-          <Activity className="h-3.5 w-3.5 text-zinc-400" />
+          <div className="truncate text-xs font-semibold text-[var(--eq-text)]">Macro pulse</div>
+          <Activity className="h-3.5 w-3.5 text-[var(--eq-text3)]" />
         </div>
         <div className="h-24">
           {macroRows.length && macroChart ? (
@@ -1166,21 +1166,21 @@ function AssistantMiniVisuals({ chart, macro, rows, ticker }) {
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex h-full items-center justify-center rounded-lg bg-zinc-50 text-[11px] text-zinc-400 dark:bg-zinc-950">Loading macro</div>
+            <div className="flex h-full items-center justify-center rounded-lg bg-[var(--eq-card2)] text-[11px] text-[var(--eq-text3)]">Loading macro</div>
           )}
         </div>
       </div>
 
-      <div className="rounded-xl bg-white p-3 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+      <div className="rounded-xl bg-[var(--eq-card)] p-3 ring-1 ring-[var(--eq-border)]">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="truncate text-xs font-semibold text-zinc-800 dark:text-zinc-100">Top screen</div>
-          <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-400" />
+          <div className="truncate text-xs font-semibold text-[var(--eq-text)]">Top screen</div>
+          <SlidersHorizontal className="h-3.5 w-3.5 text-[var(--eq-text3)]" />
         </div>
         <div className="h-24">
           {topRows.length ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={topRows} margin={{ top: 4, right: 2, left: 2, bottom: 0 }}>
-                <XAxis dataKey="symbol" tick={{ fontSize: 9, fill: 'currentColor' }} className="text-zinc-400" />
+                <XAxis dataKey="symbol" tick={{ fontSize: 9, fill: 'currentColor' }} className="text-[var(--eq-text3)]" />
                 <YAxis hide domain={[0, 'dataMax']} />
                 <Bar dataKey="buy_count" radius={[3, 3, 0, 0]}>
                   {topRows.map((row) => <Cell key={row.symbol} fill={(row.change_20d || 0) >= 0 ? '#10b981' : '#f43f5e'} />)}
@@ -1188,7 +1188,7 @@ function AssistantMiniVisuals({ chart, macro, rows, ticker }) {
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex h-full items-center justify-center rounded-lg bg-zinc-50 text-[11px] text-zinc-400 dark:bg-zinc-950">Scanning</div>
+            <div className="flex h-full items-center justify-center rounded-lg bg-[var(--eq-card2)] text-[11px] text-[var(--eq-text3)]">Scanning</div>
           )}
         </div>
       </div>
@@ -1199,7 +1199,7 @@ function AssistantMiniVisuals({ chart, macro, rows, ticker }) {
 function WorkspaceSparkline({ data }) {
   const values = (data || []).map((v) => numValue(v)).filter((v) => v != null).slice(-60);
   if (values.length < 2) {
-    return <div className="h-9 rounded-lg bg-zinc-50 dark:bg-zinc-950" />;
+    return <div className="h-9 rounded-lg bg-[var(--eq-card2)]" />;
   }
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -1217,10 +1217,10 @@ function WorkspaceSparkline({ data }) {
 
 function WorkspaceMetric({ label, value, tone = 'neutral' }) {
   const toneCls = tone === 'good'
-    ? 'text-emerald-700 bg-emerald-50 ring-emerald-100 dark:bg-emerald-950/35 dark:text-emerald-200 dark:ring-emerald-900'
+    ? 'text-[var(--eq-gain)] bg-[var(--eq-gain-soft)] ring-[var(--eq-gain)]/25'
     : tone === 'bad'
-      ? 'text-rose-700 bg-rose-50 ring-rose-100 dark:bg-rose-950/35 dark:text-rose-200 dark:ring-rose-900'
-      : 'text-zinc-800 bg-white ring-zinc-200/70 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-800';
+      ? 'text-[var(--eq-loss)] bg-[var(--eq-loss-soft)] ring-[var(--eq-loss)]/25'
+      : 'text-[var(--eq-text)] bg-[var(--eq-card)] ring-[var(--eq-border)]';
   return (
     <div className={`rounded-xl px-3 py-2.5 ring-1 ${toneCls}`}>
       <div className="text-[10px] font-semibold uppercase tracking-wide opacity-55">{label}</div>
@@ -1269,8 +1269,8 @@ function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onN
 
   if (!totalCount) {
     return (
-      <div className="rounded-xl bg-white p-5 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
-        <div className="flex min-h-56 items-center justify-center rounded-xl bg-zinc-50 text-sm text-zinc-500 dark:bg-zinc-950">
+      <div className="rounded-xl bg-[var(--eq-card)] p-5 ring-1 ring-[var(--eq-border)]">
+        <div className="flex min-h-56 items-center justify-center rounded-xl bg-[var(--eq-card2)] text-sm text-[var(--eq-text3)]">
           Loading the screen for this chat...
         </div>
       </div>
@@ -1279,12 +1279,12 @@ function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onN
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl bg-white p-4 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+      <div className="rounded-xl bg-[var(--eq-card)] p-4 ring-1 ring-[var(--eq-border)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Chat-driven screener</div>
-            <h3 className="mt-1 text-lg font-semibold text-zinc-950 dark:text-zinc-100">{universe}</h3>
-            <p className="mt-1 max-w-2xl text-sm leading-5 text-zinc-500 dark:text-zinc-400">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--eq-text3)]">Chat-driven screener</div>
+            <h3 className="mt-1 text-lg font-semibold text-[var(--eq-text)]">{universe}</h3>
+            <p className="mt-1 max-w-2xl text-sm leading-5 text-[var(--eq-text3)]">
               {isFallback
                 ? 'No strict match passed every chat filter, so this shows the closest ranked candidates instead of an empty screen.'
                 : 'Ranked by signal count, momentum, valuation, RSI quality, and volatility penalty from the latest chat request.'}
@@ -1293,18 +1293,18 @@ function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onN
           <button
             type="button"
             onClick={() => onNavigate?.('screener')}
-            className="rounded-full bg-zinc-50 px-3 py-1.5 text-[11px] font-semibold text-zinc-600 ring-1 ring-zinc-200/70 hover:bg-zinc-100 hover:text-zinc-950 dark:bg-zinc-950 dark:text-zinc-300 dark:ring-zinc-800 dark:hover:bg-zinc-800"
+            className="rounded-full bg-[var(--eq-card2)] px-3 py-1.5 text-[11px] font-semibold text-[var(--eq-text2)] ring-1 ring-[var(--eq-border)] hover:bg-[var(--eq-card2)] hover:text-[var(--eq-text)]"
           >
             Full screener
           </button>
         </div>
         <div className="mt-3 flex flex-wrap gap-1.5">
           {chips.length ? chips.map((chip) => (
-            <span key={chip} className="rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-200 dark:ring-indigo-900">
+            <span key={chip} className="rounded-full bg-[var(--eq-accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--eq-accent)] ring-1 ring-[var(--eq-accent-ring)]">
               {chip}
             </span>
           )) : (
-            <span className="rounded-full bg-zinc-50 px-2.5 py-1 text-[11px] font-semibold text-zinc-500 ring-1 ring-zinc-200/70 dark:bg-zinc-950 dark:text-zinc-400 dark:ring-zinc-800">
+            <span className="rounded-full bg-[var(--eq-card2)] px-2.5 py-1 text-[11px] font-semibold text-[var(--eq-text3)] ring-1 ring-[var(--eq-border)]">
               Agent default screen
             </span>
           )}
@@ -1319,7 +1319,7 @@ function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onN
       </div>
 
       {!rankedRows.length ? (
-        <div className="rounded-xl bg-white p-5 text-sm text-zinc-500 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-800">
+        <div className="rounded-xl bg-[var(--eq-card)] p-5 text-sm text-[var(--eq-text3)] ring-1 ring-[var(--eq-border)]">
           No names passed the chat filters. Try asking for a wider universe or fewer constraints.
         </div>
       ) : (
@@ -1330,30 +1330,30 @@ function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onN
                 key={row.symbol}
                 type="button"
                 onClick={() => onTickerSelect?.(row.symbol)}
-                className="rounded-xl bg-white p-3 text-left ring-1 ring-zinc-200/70 transition hover:-translate-y-0.5 hover:ring-indigo-200 dark:bg-zinc-900 dark:ring-zinc-800 dark:hover:ring-indigo-800"
+                className="rounded-xl bg-[var(--eq-card)] p-3 text-left ring-1 ring-[var(--eq-border)] transition hover:-translate-y-0.5 hover:ring-[var(--eq-accent-ring)]"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="text-base font-semibold text-zinc-950 dark:text-zinc-100">{row.symbol}</div>
-                    <div className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">{row.name || row.sector || 'Candidate'}</div>
+                    <div className="text-base font-semibold text-[var(--eq-text)]">{row.symbol}</div>
+                    <div className="truncate text-[11px] text-[var(--eq-text3)]">{row.name || row.sector || 'Candidate'}</div>
                   </div>
-                  <div className="rounded-lg bg-indigo-50 px-2 py-1 text-xs font-bold text-indigo-700 dark:bg-indigo-950/45 dark:text-indigo-200">
+                  <div className="rounded-lg bg-[var(--eq-accent-soft)] px-2 py-1 text-xs font-bold text-[var(--eq-accent)]">
                     {formatPlainNumber(row.opportunity_score, 0)}
                   </div>
                 </div>
                 <div className="mt-2"><WorkspaceSparkline data={row.sparkline} /></div>
                 <div className="mt-2 grid grid-cols-3 gap-1.5 text-[11px]">
-                  <div className="rounded-lg bg-zinc-50 px-2 py-1 dark:bg-zinc-950">
-                    <div className="text-zinc-400">1M</div>
+                  <div className="rounded-lg bg-[var(--eq-card2)] px-2 py-1">
+                    <div className="text-[var(--eq-text3)]">1M</div>
                     <div className={`font-semibold ${toneClass(row.change_20d)}`}>{fmtPctValue(row.change_20d)}</div>
                   </div>
-                  <div className="rounded-lg bg-zinc-50 px-2 py-1 dark:bg-zinc-950">
-                    <div className="text-zinc-400">P/E</div>
-                    <div className="font-semibold text-zinc-800 dark:text-zinc-100">{formatPlainNumber(row.pe_ratio)}</div>
+                  <div className="rounded-lg bg-[var(--eq-card2)] px-2 py-1">
+                    <div className="text-[var(--eq-text3)]">P/E</div>
+                    <div className="font-semibold text-[var(--eq-text)]">{formatPlainNumber(row.pe_ratio)}</div>
                   </div>
-                  <div className="rounded-lg bg-zinc-50 px-2 py-1 dark:bg-zinc-950">
-                    <div className="text-zinc-400">RSI</div>
-                    <div className="font-semibold text-zinc-800 dark:text-zinc-100">{formatPlainNumber(row.rsi)}</div>
+                  <div className="rounded-lg bg-[var(--eq-card2)] px-2 py-1">
+                    <div className="text-[var(--eq-text3)]">RSI</div>
+                    <div className="font-semibold text-[var(--eq-text)]">{formatPlainNumber(row.rsi)}</div>
                   </div>
                 </div>
               </button>
@@ -1361,17 +1361,17 @@ function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onN
           </div>
 
           <div className="grid gap-4 xl:grid-cols-3">
-            <div className="rounded-xl bg-white p-4 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+            <div className="rounded-xl bg-[var(--eq-card)] p-4 ring-1 ring-[var(--eq-border)]">
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Candidate Score</h3>
-                <span className="text-[11px] text-zinc-400">Agent rank</span>
+                <h3 className="text-sm font-semibold text-[var(--eq-text)]">Candidate Score</h3>
+                <span className="text-[11px] text-[var(--eq-text3)]">Agent rank</span>
               </div>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartRows} layout="vertical" margin={{ top: 8, right: 18, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-100 dark:text-zinc-800" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-[var(--eq-grid)]" />
                     <XAxis type="number" hide domain={[0, 'dataMax']} />
-                    <YAxis type="category" dataKey="symbol" width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
+                    <YAxis type="category" dataKey="symbol" width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-[var(--eq-text3)]" />
                     <Tooltip />
                     <Bar dataKey="opportunity" name="Agent score" radius={[0, 5, 5, 0]}>
                       {chartRows.map((row) => <Cell key={row.symbol} fill={row.opportunity >= 45 ? '#10b981' : row.opportunity >= 25 ? '#6366f1' : '#f59e0b'} />)}
@@ -1381,18 +1381,18 @@ function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onN
               </div>
             </div>
 
-            <div className="rounded-xl bg-white p-4 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+            <div className="rounded-xl bg-[var(--eq-card)] p-4 ring-1 ring-[var(--eq-border)]">
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Momentum vs Value</h3>
-                <span className="text-[11px] text-zinc-400">P/E x 1M</span>
+                <h3 className="text-sm font-semibold text-[var(--eq-text)]">Momentum vs Value</h3>
+                <span className="text-[11px] text-[var(--eq-text3)]">P/E x 1M</span>
               </div>
               <div className="h-64">
                 {scatterRows.length ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <ScatterChart margin={{ top: 10, right: 12, left: 0, bottom: 8 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-100 dark:text-zinc-800" />
-                      <XAxis type="number" dataKey="pe" name="P/E" domain={[0, 80]} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
-                      <YAxis type="number" dataKey="momentum" name="1M %" width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-[var(--eq-grid)]" />
+                      <XAxis type="number" dataKey="pe" name="P/E" domain={[0, 80]} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-[var(--eq-text3)]" />
+                      <YAxis type="number" dataKey="momentum" name="1M %" width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-[var(--eq-text3)]" />
                       <ZAxis type="number" dataKey="opportunity" range={[45, 280]} />
                       <Tooltip cursor={{ strokeDasharray: '3 3' }} />
                       <ReferenceLine y={0} stroke="#a1a1aa" strokeDasharray="4 4" />
@@ -1402,23 +1402,23 @@ function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onN
                     </ScatterChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="flex h-full items-center justify-center rounded-xl bg-zinc-50 text-xs text-zinc-500 dark:bg-zinc-950">Need P/E and price data for map.</div>
+                  <div className="flex h-full items-center justify-center rounded-xl bg-[var(--eq-card2)] text-xs text-[var(--eq-text3)]">Need P/E and price data for map.</div>
                 )}
               </div>
             </div>
 
-            <div className="rounded-xl bg-white p-4 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+            <div className="rounded-xl bg-[var(--eq-card)] p-4 ring-1 ring-[var(--eq-border)]">
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Risk and Timing</h3>
-                <span className="text-[11px] text-zinc-400">RSI + vol</span>
+                <h3 className="text-sm font-semibold text-[var(--eq-text)]">Risk and Timing</h3>
+                <span className="text-[11px] text-[var(--eq-text3)]">RSI + vol</span>
               </div>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={chartRows} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-100 dark:text-zinc-800" />
-                    <XAxis dataKey="symbol" tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
-                    <YAxis yAxisId="left" width={38} domain={[0, 100]} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
-                    <YAxis yAxisId="right" orientation="right" width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-[var(--eq-grid)]" />
+                    <XAxis dataKey="symbol" tick={{ fontSize: 10, fill: 'currentColor' }} className="text-[var(--eq-text3)]" />
+                    <YAxis yAxisId="left" width={38} domain={[0, 100]} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-[var(--eq-text3)]" />
+                    <YAxis yAxisId="right" orientation="right" width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-[var(--eq-text3)]" />
                     <Tooltip />
                     <ReferenceLine yAxisId="left" y={70} stroke="#f59e0b" strokeDasharray="4 4" />
                     <ReferenceLine yAxisId="left" y={30} stroke="#10b981" strokeDasharray="4 4" />
@@ -1431,14 +1431,14 @@ function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onN
           </div>
 
           <div className="grid gap-4">
-            <div className="overflow-hidden rounded-xl bg-white ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+            <div className="overflow-hidden rounded-xl bg-[var(--eq-card)] ring-1 ring-[var(--eq-border)]">
               <div className="flex items-center justify-between px-4 py-3">
-                <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Ranked Candidates</h3>
-                <span className="text-[11px] text-zinc-400">Click ticker for research</span>
+                <h3 className="text-sm font-semibold text-[var(--eq-text)]">Ranked Candidates</h3>
+                <span className="text-[11px] text-[var(--eq-text3)]">Click ticker for research</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-zinc-50 text-[10px] uppercase tracking-wide text-zinc-400 dark:bg-zinc-950">
+                  <thead className="bg-[var(--eq-card2)] text-[10px] uppercase tracking-wide text-[var(--eq-text3)]">
                     <tr>
                       <th className="px-4 py-2">Ticker</th>
                       <th className="px-3 py-2 text-right">Agent</th>
@@ -1449,14 +1449,14 @@ function WorkspaceScreenerDashboard({ intent, rows, allRows, onTickerSelect, onN
                       <th className="px-3 py-2 text-right">MCap</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                  <tbody className="divide-y divide-[var(--eq-grid)]">
                     {rankedRows.slice(0, 12).map((row) => (
-                      <tr key={row.symbol} className="hover:bg-zinc-50/80 dark:hover:bg-zinc-950/70">
+                      <tr key={row.symbol} className="hover:bg-[var(--eq-card2)]/80">
                         <td className="px-4 py-2">
-                          <button type="button" onClick={() => onTickerSelect?.(row.symbol)} className="font-semibold text-indigo-700 hover:underline dark:text-indigo-300">{row.symbol}</button>
-                          <div className="max-w-40 truncate text-[10px] text-zinc-400">{row.name || row.sector}</div>
+                          <button type="button" onClick={() => onTickerSelect?.(row.symbol)} className="font-semibold text-[var(--eq-accent)] hover:underline">{row.symbol}</button>
+                          <div className="max-w-40 truncate text-[10px] text-[var(--eq-text3)]">{row.name || row.sector}</div>
                         </td>
-                        <td className="px-3 py-2 text-right font-semibold text-zinc-900 dark:text-zinc-100">{formatPlainNumber(row.opportunity_score, 0)}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-[var(--eq-text)]">{formatPlainNumber(row.opportunity_score, 0)}</td>
                         <td className="px-3 py-2 text-right">{row.buy_count}/{row.total_strategies || 7}</td>
                         <td className={`px-3 py-2 text-right font-semibold ${toneClass(row.change_20d)}`}>{fmtPctValue(row.change_20d)}</td>
                         <td className="px-3 py-2 text-right">{formatPlainNumber(row.pe_ratio)}</td>
@@ -1479,22 +1479,22 @@ function MacroMiniPanel({ macro }) {
   const chart = (macro?.charts || []).find((c) => c.id === 'rates_jobs') || (macro?.charts || [])[0];
   const rows = mergeMacroSeries(chart).slice(-180);
   return (
-    <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+    <div className="rounded-xl bg-[var(--eq-card)] p-4 shadow-sm ring-1 ring-[var(--eq-border)]">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Macro regime</h3>
-          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{macro?.analysis?.cached ? "Today's cached agent view" : 'Fresh macro view'}</p>
+          <h3 className="text-sm font-semibold text-[var(--eq-text)]">Macro regime</h3>
+          <p className="mt-0.5 text-xs text-[var(--eq-text3)]">{macro?.analysis?.cached ? "Today's cached agent view" : 'Fresh macro view'}</p>
         </div>
-        <Brain className="h-4 w-4 text-indigo-500" />
+        <Brain className="h-4 w-4 text-[var(--eq-accent)]" />
       </div>
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         {(macro?.signals || []).slice(0, 4).map((item) => {
           const short = String(item.short_term || 'Hold').toLowerCase();
           return (
             <div key={item.asset} className={`rounded-lg px-3 py-2 ring-1 ${
-              short === 'buy' ? 'bg-emerald-50 text-emerald-900 ring-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-100 dark:ring-emerald-900'
-              : short === 'sell' ? 'bg-rose-50 text-rose-900 ring-rose-100 dark:bg-rose-950/40 dark:text-rose-100 dark:ring-rose-900'
-              : 'bg-amber-50 text-amber-900 ring-amber-100 dark:bg-amber-950/35 dark:text-amber-100 dark:ring-amber-900'
+              short === 'buy' ? 'bg-[var(--eq-gain-soft)] text-[var(--eq-gain)] ring-[var(--eq-gain)]/25'
+              : short === 'sell' ? 'bg-[var(--eq-loss-soft)] text-[var(--eq-loss)] ring-[var(--eq-loss)]/25'
+              : 'bg-[var(--eq-warn)]/10 text-amber-900 ring-[var(--eq-warn)]/25'
             }`}>
               <div className="text-[10px] opacity-70">{item.symbol}</div>
               <div className="truncate text-xs font-semibold">{item.asset}</div>
@@ -1507,9 +1507,9 @@ function MacroMiniPanel({ macro }) {
         {rows.length && chart ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-100 dark:text-zinc-800" />
-              <XAxis dataKey="date" minTickGap={28} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
-              <YAxis width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-400" />
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-[var(--eq-grid)]" />
+              <XAxis dataKey="date" minTickGap={28} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-[var(--eq-text3)]" />
+              <YAxis width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-[var(--eq-text3)]" />
               <Tooltip />
               {(chart.series || []).slice(0, 3).map((s) => (
                 <Line key={s.key} type="monotone" dataKey={s.key} stroke={s.color} strokeWidth={2} dot={false} connectNulls />
@@ -1517,7 +1517,7 @@ function MacroMiniPanel({ macro }) {
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex h-full items-center justify-center rounded-xl bg-zinc-50 text-xs text-zinc-500 dark:bg-zinc-950">Loading macro chart…</div>
+          <div className="flex h-full items-center justify-center rounded-xl bg-[var(--eq-card2)] text-xs text-[var(--eq-text3)]">Loading macro chart…</div>
         )}
       </div>
     </div>
@@ -1708,17 +1708,17 @@ function AssistantWorkbench({
   }, [focusTicker, pushWorkspaceState, workspaceIntent.primaryTicker, workspaceIntent.request, workspaceIntent.tab]);
 
   return (
-    <section className="min-w-0 flex-1 overflow-y-auto bg-zinc-50 p-3 dark:bg-zinc-950">
+    <section className="min-w-0 flex-1 overflow-y-auto bg-[var(--eq-card2)] p-3">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold tracking-tight text-zinc-950 dark:text-zinc-100">Workspace</h2>
+          <h2 className="text-lg font-semibold tracking-tight text-[var(--eq-text)]">Workspace</h2>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
             onClick={() => goWorkspaceHistory(-1)}
             disabled={workspaceNav.index <= 0}
-            className="inline-flex h-8 w-7 items-center justify-center text-zinc-400 transition hover:text-zinc-950 disabled:cursor-default disabled:opacity-30 disabled:hover:text-zinc-400 dark:text-zinc-500 dark:hover:text-zinc-100"
+            className="inline-flex h-8 w-7 items-center justify-center text-[var(--eq-text3)] transition hover:text-[var(--eq-text)] disabled:cursor-default disabled:opacity-30 disabled:hover:text-[var(--eq-text3)]"
             title="Previous workspace view"
             aria-label="Previous workspace view"
           >
@@ -1728,7 +1728,7 @@ function AssistantWorkbench({
             type="button"
             onClick={() => goWorkspaceHistory(1)}
             disabled={workspaceNav.index >= workspaceNav.entries.length - 1}
-            className="inline-flex h-8 w-7 items-center justify-center text-zinc-400 transition hover:text-zinc-950 disabled:cursor-default disabled:opacity-30 disabled:hover:text-zinc-400 dark:text-zinc-500 dark:hover:text-zinc-100"
+            className="inline-flex h-8 w-7 items-center justify-center text-[var(--eq-text3)] transition hover:text-[var(--eq-text)] disabled:cursor-default disabled:opacity-30 disabled:hover:text-[var(--eq-text3)]"
             title="Next workspace view"
             aria-label="Next workspace view"
           >
@@ -1737,7 +1737,7 @@ function AssistantWorkbench({
         </div>
       </div>
 
-      <div className="mb-3 flex gap-1 overflow-x-auto rounded-xl bg-white p-1 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+      <div className="mb-3 flex gap-1 overflow-x-auto rounded-xl bg-[var(--eq-card)] p-1 ring-1 ring-[var(--eq-border)]">
         {WORKSPACE_TABS.map((item) => {
           const Icon = item.icon;
           return (
@@ -1747,13 +1747,13 @@ function AssistantWorkbench({
               onClick={() => openWorkspaceTab(item.id)}
               className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${
                 tab === item.id
-                  ? 'bg-zinc-900 text-white shadow-sm dark:bg-zinc-100 dark:text-zinc-900'
-                  : 'text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100'
+                  ? 'bg-[var(--eq-text)] text-[var(--eq-bg)] shadow-sm'
+                  : 'text-[var(--eq-text3)] hover:bg-[var(--eq-card2)] hover:text-[var(--eq-text)]'
               }`}
             >
               <Icon className="h-3.5 w-3.5" /> {item.label}
               {workspaceIntent.request && workspaceIntent.tab === item.id && (
-                <span className={`ml-0.5 h-1.5 w-1.5 rounded-full ${tab === item.id ? 'bg-white/75 dark:bg-zinc-900/70' : 'bg-indigo-500'}`} />
+                <span className={`ml-0.5 h-1.5 w-1.5 rounded-full ${tab === item.id ? 'bg-[var(--eq-card)]/75' : 'bg-[var(--eq-accent)]'}`} />
               )}
             </button>
           );
@@ -1769,8 +1769,8 @@ function AssistantWorkbench({
               onClick={() => openWorkspaceResearch(ticker)}
               className={`rounded-full px-3 py-1.5 text-[11px] font-semibold ring-1 ${
                 focusTicker === ticker
-                  ? 'bg-indigo-50 text-indigo-700 ring-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-200 dark:ring-indigo-900'
-                  : 'bg-white text-zinc-500 ring-zinc-200 hover:text-zinc-900 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-800 dark:hover:text-zinc-100'
+                  ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)] ring-[var(--eq-accent-ring)]'
+                  : 'bg-[var(--eq-card)] text-[var(--eq-text3)] ring-[var(--eq-border)] hover:text-[var(--eq-text)]'
               }`}
             >
               {ticker}
@@ -1801,8 +1801,8 @@ function AssistantWorkbench({
           </div>
           <div className="2xl:col-span-2">
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Screener shortlist</h3>
-              <span className="text-[11px] text-zinc-400">{visibleScreenRows.length} matches</span>
+              <h3 className="text-sm font-semibold text-[var(--eq-text)]">Screener shortlist</h3>
+              <span className="text-[11px] text-[var(--eq-text3)]">{visibleScreenRows.length} matches</span>
             </div>
             <ScreenerMiniTable rows={visibleScreenRows.slice(0, 8)} onTickerSelect={openWorkspaceResearch} onNavigate={onNavigate} />
           </div>
@@ -1816,7 +1816,7 @@ function AssistantWorkbench({
           <div className="mb-4">
             <ResearchSnapshot ticker={focusTicker} research={research} chart={chart} loading={researchLoading} onNavigate={onNavigate} />
           </div>
-          <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+          <div className="rounded-xl bg-[var(--eq-card)] p-4 shadow-sm ring-1 ring-[var(--eq-border)]">
             <ResearchPanel
               strategies={strategies}
               onCompare={onCompare}
@@ -1846,7 +1846,7 @@ function AssistantWorkbench({
           <div className="mb-4">
             <MacroMiniPanel macro={macro} />
           </div>
-          <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+          <div className="rounded-xl bg-[var(--eq-card)] p-4 shadow-sm ring-1 ring-[var(--eq-border)]">
             <MacroPanel />
           </div>
         </div>
@@ -1855,13 +1855,13 @@ function AssistantWorkbench({
       {tab === 'news' && (
         <div>
           <WorkspaceChatContext text={latestAssistant} tickers={discussedTickers} intent={workspaceIntent} onTickerSelect={openWorkspaceResearch} onTabSelect={openWorkspaceTab} />
-          <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+          <div className="rounded-xl bg-[var(--eq-card)] p-4 shadow-sm ring-1 ring-[var(--eq-border)]">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              <h3 className="text-sm font-semibold text-[var(--eq-text)]">
                 News for {discussedTickers.length ? discussedTickers.slice(0, 4).join(', ') : (focusTicker || 'chat context')}
               </h3>
               {focusTicker && (
-                <button type="button" onClick={() => onNavigate?.('research', focusTicker)} className="text-[11px] font-semibold text-indigo-700 hover:underline dark:text-indigo-300">Research page</button>
+                <button type="button" onClick={() => onNavigate?.('research', focusTicker)} className="text-[11px] font-semibold text-[var(--eq-accent)] hover:underline">Research page</button>
               )}
             </div>
             <div className="grid gap-3 lg:grid-cols-2">
@@ -1871,12 +1871,12 @@ function AssistantWorkbench({
                   href={item.url || undefined}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-xl bg-zinc-50 p-3 ring-1 ring-zinc-100 hover:bg-zinc-100 dark:bg-zinc-950 dark:ring-zinc-800 dark:hover:bg-zinc-800"
+                  className="rounded-xl bg-[var(--eq-card2)] p-3 ring-1 ring-[var(--eq-border)] hover:bg-[var(--eq-card2)]"
                 >
-                  <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{item.source || item.publisher || item.symbol || focusTicker}</div>
-                  <div className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-zinc-900 dark:text-zinc-100">{item.title}</div>
+                  <div className="text-[11px] font-semibold text-[var(--eq-text3)]">{item.source || item.publisher || item.symbol || focusTicker}</div>
+                  <div className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-[var(--eq-text)]">{item.title}</div>
                 </a>
-              )) || <p className="text-sm text-zinc-500">No news loaded.</p>}
+              )) || <p className="text-sm text-[var(--eq-text3)]">No news loaded.</p>}
             </div>
           </div>
         </div>
@@ -1916,7 +1916,7 @@ function AssistantMode({
   }, [discussedTickers.join('|')]);
 
   return (
-    <div className="grid h-[calc(100dvh-57px)] max-h-[calc(100dvh-57px)] min-h-0 w-full grid-cols-[410px_minmax(0,1fr)] overflow-hidden bg-zinc-50 dark:bg-zinc-950">
+    <div className="grid h-[calc(100dvh-57px)] max-h-[calc(100dvh-57px)] min-h-0 w-full grid-cols-[410px_minmax(0,1fr)] overflow-hidden bg-[var(--eq-card2)]">
       <AssistantChatColumn
         activeSession={activeSession}
         messages={messages}
@@ -2495,7 +2495,7 @@ export default function AgentPanel({
   const hasThread = messages.length > 0 || loading;
 
   const modeToggle = (
-    <div className="flex gap-0.5 bg-zinc-100 rounded-full p-0.5 dark:bg-zinc-800/80">
+    <div className="flex gap-0.5 bg-[var(--eq-card2)] rounded-full p-0.5">
       <button
         type="button"
         onClick={() => {
@@ -2503,7 +2503,7 @@ export default function AgentPanel({
           updateActiveSession({ mode: 'quick' });
         }}
         className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium transition-all ${
-          mode === 'quick' ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400'
+          mode === 'quick' ? 'bg-[var(--eq-card)] text-[var(--eq-text)] shadow-sm' : 'text-[var(--eq-text3)]'
         }`}
       >
         <Zap className="w-3 h-3" /> Quick
@@ -2515,7 +2515,7 @@ export default function AgentPanel({
           updateActiveSession({ mode: 'full' });
         }}
         className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium transition-all ${
-          mode === 'full' ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100' : 'text-zinc-500 dark:text-zinc-400'
+          mode === 'full' ? 'bg-[var(--eq-card)] text-[var(--eq-text)] shadow-sm' : 'text-[var(--eq-text3)]'
         }`}
       >
         <Bot className="w-3 h-3" /> Full
@@ -2531,7 +2531,7 @@ export default function AgentPanel({
           <div
             key={s.id}
             className={`group flex items-stretch rounded-xl transition-colors ${
-              active ? 'bg-zinc-100 ring-1 ring-zinc-200/80 dark:bg-zinc-800 dark:ring-zinc-600' : 'hover:bg-zinc-50 dark:hover:bg-zinc-900'
+              active ? 'bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)]' : 'hover:bg-[var(--eq-card2)]'
             }`}
           >
             <button
@@ -2547,12 +2547,12 @@ export default function AgentPanel({
               className="flex-1 min-w-0 text-left px-2.5 py-2 rounded-l-xl"
             >
               <div className="flex items-start gap-2">
-                <MessageSquare className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${active ? 'text-zinc-700 dark:text-zinc-200' : 'text-zinc-400'}`} />
+                <MessageSquare className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${active ? 'text-[var(--eq-text2)]' : 'text-[var(--eq-text3)]'}`} />
                 <div className="min-w-0 flex-1">
-                  <div className={`text-[11px] font-medium truncate ${active ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 dark:text-zinc-400'}`}>
+                  <div className={`text-[11px] font-medium truncate ${active ? 'text-[var(--eq-text)]' : 'text-[var(--eq-text2)]'}`}>
                     {s.title || 'New chat'}
                   </div>
-                  <div className="text-[10px] text-zinc-400 mt-0.5 dark:text-zinc-500">
+                  <div className="text-[10px] text-[var(--eq-text3)] mt-0.5">
                     {(s.messages?.length || 0)} · {s.mode === 'full' ? 'Full' : 'Quick'}
                   </div>
                 </div>
@@ -2566,7 +2566,7 @@ export default function AgentPanel({
                 removeSession(s.id);
               }}
               disabled={loading}
-              className="shrink-0 px-1.5 py-2 rounded-r-xl text-zinc-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:pointer-events-none dark:hover:bg-red-950/30"
+              className="shrink-0 px-1.5 py-2 rounded-r-xl text-[var(--eq-text3)] hover:text-[var(--eq-loss)] hover:bg-[var(--eq-loss-soft)] disabled:opacity-40 disabled:pointer-events-none"
               title="Delete chat"
               aria-label={`Delete chat: ${s.title || 'New chat'}`}
             >
@@ -2580,7 +2580,7 @@ export default function AgentPanel({
 
   if (embedded) {
     return (
-      <aside className="relative flex flex-col min-h-[520px] xl:sticky xl:top-[74px] xl:h-[calc(100dvh-92px)] rounded-2xl bg-white/95 ring-1 ring-zinc-200/80 shadow-sm overflow-hidden dark:bg-zinc-900/90 dark:ring-zinc-700/80">
+      <aside className="relative flex flex-col min-h-[520px] xl:sticky xl:top-[74px] xl:h-[calc(100dvh-92px)] rounded-2xl bg-[var(--eq-card)]/95 ring-1 ring-[var(--eq-border)] shadow-sm overflow-hidden">
         {onPanelWidthChange && (
           <button
             type="button"
@@ -2590,17 +2590,17 @@ export default function AgentPanel({
             aria-label="Resize or collapse assistant panel"
             title="Drag to resize · Click to collapse"
           >
-            <span className="absolute left-0 top-1/2 h-16 w-1 -translate-y-1/2 rounded-full bg-zinc-300/40 transition-colors group-hover:bg-indigo-400/80 dark:bg-zinc-700/70 dark:group-hover:bg-indigo-500/80" />
+            <span className="absolute left-0 top-1/2 h-16 w-1 -translate-y-1/2 rounded-full bg-[var(--eq-border2)] transition-colors group-hover:bg-[var(--eq-accent)]" />
           </button>
         )}
         {historyOpen && (
-          <div className="absolute inset-0 z-30 bg-white dark:bg-zinc-900 flex flex-col">
-            <div className="flex items-center justify-between px-3 py-3 border-b border-zinc-100 dark:border-zinc-800">
-              <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Chats</span>
+          <div className="absolute inset-0 z-30 bg-[var(--eq-card)] flex flex-col">
+            <div className="flex items-center justify-between px-3 py-3 border-b border-[var(--eq-grid)]">
+              <span className="text-sm font-semibold text-[var(--eq-text)]">Chats</span>
               <button
                 type="button"
                 onClick={() => setHistoryOpen(false)}
-                className="p-2 rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                className="p-2 rounded-full text-[var(--eq-text3)] hover:text-[var(--eq-text)] hover:bg-[var(--eq-card2)] transition-colors"
                 title="Close"
               >
                 <X className="w-4 h-4" />
@@ -2610,11 +2610,11 @@ export default function AgentPanel({
           </div>
         )}
 
-        <div className="shrink-0 px-3.5 py-3 border-b border-zinc-100/90 dark:border-zinc-800/90">
+        <div className="shrink-0 px-3.5 py-3 border-b border-[var(--eq-grid)]">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <div className="text-xs font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{contextTitle}</div>
-              <div className="text-[10px] text-zinc-500 truncate dark:text-zinc-400">Context-aware research help</div>
+              <div className="text-xs font-semibold tracking-tight text-[var(--eq-text)]">{contextTitle}</div>
+              <div className="text-[10px] text-[var(--eq-text3)] truncate">Context-aware research help</div>
             </div>
             <div className="flex items-center gap-1">
               {assistantResults.length > 1 && (
@@ -2622,7 +2622,7 @@ export default function AgentPanel({
                   <button
                     type="button"
                     onClick={() => openAssistantResult(-1)}
-                    className="p-2 rounded-full text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                    className="p-2 rounded-full text-[var(--eq-text3)] hover:text-[var(--eq-text)] hover:bg-[var(--eq-card2)] transition-colors"
                     title="Previous result"
                     aria-label="Previous assistant result"
                   >
@@ -2631,7 +2631,7 @@ export default function AgentPanel({
                   <button
                     type="button"
                     onClick={() => openAssistantResult(1)}
-                    className="p-2 rounded-full text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                    className="p-2 rounded-full text-[var(--eq-text3)] hover:text-[var(--eq-text)] hover:bg-[var(--eq-card2)] transition-colors"
                     title="Next result"
                     aria-label="Next assistant result"
                   >
@@ -2642,7 +2642,7 @@ export default function AgentPanel({
               <button
                 type="button"
                 onClick={() => setHistoryOpen(true)}
-                className="p-2 rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                className="p-2 rounded-full text-[var(--eq-text3)] hover:text-[var(--eq-text)] hover:bg-[var(--eq-card2)] transition-colors"
                 title="Chat history"
               >
                 <PanelLeft className="w-4 h-4" />
@@ -2650,7 +2650,7 @@ export default function AgentPanel({
               <button
                 type="button"
                 onClick={createNewChat}
-                className="p-2 rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                className="p-2 rounded-full text-[var(--eq-text3)] hover:text-[var(--eq-text)] hover:bg-[var(--eq-card2)] transition-colors"
                 title="New chat"
               >
                 <SquarePen className="w-4 h-4" />
@@ -2660,15 +2660,15 @@ export default function AgentPanel({
         </div>
 
         <div className="flex-1 min-h-0 relative">
-          <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white/95 to-transparent z-10 pointer-events-none dark:from-zinc-900/95" />
-          <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white/95 to-transparent z-10 pointer-events-none dark:from-zinc-900/95" />
+          <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-[var(--eq-card)]/95 to-transparent z-10 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-[var(--eq-card)]/95 to-transparent z-10 pointer-events-none" />
           <div ref={scrollRef} className="h-full overflow-y-auto px-3.5 py-3 space-y-3">
             {!hasThread && (
               <div className="pt-2 space-y-3">
-                <div className="rounded-xl bg-zinc-50 ring-1 ring-zinc-200/70 p-3 dark:bg-zinc-950/60 dark:ring-zinc-800">
+                <div className="rounded-xl bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] p-3">
                   <div className="flex items-start gap-2">
-                    <Bot className="w-4 h-4 mt-0.5 text-zinc-500 dark:text-zinc-400" />
-                    <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">
+                    <Bot className="w-4 h-4 mt-0.5 text-[var(--eq-text3)]" />
+                    <p className="text-xs leading-relaxed text-[var(--eq-text2)]">
                       Ask for analysis, filters, macro context, or backtest setup. I will keep the answer practical for this tab.
                     </p>
                   </div>
@@ -2679,7 +2679,7 @@ export default function AgentPanel({
                       key={s}
                       type="button"
                       onClick={() => setInput(s)}
-                      className="w-full text-left px-3 py-2.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 text-[11px] leading-snug text-zinc-600 transition-colors ring-1 ring-zinc-200/60 dark:bg-zinc-950/40 dark:hover:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-800"
+                      className="w-full text-left px-3 py-2.5 rounded-xl bg-[var(--eq-card2)] hover:bg-[var(--eq-card2)] text-[11px] leading-snug text-[var(--eq-text2)] transition-colors ring-1 ring-[var(--eq-border)]"
                     >
                       {s}
                     </button>
@@ -2695,16 +2695,16 @@ export default function AgentPanel({
             ))}
             {loading && streamingText && (
               <div className="flex gap-2">
-                <div className="w-7 h-7 rounded-lg bg-zinc-100 flex items-center justify-center shrink-0 mt-0.5 dark:bg-zinc-800">
-                  <Bot className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
+                <div className="w-7 h-7 rounded-lg bg-[var(--eq-card2)] flex items-center justify-center shrink-0 mt-0.5">
+                  <Bot className="w-4 h-4 text-[var(--eq-text2)]" />
                 </div>
-                <div className="min-w-0 max-w-[92%] bg-zinc-50 ring-1 ring-zinc-200/70 rounded-2xl px-3 py-2.5 dark:bg-zinc-950/70 dark:ring-zinc-800">
+                <div className="min-w-0 max-w-[92%] bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-2xl px-3 py-2.5">
                   <RenderMarkdown text={streamingText} />
                 </div>
               </div>
             )}
             {loading && !streamingText && (
-              <div className="flex items-center gap-2 text-xs text-zinc-500 px-2 py-3 dark:text-zinc-400">
+              <div className="flex items-center gap-2 text-xs text-[var(--eq-text3)] px-2 py-3">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 Thinking...
               </div>
@@ -2713,8 +2713,8 @@ export default function AgentPanel({
           </div>
         </div>
 
-        <div className="shrink-0 p-3 border-t border-zinc-100/90 bg-white/95 dark:border-zinc-800/90 dark:bg-zinc-900/95">
-          <div className="flex items-end gap-2 rounded-2xl bg-zinc-50 ring-1 ring-zinc-200/80 p-1.5 dark:bg-zinc-950/70 dark:ring-zinc-800">
+        <div className="shrink-0 p-3 border-t border-[var(--eq-grid)] bg-[var(--eq-card)]/95">
+          <div className="flex items-end gap-2 rounded-2xl bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] p-1.5">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -2727,20 +2727,20 @@ export default function AgentPanel({
               rows={1}
               placeholder={`Ask ${contextTitle.toLowerCase()}...`}
               disabled={loading}
-              className="flex-1 min-w-0 max-h-28 resize-none bg-transparent px-2 py-2 text-sm leading-5 text-zinc-900 focus:outline-none disabled:opacity-50 placeholder:text-zinc-400 dark:text-zinc-100"
+              className="flex-1 min-w-0 max-h-28 resize-none bg-transparent px-2 py-2 text-sm leading-5 text-[var(--eq-text)] focus:outline-none disabled:opacity-50 placeholder:text-[var(--eq-text3)]"
             />
             <button
               type="button"
               onClick={handleSend}
               disabled={loading || !input.trim()}
-              className="shrink-0 p-2.5 rounded-full bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-30 transition-colors dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+              className="shrink-0 p-2.5 rounded-full bg-[var(--eq-text)] text-[var(--eq-bg)] hover:opacity-85 disabled:opacity-30 transition-colors"
               aria-label="Send"
             >
               <Send className="w-4 h-4" />
             </button>
           </div>
           {lastRun && !loading && (
-            <div className="pt-1.5 text-center text-[9px] text-zinc-400 dark:text-zinc-500">
+            <div className="pt-1.5 text-center text-[9px] text-[var(--eq-text3)]">
               {(lastRun.elapsedMs / 1000).toFixed(1)}s · Not financial advice
             </div>
           )}
@@ -2778,18 +2778,18 @@ export default function AgentPanel({
   }
 
   return (
-    <div className="flex flex-col h-full w-full min-h-0 min-w-0 bg-zinc-50 relative dark:bg-zinc-950">
+    <div className="flex flex-col h-full w-full min-h-0 min-w-0 bg-[var(--eq-card2)] relative">
       {historyOpen && (
         <>
           <button
             type="button"
-            className="fixed inset-0 z-40 bg-zinc-900/25 dark:bg-black/50"
+            className="fixed inset-0 z-40 bg-[var(--eq-text)]/25"
             aria-label="Close chat history"
             onClick={() => setHistoryOpen(false)}
           />
-          <aside className="fixed left-0 top-0 bottom-0 z-50 w-[min(100%,300px)] flex flex-col bg-white shadow-xl shadow-zinc-900/10 ring-1 ring-zinc-200/60 dark:bg-zinc-900 dark:ring-zinc-700 dark:shadow-black/30">
-            <div className="flex items-center justify-between px-3 py-3 border-b border-zinc-100 dark:border-zinc-800">
-              <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Chats</span>
+          <aside className="fixed left-0 top-0 bottom-0 z-50 w-[min(100%,300px)] flex flex-col bg-[var(--eq-card)] shadow-[var(--eq-shadow-pop)] ring-1 ring-[var(--eq-border)]">
+            <div className="flex items-center justify-between px-3 py-3 border-b border-[var(--eq-grid)]">
+              <span className="text-sm font-semibold text-[var(--eq-text)]">Chats</span>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
@@ -2797,7 +2797,7 @@ export default function AgentPanel({
                     createNewChat();
                     setHistoryOpen(false);
                   }}
-                  className="p-2 rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                  className="p-2 rounded-full text-[var(--eq-text3)] hover:text-[var(--eq-text)] hover:bg-[var(--eq-card2)] transition-colors"
                   title="New chat"
                 >
                   <SquarePen className="w-4 h-4" />
@@ -2805,7 +2805,7 @@ export default function AgentPanel({
                 <button
                   type="button"
                   onClick={() => setHistoryOpen(false)}
-                  className="p-2 rounded-full text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                  className="p-2 rounded-full text-[var(--eq-text3)] hover:text-[var(--eq-text)] hover:bg-[var(--eq-card2)] transition-colors"
                   title="Close"
                 >
                   <X className="w-4 h-4" />
@@ -2827,10 +2827,10 @@ export default function AgentPanel({
           <button
             type="button"
             onClick={() => setHistoryOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80 transition-colors dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800/80"
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium text-[var(--eq-text2)] hover:text-[var(--eq-text)] hover:bg-[var(--eq-card2)] transition-colors"
             title="Chat history"
           >
-            <PanelLeft className="w-4 h-4 text-zinc-500" />
+            <PanelLeft className="w-4 h-4 text-[var(--eq-text3)]" />
             Chats
           </button>
         </div>
@@ -2838,7 +2838,7 @@ export default function AgentPanel({
           <button
             type="button"
             onClick={() => createNewChat()}
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 transition-colors dark:text-zinc-300 dark:hover:bg-zinc-800/80"
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-[var(--eq-text2)] hover:bg-[var(--eq-card2)] transition-colors"
             title="New chat"
           >
             <SquarePen className="w-3.5 h-3.5" />
@@ -2851,12 +2851,12 @@ export default function AgentPanel({
         {!hasThread && (
           <div className="flex-1 flex flex-col items-center justify-center px-4 pb-8 min-h-0 overflow-y-auto">
             <div className="w-full max-w-2xl mx-auto text-center">
-              <h1 className="text-3xl sm:text-4xl font-normal tracking-tight text-zinc-900 mb-2 dark:text-zinc-100">Equilima Agent</h1>
-              <p className="text-sm text-zinc-500 max-w-md mx-auto dark:text-zinc-400">Ask about markets, fundamentals, or ideas — research and education only.</p>
-              <p className="text-xs text-zinc-400 mt-2 max-w-lg mx-auto dark:text-zinc-500">Not investment advice. Not personalized financial guidance.</p>
+              <h1 className="text-3xl sm:text-4xl font-normal tracking-tight text-[var(--eq-text)] mb-2">Equilima Agent</h1>
+              <p className="text-sm text-[var(--eq-text3)] max-w-md mx-auto">Ask about markets, fundamentals, or ideas — research and education only.</p>
+              <p className="text-xs text-[var(--eq-text3)] mt-2 max-w-lg mx-auto">Not investment advice. Not personalized financial guidance.</p>
 
               <div className="mt-10 w-full flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="flex flex-1 items-center gap-2 rounded-full bg-white pl-5 pr-2 py-2 shadow-md shadow-zinc-900/5 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-700 dark:shadow-black/20">
+                <div className="flex flex-1 items-center gap-2 rounded-full bg-[var(--eq-card)] pl-5 pr-2 py-2 shadow-[var(--eq-shadow-card)] ring-1 ring-[var(--eq-border)]">
                   <input
                     type="text"
                     value={input}
@@ -2864,13 +2864,13 @@ export default function AgentPanel({
                     onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                     placeholder="Ask anything…"
                     disabled={loading}
-                    className="flex-1 min-w-0 bg-transparent border-0 text-zinc-900 text-[15px] focus:ring-0 focus:outline-none placeholder:text-zinc-400 disabled:opacity-50 dark:text-zinc-100"
+                    className="flex-1 min-w-0 bg-transparent border-0 text-[var(--eq-text)] text-[15px] focus:ring-0 focus:outline-none placeholder:text-[var(--eq-text3)] disabled:opacity-50"
                   />
                   <button
                     type="button"
                     onClick={handleSend}
                     disabled={loading || !input.trim()}
-                    className="shrink-0 p-3 rounded-full bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-30 transition-colors dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                    className="shrink-0 p-3 rounded-full bg-[var(--eq-text)] text-[var(--eq-bg)] hover:opacity-85 disabled:opacity-30 transition-colors"
                     aria-label="Send"
                   >
                     <Send className="w-4 h-4" />
@@ -2880,18 +2880,18 @@ export default function AgentPanel({
               </div>
 
               <div className="mt-10 w-full text-left">
-                <p className="text-[11px] font-medium text-zinc-400 mb-2 dark:text-zinc-500">Suggestions</p>
+                <p className="text-[11px] font-medium text-[var(--eq-text3)] mb-2">Suggestions</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {suggestions.map((s, i) => (
                     <button
                       key={i}
                       type="button"
                       onClick={() => setInput(s)}
-                      className="text-left px-3 py-2.5 rounded-xl bg-zinc-100/80 hover:bg-zinc-200/80 transition-colors group dark:bg-zinc-900/80 dark:hover:bg-zinc-800"
+                      className="text-left px-3 py-2.5 rounded-xl bg-[var(--eq-card2)] hover:bg-[var(--eq-border)] transition-colors group"
                     >
                       <div className="flex items-start gap-2.5">
-                        <TrendingUp className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-700 mt-0.5 shrink-0 dark:group-hover:text-zinc-200" />
-                        <span className="text-[11px] text-zinc-600 group-hover:text-zinc-900 leading-snug dark:text-zinc-400 dark:group-hover:text-zinc-100">{s}</span>
+                        <TrendingUp className="w-3.5 h-3.5 text-[var(--eq-text3)] group-hover:text-[var(--eq-text)] mt-0.5 shrink-0" />
+                        <span className="text-[11px] text-[var(--eq-text2)] group-hover:text-[var(--eq-text)] leading-snug">{s}</span>
                       </div>
                     </button>
                   ))}
@@ -2903,8 +2903,8 @@ export default function AgentPanel({
 
         {hasThread && (
           <div className="flex-1 min-h-0 relative flex flex-col">
-            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-b from-zinc-50 to-transparent z-10 pointer-events-none dark:from-zinc-950" />
-            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-zinc-50 to-transparent z-10 pointer-events-none dark:from-zinc-950" />
+            <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-b from-[var(--eq-bg)] to-transparent z-10 pointer-events-none" />
+            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[var(--eq-bg)] to-transparent z-10 pointer-events-none" />
             <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
               <div className="max-w-4xl w-full mx-auto px-4 sm:px-6 py-4 space-y-4">
                 {messages.map((msg, i) => (
@@ -2912,23 +2912,23 @@ export default function AgentPanel({
                 ))}
                 {loading && streamingText && (
                   <div className="flex gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-zinc-200 flex items-center justify-center shrink-0 mt-0.5 dark:bg-zinc-800">
-                      <Bot className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
+                    <div className="w-7 h-7 rounded-lg bg-[var(--eq-border)] flex items-center justify-center shrink-0 mt-0.5">
+                      <Bot className="w-4 h-4 text-[var(--eq-text2)]" />
                     </div>
-                    <div className="max-w-[92%] sm:max-w-[88%] bg-white ring-1 ring-zinc-200/70 rounded-2xl px-4 py-3 shadow-sm dark:bg-zinc-900 dark:ring-zinc-700">
+                    <div className="max-w-[92%] sm:max-w-[88%] bg-[var(--eq-card)] ring-1 ring-[var(--eq-border)] rounded-2xl px-4 py-3 shadow-sm">
                       <RenderMarkdown text={streamingText} />
-                      <span className="inline-block w-1.5 h-4 bg-zinc-400 animate-pulse ml-0.5 rounded-sm dark:bg-zinc-500" />
+                      <span className="inline-block w-1.5 h-4 bg-[var(--eq-text3)] animate-pulse ml-0.5 rounded-sm" />
                     </div>
                   </div>
                 )}
                 {loading && !streamingText && (
                   <div className="flex gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-zinc-200 flex items-center justify-center shrink-0 dark:bg-zinc-800">
-                      <Bot className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
+                    <div className="w-7 h-7 rounded-lg bg-[var(--eq-border)] flex items-center justify-center shrink-0">
+                      <Bot className="w-4 h-4 text-[var(--eq-text2)]" />
                     </div>
-                    <div className="bg-white ring-1 ring-zinc-200/70 rounded-2xl px-4 py-3 shadow-sm dark:bg-zinc-900 dark:ring-zinc-700">
-                      <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-500 dark:text-zinc-400" />
+                    <div className="bg-[var(--eq-card)] ring-1 ring-[var(--eq-border)] rounded-2xl px-4 py-3 shadow-sm">
+                      <div className="flex items-center gap-2 text-xs text-[var(--eq-text3)]">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--eq-text3)]" />
                         {mode === 'full' ? 'Running multi-agent analysis...' : 'Thinking...'}
                       </div>
                     </div>
@@ -2942,13 +2942,13 @@ export default function AgentPanel({
       </div>
 
       {hasThread && (
-        <div className="shrink-0 bg-zinc-50/95 backdrop-blur-sm pt-2 pb-4 px-4 sm:px-6 dark:bg-zinc-950/95">
+        <div className="shrink-0 bg-[var(--eq-card2)] backdrop-blur-sm pt-2 pb-4 px-4 sm:px-6">
           <div className="max-w-4xl w-full mx-auto space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               {modeToggle}
-              <span className="text-[9px] text-zinc-400 dark:text-zinc-500">{mode === 'quick' ? 'Fast response' : 'Deeper multi-step run'}</span>
+              <span className="text-[9px] text-[var(--eq-text3)]">{mode === 'quick' ? 'Fast response' : 'Deeper multi-step run'}</span>
               {lastRun && !loading && (
-                <span className="text-[9px] text-zinc-400 dark:text-zinc-500">
+                <span className="text-[9px] text-[var(--eq-text3)]">
                   {lastRun.mode === 'full' ? 'Full' : 'Quick'} · {(lastRun.elapsedMs / 1000).toFixed(1)}s
                 </span>
               )}
@@ -2961,18 +2961,18 @@ export default function AgentPanel({
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                 placeholder="Message Equilima Agent…"
                 disabled={loading}
-                className="flex-1 bg-white rounded-2xl px-4 py-3 text-zinc-900 text-sm shadow-sm ring-1 ring-zinc-200/70 focus:outline-none focus:ring-2 focus:ring-zinc-300/80 disabled:opacity-50 placeholder:text-zinc-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700 dark:focus:ring-zinc-600/80"
+                className="flex-1 bg-[var(--eq-card)] rounded-2xl px-4 py-3 text-[var(--eq-text)] text-sm shadow-sm ring-1 ring-[var(--eq-border)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-border2)] disabled:opacity-50 placeholder:text-[var(--eq-text3)]"
               />
               <button
                 type="button"
                 onClick={handleSend}
                 disabled={loading || !input.trim()}
-                className="px-4 py-3 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-30 text-white rounded-2xl transition-colors shrink-0 shadow-sm dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                className="px-4 py-3 bg-[var(--eq-text)] hover:opacity-85 disabled:opacity-30 text-[var(--eq-bg)] rounded-2xl transition-colors shrink-0 shadow-sm"
               >
                 <Send className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-[9px] text-zinc-400 text-center dark:text-zinc-500">Powered by Gemma3 · Not financial advice</p>
+            <p className="text-[9px] text-[var(--eq-text3)] text-center">Powered by Gemma3 · Not financial advice</p>
           </div>
         </div>
       )}

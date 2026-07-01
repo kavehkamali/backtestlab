@@ -124,9 +124,9 @@ const SEARCH_CLASS_LABEL = {
   index: 'Index', forex: 'Forex', bond: 'Bond',
 };
 const SEARCH_CLASS_STYLE = {
-  stock: 'bg-zinc-100 text-zinc-600', etf: 'bg-indigo-50 text-indigo-700',
-  crypto: 'bg-amber-50 text-amber-700', commodity: 'bg-orange-50 text-orange-700',
-  index: 'bg-sky-50 text-sky-700', forex: 'bg-emerald-50 text-emerald-700',
+  stock: 'bg-[var(--eq-card2)] text-[var(--eq-text2)]', etf: 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)]',
+  crypto: 'bg-[var(--eq-warn)]/10 text-[var(--eq-warn)]', commodity: 'bg-orange-50 text-orange-700',
+  index: 'bg-sky-50 text-sky-700', forex: 'bg-[var(--eq-gain-soft)] text-[var(--eq-gain)]',
   bond: 'bg-violet-50 text-violet-700',
 };
 
@@ -201,61 +201,61 @@ function fmtLarge(v) {
   return `$${v.toLocaleString()}`;
 }
 function PctSpan({ value }) {
-  if (value == null) return <span className="text-zinc-600">—</span>;
-  const c = value > 0 ? 'text-emerald-600' : value < 0 ? 'text-red-600' : 'text-zinc-500';
+  if (value == null) return <span className="text-[var(--eq-text2)]">—</span>;
+  const c = value > 0 ? 'text-[var(--eq-gain)]' : value < 0 ? 'text-[var(--eq-loss)]' : 'text-[var(--eq-text3)]';
   return <span className={c}>{value > 0 ? '+' : ''}{Number(value).toFixed(2)}%</span>;
 }
 function Stat({ label, value, sub, color }) {
   return (
-    <div className="flex justify-between py-1.5 border-b border-zinc-100">
-      <span className="text-zinc-500 text-xs">{label}</span>
+    <div className="flex justify-between py-1.5 border-b border-[var(--eq-grid)]">
+      <span className="text-[var(--eq-text3)] text-xs">{label}</span>
       <div className="text-right">
-        <span className={`text-xs font-medium ${color || 'text-zinc-700'}`}>{value ?? '—'}</span>
-        {sub && <div className="text-[9px] text-zinc-600">{sub}</div>}
+        <span className={`text-xs font-medium ${color || 'text-[var(--eq-text2)]'}`}>{value ?? '—'}</span>
+        {sub && <div className="text-[9px] text-[var(--eq-text2)]">{sub}</div>}
       </div>
     </div>
   );
 }
 function GradeBadge({ grade, label, score }) {
   const colors = {
-    'A': 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
+    'A': 'bg-emerald-500/15 text-[var(--eq-gain)] border-emerald-500/30',
     'B': 'bg-green-500/15 text-green-400 border-green-500/30',
     'C': 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
     'D': 'bg-orange-500/15 text-orange-400 border-orange-500/30',
-    'F': 'bg-red-500/15 text-red-600 border-red-500/30',
+    'F': 'bg-red-500/15 text-[var(--eq-loss)] border-red-500/30',
   };
-  const cls = colors[grade] || 'bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200/80';
+  const cls = colors[grade] || 'bg-[var(--eq-card2)] text-[var(--eq-text3)] ring-1 ring-[var(--eq-border)]';
   return (
     <div className="text-center">
       <div className={`w-10 h-10 rounded-lg border flex items-center justify-center text-lg font-bold ${cls}`}>{grade || '—'}</div>
-      <div className="text-[9px] text-zinc-500 mt-1">{label}</div>
+      <div className="text-[9px] text-[var(--eq-text3)] mt-1">{label}</div>
     </div>
   );
 }
 function QuantMetricRow({ grade, label, primary, secondary }) {
   const colors = {
-    'A': 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
+    'A': 'bg-emerald-500/15 text-[var(--eq-gain)] border-emerald-500/30',
     'B': 'bg-green-500/15 text-green-600 border-green-500/30',
     'C': 'bg-yellow-500/15 text-yellow-600 border-yellow-500/30',
     'D': 'bg-orange-500/15 text-orange-600 border-orange-500/30',
-    'F': 'bg-red-500/15 text-red-600 border-red-500/30',
+    'F': 'bg-red-500/15 text-[var(--eq-loss)] border-red-500/30',
   };
-  const cls = colors[grade] || 'bg-zinc-100 text-zinc-500 border-zinc-200';
+  const cls = colors[grade] || 'bg-[var(--eq-card2)] text-[var(--eq-text3)] border-[var(--eq-border)]';
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-lg bg-white/70 px-2.5 py-2 ring-1 ring-zinc-200/70">
+    <div className="flex min-w-0 items-center gap-2 rounded-lg bg-[var(--eq-card)]/70 px-2.5 py-2 ring-1 ring-[var(--eq-border)]">
       <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border text-base font-bold ${cls}`}>{grade || '—'}</div>
       <div className="min-w-0 flex-1">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{label}</div>
-        <div className="truncate text-xs font-semibold text-zinc-800">{primary}</div>
-        {secondary && <div className="truncate text-[10px] text-zinc-500">{secondary}</div>}
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--eq-text3)]">{label}</div>
+        <div className="truncate text-xs font-semibold text-[var(--eq-text)]">{primary}</div>
+        {secondary && <div className="truncate text-[10px] text-[var(--eq-text3)]">{secondary}</div>}
       </div>
     </div>
   );
 }
 function Card({ title, children }) {
   return (
-    <div className="bg-zinc-50/90 shadow-sm ring-1 ring-zinc-200/70 rounded-xl p-4">
-      {title && <div className="text-[10px] text-zinc-500 uppercase tracking-wider mb-2 font-semibold">{title}</div>}
+    <div className="bg-[var(--eq-card2)] shadow-sm ring-1 ring-[var(--eq-border)] rounded-xl p-4">
+      {title && <div className="text-[10px] text-[var(--eq-text3)] uppercase tracking-wider mb-2 font-semibold">{title}</div>}
       {children}
     </div>
   );
@@ -263,8 +263,8 @@ function Card({ title, children }) {
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white ring-1 ring-zinc-200/80 rounded-lg px-3 py-2 text-[10px]">
-      <p className="text-zinc-500 mb-1">{label}</p>
+    <div className="bg-[var(--eq-card)] ring-1 ring-[var(--eq-border)] rounded-lg px-3 py-2 text-[10px]">
+      <p className="text-[var(--eq-text3)] mb-1">{label}</p>
       {payload.map((p, i) => <p key={i} style={{ color: p.color }}>{p.name}: {typeof p.value === 'number' ? fmtLarge(p.value) : p.value}</p>)}
     </div>
   );
@@ -276,9 +276,9 @@ function PriceHistoryTooltip({ active, payload }) {
   const d = row?.date || row?.label;
   const c = row?.close;
   return (
-    <div className="bg-white ring-1 ring-zinc-200/80 rounded-lg px-3 py-2 text-[10px] dark:bg-zinc-800 dark:ring-zinc-600">
-      <p className="text-zinc-500 mb-1 dark:text-zinc-400">{d}</p>
-      <p className="text-zinc-900 font-medium dark:text-zinc-100">
+    <div className="bg-[var(--eq-card)] ring-1 ring-[var(--eq-border)] rounded-lg px-3 py-2 text-[10px]">
+      <p className="text-[var(--eq-text3)] mb-1">{d}</p>
+      <p className="text-[var(--eq-text)] font-medium">
         Close: {typeof c === 'number' ? `$${c.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : c}
       </p>
     </div>
@@ -313,22 +313,22 @@ function FairValueBar({ dcf, targetMean }) {
                 className={`mx-auto flex w-10 flex-col justify-start rounded-t-md px-1 ${bar.tone}`}
                 style={{ height: `${heightPct(bar.value)}%` }}
               >
-                <div className="pt-1 text-[10px] font-bold text-zinc-900">${fmtNum(bar.value, 2)}</div>
+                <div className="pt-1 text-[10px] font-bold text-[var(--eq-text)]">${fmtNum(bar.value, 2)}</div>
                 {bar.label !== 'Current' && delta != null && (
-                  <div className={`text-[9px] font-semibold ${delta >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                  <div className={`text-[9px] font-semibold ${delta >= 0 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>
                     {delta >= 0 ? '+' : ''}{delta.toFixed(1)}%
                   </div>
                 )}
               </div>
-              <div className="mt-1 text-[9px] font-medium text-zinc-500">{bar.label}</div>
+              <div className="mt-1 text-[9px] font-medium text-[var(--eq-text3)]">{bar.label}</div>
             </div>
           );
         })}
       </div>
-      <div className={`text-center text-sm font-bold ${undervalued ? 'text-emerald-600' : 'text-red-600'}`}>
+      <div className={`text-center text-sm font-bold ${undervalued ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>
         {undervalued ? `${Math.abs(discount_pct)}% undervalued` : `${discount_pct}% overvalued`}
       </div>
-      <div className="mt-1 text-center text-[9px] text-zinc-500">Relative scale</div>
+      <div className="mt-1 text-center text-[9px] text-[var(--eq-text3)]">Relative scale</div>
     </div>
   );
 }
@@ -349,8 +349,8 @@ function OwnershipPie({ data }) {
         {data.map((d, i) => (
           <div key={i} className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />
-            <span className="text-xs text-zinc-500">{d.name}</span>
-            <span className="text-xs text-zinc-900 font-medium">{d.value}%</span>
+            <span className="text-xs text-[var(--eq-text3)]">{d.name}</span>
+            <span className="text-xs text-[var(--eq-text)] font-medium">{d.value}%</span>
           </div>
         ))}
       </div>
@@ -364,17 +364,17 @@ function RiskChecklist({ checks }) {
   const passed = checks.filter(c => c.pass).length;
   return (
     <div>
-      <div className="text-xs text-zinc-500 mb-2">
-        <span className="text-emerald-600 font-bold">{passed}</span>/{checks.length} checks passed
+      <div className="text-xs text-[var(--eq-text3)] mb-2">
+        <span className="text-[var(--eq-gain)] font-bold">{passed}</span>/{checks.length} checks passed
       </div>
       <div className="space-y-1.5">
         {checks.map((c, i) => (
           <div key={i} className="flex items-center gap-2">
-            <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${c.pass ? 'bg-emerald-500/20 text-emerald-600' : 'bg-red-500/20 text-red-600'}`}>
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${c.pass ? 'bg-emerald-500/20 text-[var(--eq-gain)]' : 'bg-red-500/20 text-[var(--eq-loss)]'}`}>
               {c.pass ? '✓' : '✗'}
             </div>
-            <span className="text-xs text-zinc-600 flex-1">{c.label}</span>
-            <span className={`text-[10px] font-mono ${c.pass ? 'text-emerald-600' : 'text-red-600'}`}>{c.value}</span>
+            <span className="text-xs text-[var(--eq-text2)] flex-1">{c.label}</span>
+            <span className={`text-[10px] font-mono ${c.pass ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>{c.value}</span>
           </div>
         ))}
       </div>
@@ -601,15 +601,15 @@ function AssetResearch({ data }) {
     <div className="space-y-5">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-zinc-900">{s.name}</h2>
-          <div className="text-xs text-zinc-500 mt-0.5">
-            <span className="rounded-full bg-indigo-50 px-2 py-0.5 font-semibold text-indigo-700 ring-1 ring-indigo-100">{s.asset_class_label || ac}</span>
+          <h2 className="text-2xl font-bold text-[var(--eq-text)]">{s.name}</h2>
+          <div className="text-xs text-[var(--eq-text3)] mt-0.5">
+            <span className="rounded-full bg-[var(--eq-accent-soft)] px-2 py-0.5 font-semibold text-[var(--eq-accent)] ring-1 ring-[var(--eq-accent-ring)]">{s.asset_class_label || ac}</span>
             <span className="ml-2">{s.symbol}{s.exchange ? ` · ${s.exchange}` : ''}</span>
           </div>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold text-zinc-900">{s.price != null ? s.price : '—'} <span className="text-xs font-medium text-zinc-400">{s.currency || ''}</span></div>
-          <div className={`text-sm font-semibold ${up ? 'text-emerald-600' : 'text-red-600'}`}>
+          <div className="text-2xl font-bold text-[var(--eq-text)]">{s.price != null ? s.price : '—'} <span className="text-xs font-medium text-[var(--eq-text3)]">{s.currency || ''}</span></div>
+          <div className={`text-sm font-semibold ${up ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>
             {s.change != null ? `${s.change >= 0 ? '+' : ''}${s.change} (${fmtPct(s.change_pct)})` : '—'}
           </div>
         </div>
@@ -619,8 +619,8 @@ function AssetResearch({ data }) {
         <div className="flex gap-2 flex-wrap">
           {Object.entries(rm.performance).map(([k, v]) => (
             <div key={k} className={`px-3 py-1.5 rounded-lg text-center ${v >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
-              <div className="text-[9px] text-zinc-500">{k}</div>
-              <div className={`text-xs font-bold ${v >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{v > 0 ? '+' : ''}{v}%</div>
+              <div className="text-[9px] text-[var(--eq-text3)]">{k}</div>
+              <div className={`text-xs font-bold ${v >= 0 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>{v > 0 ? '+' : ''}{v}%</div>
             </div>
           ))}
         </div>
@@ -635,12 +635,12 @@ function AssetResearch({ data }) {
       {priceChartRows.length > 0 && (
         <Card>
           <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">Price History</div>
-            <div className="flex flex-wrap gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+            <div className="text-[10px] text-[var(--eq-text3)] uppercase tracking-wider font-semibold">Price History</div>
+            <div className="flex flex-wrap gap-1 rounded-lg bg-[var(--eq-card2)] p-1">
               {PRICE_WINDOWS.map((w) => (
                 <button key={w.key} type="button" onClick={() => setPriceWindow(w.key)}
                   className={`h-6 min-w-8 rounded-md px-2 text-[10px] font-medium transition ${
-                    priceWindow === w.key ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-700 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-800'
+                    priceWindow === w.key ? 'bg-[var(--eq-card)] text-[var(--eq-text)] shadow-sm ring-1 ring-[var(--eq-border)]' : 'text-[var(--eq-text3)] hover:text-[var(--eq-text)]'
                   }`}>{w.label}</button>
               ))}
             </div>
@@ -661,7 +661,7 @@ function AssetResearch({ data }) {
 
       {s.description && (
         <Card title="About">
-          <p className="text-xs leading-relaxed text-zinc-600">{String(s.description).slice(0, 600)}</p>
+          <p className="text-xs leading-relaxed text-[var(--eq-text2)]">{String(s.description).slice(0, 600)}</p>
         </Card>
       )}
     </div>
@@ -685,12 +685,12 @@ function SummaryTab({ data }) {
     <div className="space-y-5">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-zinc-900">{s.name}</h2>
-          <div className="text-xs text-zinc-500 mt-0.5">{s.exchange} · {s.sector} · {s.industry}</div>
+          <h2 className="text-2xl font-bold text-[var(--eq-text)]">{s.name}</h2>
+          <div className="text-xs text-[var(--eq-text3)] mt-0.5">{s.exchange} · {s.sector} · {s.industry}</div>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold text-zinc-900">${s.price}</div>
-          <div className={`text-sm font-semibold ${s.change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+          <div className="text-2xl font-bold text-[var(--eq-text)]">${s.price}</div>
+          <div className={`text-sm font-semibold ${s.change >= 0 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>
             {s.change >= 0 ? '+' : ''}{s.change} ({fmtPct(s.change_pct)})
           </div>
         </div>
@@ -701,8 +701,8 @@ function SummaryTab({ data }) {
         <div className="flex gap-2 flex-wrap">
           {Object.entries(rm.performance).map(([k, v]) => (
             <div key={k} className={`px-3 py-1.5 rounded-lg text-center ${v >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
-              <div className="text-[9px] text-zinc-500">{k}</div>
-              <div className={`text-xs font-bold ${v >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{v > 0 ? '+' : ''}{v}%</div>
+              <div className="text-[9px] text-[var(--eq-text3)]">{k}</div>
+              <div className={`text-xs font-bold ${v >= 0 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>{v > 0 ? '+' : ''}{v}%</div>
             </div>
           ))}
         </div>
@@ -728,8 +728,8 @@ function SummaryTab({ data }) {
       {priceChartRows.length > 0 && (
         <Card>
           <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">Price History</div>
-            <div className="flex flex-wrap gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+            <div className="text-[10px] text-[var(--eq-text3)] uppercase tracking-wider font-semibold">Price History</div>
+            <div className="flex flex-wrap gap-1 rounded-lg bg-[var(--eq-card2)] p-1">
               {PRICE_WINDOWS.map((w) => (
                 <button
                   key={w.key}
@@ -737,8 +737,8 @@ function SummaryTab({ data }) {
                   onClick={() => setPriceWindow(w.key)}
                   className={`h-6 min-w-8 rounded-md px-2 text-[10px] font-medium transition ${
                     priceWindow === w.key
-                      ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-700 dark:text-zinc-100 dark:ring-zinc-600'
-                      : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
+                      ? 'bg-[var(--eq-card)] text-[var(--eq-text)] shadow-sm ring-1 ring-[var(--eq-border)]'
+                      : 'text-[var(--eq-text3)] hover:text-[var(--eq-text)]'
                   }`}
                 >
                   {w.label}
@@ -830,16 +830,16 @@ function SummaryTab({ data }) {
           <Stat label="EV/EBITDA" value={fmtNum(s.ev_to_ebitda)} />
         </Card>
         <Card title="Profitability">
-          <Stat label="Gross Margin" value={fmtPct(p.gross_margin_pct)} color={p.gross_margin_pct > 0 ? 'text-emerald-600' : 'text-red-600'} />
-          <Stat label="Operating Margin" value={fmtPct(p.operating_margin_pct)} color={p.operating_margin_pct > 0 ? 'text-emerald-600' : 'text-red-600'} />
-          <Stat label="Profit Margin" value={fmtPct(p.profit_margin_pct)} color={p.profit_margin_pct > 0 ? 'text-emerald-600' : 'text-red-600'} />
+          <Stat label="Gross Margin" value={fmtPct(p.gross_margin_pct)} color={p.gross_margin_pct > 0 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'} />
+          <Stat label="Operating Margin" value={fmtPct(p.operating_margin_pct)} color={p.operating_margin_pct > 0 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'} />
+          <Stat label="Profit Margin" value={fmtPct(p.profit_margin_pct)} color={p.profit_margin_pct > 0 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'} />
           <Stat label="ROE" value={fmtPct(p.return_on_equity_pct)} />
           <Stat label="ROA" value={fmtPct(p.return_on_assets_pct)} />
         </Card>
         <Card title="Growth & Cash Flow">
           <Stat label="Revenue" value={gr.revenue_fmt} />
-          <Stat label="Revenue Growth" value={fmtPct(gr.revenue_growth_pct)} color={gr.revenue_growth_pct > 0 ? 'text-emerald-600' : 'text-red-600'} />
-          <Stat label="Earnings Growth" value={fmtPct(gr.earnings_growth_pct)} color={gr.earnings_growth_pct > 0 ? 'text-emerald-600' : 'text-red-600'} />
+          <Stat label="Revenue Growth" value={fmtPct(gr.revenue_growth_pct)} color={gr.revenue_growth_pct > 0 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'} />
+          <Stat label="Earnings Growth" value={fmtPct(gr.earnings_growth_pct)} color={gr.earnings_growth_pct > 0 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'} />
           <Stat label="EBITDA" value={gr.ebitda_fmt} />
           <Stat label="Free Cash Flow" value={gr.free_cash_flow_fmt} />
           <Stat label="Operating Cash Flow" value={gr.operating_cash_flow_fmt} />
@@ -862,26 +862,26 @@ function SummaryTab({ data }) {
         <Card title="Analyst Price Target">
           <div className="flex items-center gap-4">
             <div className="flex-1">
-              <div className="relative h-2 bg-zinc-100 rounded-full">
+              <div className="relative h-2 bg-[var(--eq-card2)] rounded-full">
                 <div className="absolute h-full bg-indigo-500/30 rounded-full" style={{
                   left: `${Math.max(0, (s.target_low - s.low_52w) / (s.high_52w - s.low_52w) * 100)}%`,
                   right: `${Math.max(0, 100 - (s.target_high - s.low_52w) / (s.high_52w - s.low_52w) * 100)}%`,
                 }} />
-                <div className="absolute w-2 h-2 bg-white rounded-full -top-0" style={{
+                <div className="absolute w-2 h-2 bg-[var(--eq-card)] rounded-full -top-0" style={{
                   left: `${Math.min(100, Math.max(0, (s.price - s.low_52w) / (s.high_52w - s.low_52w) * 100))}%`,
                 }} />
               </div>
-              <div className="flex justify-between mt-1 text-[9px] text-zinc-600">
+              <div className="flex justify-between mt-1 text-[9px] text-[var(--eq-text2)]">
                 <span>${s.target_low}</span>
-                <span className="text-indigo-600 font-semibold">${s.target_mean} avg</span>
+                <span className="text-[var(--eq-accent)] font-semibold">${s.target_mean} avg</span>
                 <span>${s.target_high}</span>
               </div>
             </div>
             <div className="text-right">
-              <div className={`text-sm font-bold ${s.target_mean > s.price ? 'text-emerald-600' : 'text-red-600'}`}>
+              <div className={`text-sm font-bold ${s.target_mean > s.price ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>
                 {((s.target_mean / s.price - 1) * 100).toFixed(1)}% upside
               </div>
-              <div className="text-[9px] text-zinc-600">{s.analyst_count} analysts · {s.recommendation}</div>
+              <div className="text-[9px] text-[var(--eq-text2)]">{s.analyst_count} analysts · {s.recommendation}</div>
             </div>
           </div>
         </Card>
@@ -892,11 +892,11 @@ function SummaryTab({ data }) {
       {/* About */}
       {s.description && (
         <Card title={`About ${s.name}`}>
-          <p className="text-xs text-zinc-500 leading-relaxed line-clamp-6">{s.description}</p>
-          <div className="flex gap-4 mt-3 text-[10px] text-zinc-500">
+          <p className="text-xs text-[var(--eq-text3)] leading-relaxed line-clamp-6">{s.description}</p>
+          <div className="flex gap-4 mt-3 text-[10px] text-[var(--eq-text3)]">
             {s.employees && <span>Employees: {s.employees.toLocaleString()}</span>}
             {s.country && <span>{s.country}</span>}
-            {s.website && <a href={s.website} target="_blank" className="text-indigo-600 hover:underline flex items-center gap-0.5">{s.website.replace('https://', '')} <ExternalLink className="w-2.5 h-2.5" /></a>}
+            {s.website && <a href={s.website} target="_blank" className="text-[var(--eq-accent)] hover:underline flex items-center gap-0.5">{s.website.replace('https://', '')} <ExternalLink className="w-2.5 h-2.5" /></a>}
           </div>
         </Card>
       )}
@@ -922,8 +922,8 @@ function RatingsTab({ data }) {
       <Card title="Wall Street Consensus">
         <div className="flex items-center gap-6">
           <div className="text-center">
-            <div className="text-3xl font-bold text-zinc-900 capitalize">{s.recommendation || '—'}</div>
-            <div className="text-xs text-zinc-500 mt-1">Mean: {s.recommendation_mean || '—'}</div>
+            <div className="text-3xl font-bold text-[var(--eq-text)] capitalize">{s.recommendation || '—'}</div>
+            <div className="text-xs text-[var(--eq-text3)] mt-1">Mean: {s.recommendation_mean || '—'}</div>
           </div>
           {total > 0 && (
             <div className="flex-1">
@@ -940,7 +940,7 @@ function RatingsTab({ data }) {
                   return <div key={key} style={{ width: `${(val / total) * 100}%`, background: color }} className="flex items-center justify-center text-[9px] font-bold text-black">{val}</div>;
                 })}
               </div>
-              <div className="flex justify-between mt-1 text-[8px] text-zinc-500">
+              <div className="flex justify-between mt-1 text-[8px] text-[var(--eq-text3)]">
                 <span>Strong Buy</span><span>Buy</span><span>Hold</span><span>Sell</span><span>Strong Sell</span>
               </div>
             </div>
@@ -952,10 +952,10 @@ function RatingsTab({ data }) {
       {s.target_mean && (
         <Card title="Price Target">
           <div className="grid grid-cols-4 gap-3 text-center">
-            <div><div className="text-[9px] text-zinc-500">Low</div><div className="text-sm font-bold text-red-600">${s.target_low}</div></div>
-            <div><div className="text-[9px] text-zinc-500">Average</div><div className="text-sm font-bold text-indigo-600">${s.target_mean}</div></div>
-            <div><div className="text-[9px] text-zinc-500">High</div><div className="text-sm font-bold text-emerald-600">${s.target_high}</div></div>
-            <div><div className="text-[9px] text-zinc-500">Current</div><div className="text-sm font-bold text-zinc-900">${s.price}</div></div>
+            <div><div className="text-[9px] text-[var(--eq-text3)]">Low</div><div className="text-sm font-bold text-[var(--eq-loss)]">${s.target_low}</div></div>
+            <div><div className="text-[9px] text-[var(--eq-text3)]">Average</div><div className="text-sm font-bold text-[var(--eq-accent)]">${s.target_mean}</div></div>
+            <div><div className="text-[9px] text-[var(--eq-text3)]">High</div><div className="text-sm font-bold text-[var(--eq-gain)]">${s.target_high}</div></div>
+            <div><div className="text-[9px] text-[var(--eq-text3)]">Current</div><div className="text-sm font-bold text-[var(--eq-text)]">${s.price}</div></div>
           </div>
         </Card>
       )}
@@ -965,7 +965,7 @@ function RatingsTab({ data }) {
         <Card title="Recent Analyst Ratings">
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <thead><tr className="border-b border-zinc-200/80 text-zinc-500">
+              <thead><tr className="border-b border-[var(--eq-border)] text-[var(--eq-text3)]">
                 <th className="text-left py-2 px-2 font-medium">Date</th>
                 <th className="text-left py-2 px-2 font-medium">Firm</th>
                 <th className="text-left py-2 px-2 font-medium">Action</th>
@@ -974,12 +974,12 @@ function RatingsTab({ data }) {
               </tr></thead>
               <tbody>
                 {recs.map((r, i) => (
-                  <tr key={i} className="border-b border-zinc-100 hover:bg-zinc-50">
-                    <td className="py-1.5 px-2 text-zinc-500">{r.date}</td>
-                    <td className="py-1.5 px-2 text-zinc-600">{r.firm}</td>
-                    <td className="py-1.5 px-2 text-zinc-500">{r.action}</td>
-                    <td className="py-1.5 px-2 text-zinc-500">{r.from_grade || '—'}</td>
-                    <td className="py-1.5 px-2 text-zinc-900 font-medium">{r.to_grade}</td>
+                  <tr key={i} className="border-b border-[var(--eq-grid)] hover:bg-[var(--eq-card2)]">
+                    <td className="py-1.5 px-2 text-[var(--eq-text3)]">{r.date}</td>
+                    <td className="py-1.5 px-2 text-[var(--eq-text2)]">{r.firm}</td>
+                    <td className="py-1.5 px-2 text-[var(--eq-text3)]">{r.action}</td>
+                    <td className="py-1.5 px-2 text-[var(--eq-text3)]">{r.from_grade || '—'}</td>
+                    <td className="py-1.5 px-2 text-[var(--eq-text)] font-medium">{r.to_grade}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1020,28 +1020,28 @@ function FinancialsTab({ data }) {
         <div className="flex gap-1">
           {[{ id: 'income', label: 'Income' }, { id: 'balance', label: 'Balance Sheet' }, { id: 'cashflow', label: 'Cash Flow' }].map(s => (
             <button key={s.id} onClick={() => setStmt(s.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium ${stmt === s.id ? 'bg-indigo-500/20 text-indigo-700' : 'text-zinc-500 hover:text-zinc-600'}`}>{s.label}</button>
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium ${stmt === s.id ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)]' : 'text-[var(--eq-text3)] hover:text-[var(--eq-text2)]'}`}>{s.label}</button>
           ))}
         </div>
         <div className="flex gap-1">
           {['annual', 'quarterly'].map(p => (
             <button key={p} onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium ${period === p ? 'bg-indigo-100 text-indigo-900' : 'text-zinc-500 hover:text-zinc-600'}`}>{p === 'annual' ? 'Annual' : 'Quarterly'}</button>
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium ${period === p ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)]' : 'text-[var(--eq-text3)] hover:text-[var(--eq-text2)]'}`}>{p === 'annual' ? 'Annual' : 'Quarterly'}</button>
           ))}
         </div>
       </div>
-      {items.length === 0 ? <div className="text-zinc-600 text-sm py-8 text-center">No data available</div> : (
-        <div className="bg-zinc-50/90 shadow-sm ring-1 ring-zinc-200/70 rounded-xl overflow-x-auto">
+      {items.length === 0 ? <div className="text-[var(--eq-text2)] text-sm py-8 text-center">No data available</div> : (
+        <div className="bg-[var(--eq-card2)] shadow-sm ring-1 ring-[var(--eq-border)] rounded-xl overflow-x-auto">
           <table className="w-full text-xs">
-            <thead><tr className="border-b border-zinc-200/80">
-              <th className="text-left py-2.5 px-3 text-zinc-500 font-medium sticky left-0 bg-zinc-100 z-10">Metric</th>
-              {items.map((r, i) => <th key={i} className="text-right py-2.5 px-3 text-zinc-500 font-medium whitespace-nowrap">{r.period?.slice(0, 7)}</th>)}
+            <thead><tr className="border-b border-[var(--eq-border)]">
+              <th className="text-left py-2.5 px-3 text-[var(--eq-text3)] font-medium sticky left-0 bg-[var(--eq-card2)] z-10">Metric</th>
+              {items.map((r, i) => <th key={i} className="text-right py-2.5 px-3 text-[var(--eq-text3)] font-medium whitespace-nowrap">{r.period?.slice(0, 7)}</th>)}
             </tr></thead>
             <tbody>
               {available.map(f => (
-                <tr key={f} className="border-b border-zinc-100 hover:bg-zinc-50">
-                  <td className="py-2 px-3 text-zinc-500 sticky left-0 bg-white z-10 font-medium whitespace-nowrap">{f}</td>
-                  {items.map((r, i) => <td key={i} className="py-2 px-3 text-right text-zinc-600 font-mono whitespace-nowrap">{r[f] != null ? fmtLarge(r[f]) : '—'}</td>)}
+                <tr key={f} className="border-b border-[var(--eq-grid)] hover:bg-[var(--eq-card2)]">
+                  <td className="py-2 px-3 text-[var(--eq-text3)] sticky left-0 bg-[var(--eq-card)] z-10 font-medium whitespace-nowrap">{f}</td>
+                  {items.map((r, i) => <td key={i} className="py-2 px-3 text-right text-[var(--eq-text2)] font-mono whitespace-nowrap">{r[f] != null ? fmtLarge(r[f]) : '—'}</td>)}
                 </tr>
               ))}
             </tbody>
@@ -1076,10 +1076,10 @@ function EarningsTab({ data }) {
           </ResponsiveContainer>
         </Card>
       )}
-      {items.length === 0 ? <div className="text-zinc-600 text-sm py-8 text-center">No earnings data</div> : (
+      {items.length === 0 ? <div className="text-[var(--eq-text2)] text-sm py-8 text-center">No earnings data</div> : (
         <Card title="Earnings History">
           <table className="w-full text-xs">
-            <thead><tr className="border-b border-zinc-200/80 text-zinc-500">
+            <thead><tr className="border-b border-[var(--eq-border)] text-[var(--eq-text3)]">
               <th className="text-left py-2 px-2 font-medium">Date</th>
               <th className="text-right py-2 px-2 font-medium">EPS Est</th>
               <th className="text-right py-2 px-2 font-medium">EPS Actual</th>
@@ -1089,11 +1089,11 @@ function EarningsTab({ data }) {
               {items.map((e, i) => {
                 const est = e['EPS Estimate'], actual = e['Reported EPS'], surp = e['Surprise(%)'];
                 return (
-                  <tr key={i} className="border-b border-zinc-100 hover:bg-zinc-50">
-                    <td className="py-2 px-2 text-zinc-600">{e.date}</td>
-                    <td className="py-2 px-2 text-right text-zinc-500">{est != null ? `$${fmtNum(est)}` : '—'}</td>
-                    <td className="py-2 px-2 text-right text-zinc-700 font-medium">{actual != null ? `$${fmtNum(actual)}` : '—'}</td>
-                    <td className="py-2 px-2 text-right">{surp != null ? <span className={surp >= 0 ? 'text-emerald-600' : 'text-red-600'}>{surp > 0 ? '+' : ''}{fmtNum(surp, 1)}%</span> : '—'}</td>
+                  <tr key={i} className="border-b border-[var(--eq-grid)] hover:bg-[var(--eq-card2)]">
+                    <td className="py-2 px-2 text-[var(--eq-text2)]">{e.date}</td>
+                    <td className="py-2 px-2 text-right text-[var(--eq-text3)]">{est != null ? `$${fmtNum(est)}` : '—'}</td>
+                    <td className="py-2 px-2 text-right text-[var(--eq-text2)] font-medium">{actual != null ? `$${fmtNum(actual)}` : '—'}</td>
+                    <td className="py-2 px-2 text-right">{surp != null ? <span className={surp >= 0 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}>{surp > 0 ? '+' : ''}{fmtNum(surp, 1)}%</span> : '—'}</td>
                   </tr>
                 );
               })}
@@ -1123,9 +1123,9 @@ function DividendsTab({ data }) {
           { label: 'YoY Growth', value: dg.yoy != null ? `${dg.yoy > 0 ? '+' : ''}${dg.yoy.toFixed(1)}%` : '—' },
           { label: 'Consec. Years', value: dg.consecutive_years ?? '—' },
         ].map((item, i) => (
-          <div key={i} className="bg-zinc-50/90 shadow-sm ring-1 ring-zinc-200/70 rounded-xl p-3 text-center">
-            <div className="text-[9px] text-zinc-500 uppercase tracking-wider">{item.label}</div>
-            <div className="text-sm font-bold text-zinc-900 mt-1">{item.value}</div>
+          <div key={i} className="bg-[var(--eq-card2)] shadow-sm ring-1 ring-[var(--eq-border)] rounded-xl p-3 text-center">
+            <div className="text-[9px] text-[var(--eq-text3)] uppercase tracking-wider">{item.label}</div>
+            <div className="text-sm font-bold text-[var(--eq-text)] mt-1">{item.value}</div>
           </div>
         ))}
       </div>
@@ -1167,9 +1167,9 @@ function RiskTab({ data }) {
           { label: 'Volatility (Ann)', value: rm.volatility_annual != null ? `${rm.volatility_annual}%` : '—' },
           { label: 'VaR (95%)', value: rm.var_95 != null ? `${rm.var_95.toFixed(2)}%` : '—' },
         ].map((item, i) => (
-          <div key={i} className="bg-zinc-50/90 shadow-sm ring-1 ring-zinc-200/70 rounded-xl p-3 text-center">
-            <div className="text-[9px] text-zinc-500 uppercase tracking-wider">{item.label}</div>
-            <div className={`text-sm font-bold mt-1 ${item.good === true ? 'text-emerald-600' : item.good === false ? 'text-red-600' : 'text-zinc-900'}`}>
+          <div key={i} className="bg-[var(--eq-card2)] shadow-sm ring-1 ring-[var(--eq-border)] rounded-xl p-3 text-center">
+            <div className="text-[9px] text-[var(--eq-text3)] uppercase tracking-wider">{item.label}</div>
+            <div className={`text-sm font-bold mt-1 ${item.good === true ? 'text-[var(--eq-gain)]' : item.good === false ? 'text-[var(--eq-loss)]' : 'text-[var(--eq-text)]'}`}>
               {typeof item.value === 'number' ? fmtNum(item.value, 3) : item.value}
             </div>
           </div>
@@ -1177,7 +1177,7 @@ function RiskTab({ data }) {
       </div>
       <Card title="Performance">
         {rm.performance && Object.entries(rm.performance).map(([k, v]) => (
-          <Stat key={k} label={k} value={fmtPct(v)} color={v >= 0 ? 'text-emerald-600' : 'text-red-600'} />
+          <Stat key={k} label={k} value={fmtPct(v)} color={v >= 0 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'} />
         ))}
         <Stat label="Beta" value={fmtNum(rm.beta)} />
       </Card>
@@ -1203,9 +1203,9 @@ function OwnershipTab({ data }) {
           { label: 'Short % Float', value: o.short_pct_float != null ? `${o.short_pct_float}%` : '—' },
           { label: 'Short Ratio', value: o.short_ratio ? fmtNum(o.short_ratio, 1) : '—' },
         ].map((item, i) => (
-          <div key={i} className="bg-zinc-50/90 shadow-sm ring-1 ring-zinc-200/70 rounded-xl p-3 text-center">
-            <div className="text-[9px] text-zinc-500 uppercase tracking-wider">{item.label}</div>
-            <div className="text-sm font-bold text-zinc-900 mt-1">{item.value}</div>
+          <div key={i} className="bg-[var(--eq-card2)] shadow-sm ring-1 ring-[var(--eq-border)] rounded-xl p-3 text-center">
+            <div className="text-[9px] text-[var(--eq-text3)] uppercase tracking-wider">{item.label}</div>
+            <div className="text-sm font-bold text-[var(--eq-text)] mt-1">{item.value}</div>
           </div>
         ))}
       </div>
@@ -1213,7 +1213,7 @@ function OwnershipTab({ data }) {
       {inst.length > 0 && (
         <Card title="Top Institutional Holders">
           <table className="w-full text-xs">
-            <thead><tr className="border-b border-zinc-200/80 text-zinc-500">
+            <thead><tr className="border-b border-[var(--eq-border)] text-[var(--eq-text3)]">
               <th className="text-left py-2 px-2 font-medium">Holder</th>
               <th className="text-right py-2 px-2 font-medium">Shares</th>
               <th className="text-right py-2 px-2 font-medium">% Out</th>
@@ -1221,11 +1221,11 @@ function OwnershipTab({ data }) {
             </tr></thead>
             <tbody>
               {inst.map((h, i) => (
-                <tr key={i} className="border-b border-zinc-100 hover:bg-zinc-50">
-                  <td className="py-1.5 px-2 text-zinc-600 max-w-[200px] truncate">{h.holder}</td>
-                  <td className="py-1.5 px-2 text-right text-zinc-500">{h.shares ? Number(h.shares).toLocaleString() : '—'}</td>
-                  <td className="py-1.5 px-2 text-right text-zinc-500">{h.pct_out != null ? `${(h.pct_out * 100).toFixed(2)}%` : '—'}</td>
-                  <td className="py-1.5 px-2 text-right text-zinc-600">{h.value ? fmtLarge(h.value) : '—'}</td>
+                <tr key={i} className="border-b border-[var(--eq-grid)] hover:bg-[var(--eq-card2)]">
+                  <td className="py-1.5 px-2 text-[var(--eq-text2)] max-w-[200px] truncate">{h.holder}</td>
+                  <td className="py-1.5 px-2 text-right text-[var(--eq-text3)]">{h.shares ? Number(h.shares).toLocaleString() : '—'}</td>
+                  <td className="py-1.5 px-2 text-right text-[var(--eq-text3)]">{h.pct_out != null ? `${(h.pct_out * 100).toFixed(2)}%` : '—'}</td>
+                  <td className="py-1.5 px-2 text-right text-[var(--eq-text2)]">{h.value ? fmtLarge(h.value) : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -1236,17 +1236,17 @@ function OwnershipTab({ data }) {
       {funds.length > 0 && (
         <Card title="Top Mutual Fund Holders">
           <table className="w-full text-xs">
-            <thead><tr className="border-b border-zinc-200/80 text-zinc-500">
+            <thead><tr className="border-b border-[var(--eq-border)] text-[var(--eq-text3)]">
               <th className="text-left py-2 px-2 font-medium">Fund</th>
               <th className="text-right py-2 px-2 font-medium">Shares</th>
               <th className="text-right py-2 px-2 font-medium">% Out</th>
             </tr></thead>
             <tbody>
               {funds.map((h, i) => (
-                <tr key={i} className="border-b border-zinc-100 hover:bg-zinc-50">
-                  <td className="py-1.5 px-2 text-zinc-600 max-w-[200px] truncate">{h.holder}</td>
-                  <td className="py-1.5 px-2 text-right text-zinc-500">{h.shares ? Number(h.shares).toLocaleString() : '—'}</td>
-                  <td className="py-1.5 px-2 text-right text-zinc-500">{h.pct_out != null ? `${(h.pct_out * 100).toFixed(2)}%` : '—'}</td>
+                <tr key={i} className="border-b border-[var(--eq-grid)] hover:bg-[var(--eq-card2)]">
+                  <td className="py-1.5 px-2 text-[var(--eq-text2)] max-w-[200px] truncate">{h.holder}</td>
+                  <td className="py-1.5 px-2 text-right text-[var(--eq-text3)]">{h.shares ? Number(h.shares).toLocaleString() : '—'}</td>
+                  <td className="py-1.5 px-2 text-right text-[var(--eq-text3)]">{h.pct_out != null ? `${(h.pct_out * 100).toFixed(2)}%` : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -1257,7 +1257,7 @@ function OwnershipTab({ data }) {
       {ins.length > 0 && (
         <Card title="Insider Transactions">
           <table className="w-full text-xs">
-            <thead><tr className="border-b border-zinc-200/80 text-zinc-500">
+            <thead><tr className="border-b border-[var(--eq-border)] text-[var(--eq-text3)]">
               <th className="text-left py-2 px-2 font-medium">Date</th>
               <th className="text-left py-2 px-2 font-medium">Insider</th>
               <th className="text-left py-2 px-2 font-medium">Transaction</th>
@@ -1266,14 +1266,14 @@ function OwnershipTab({ data }) {
             </tr></thead>
             <tbody>
               {ins.map((t, i) => (
-                <tr key={i} className="border-b border-zinc-100 hover:bg-zinc-50">
-                  <td className="py-1.5 px-2 text-zinc-500">{t.date?.slice(0, 10)}</td>
-                  <td className="py-1.5 px-2 text-zinc-600 max-w-[140px] truncate">{t.insider}</td>
+                <tr key={i} className="border-b border-[var(--eq-grid)] hover:bg-[var(--eq-card2)]">
+                  <td className="py-1.5 px-2 text-[var(--eq-text3)]">{t.date?.slice(0, 10)}</td>
+                  <td className="py-1.5 px-2 text-[var(--eq-text2)] max-w-[140px] truncate">{t.insider}</td>
                   <td className="py-1.5 px-2">
-                    <span className={`text-[10px] font-medium ${t.transaction?.toLowerCase().includes('sale') ? 'text-red-600' : 'text-emerald-600'}`}>{t.transaction}</span>
+                    <span className={`text-[10px] font-medium ${t.transaction?.toLowerCase().includes('sale') ? 'text-[var(--eq-loss)]' : 'text-[var(--eq-gain)]'}`}>{t.transaction}</span>
                   </td>
-                  <td className="py-1.5 px-2 text-right text-zinc-500">{t.shares ? Number(t.shares).toLocaleString() : '—'}</td>
-                  <td className="py-1.5 px-2 text-right text-zinc-600">{t.value ? fmtLarge(t.value) : '—'}</td>
+                  <td className="py-1.5 px-2 text-right text-[var(--eq-text3)]">{t.shares ? Number(t.shares).toLocaleString() : '—'}</td>
+                  <td className="py-1.5 px-2 text-right text-[var(--eq-text2)]">{t.value ? fmtLarge(t.value) : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -1289,12 +1289,12 @@ function OwnershipTab({ data }) {
 // ═══════════════════════════════════════════
 function PeersTab({ data }) {
   const peers = data.peers || [];
-  if (peers.length === 0) return <div className="text-zinc-600 text-sm py-8 text-center">No peer data</div>;
+  if (peers.length === 0) return <div className="text-[var(--eq-text2)] text-sm py-8 text-center">No peer data</div>;
   return (
     <Card title="Peer Comparison">
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
-          <thead><tr className="border-b border-zinc-200/80 text-zinc-500">
+          <thead><tr className="border-b border-[var(--eq-border)] text-[var(--eq-text3)]">
             <th className="text-left py-2 px-3 font-medium">Company</th>
             <th className="text-right py-2 px-3 font-medium">Market Cap</th>
             <th className="text-right py-2 px-3 font-medium">P/E</th>
@@ -1305,14 +1305,14 @@ function PeersTab({ data }) {
           </tr></thead>
           <tbody>
             {peers.map((p, i) => (
-              <tr key={i} className="border-b border-zinc-100 hover:bg-zinc-50">
-                <td className="py-2 px-3"><span className="font-semibold text-zinc-900">{p.symbol}</span> <span className="text-[9px] text-zinc-600 truncate">{p.name}</span></td>
-                <td className="py-2 px-3 text-right text-zinc-600">{p.market_cap_fmt || '—'}</td>
-                <td className="py-2 px-3 text-right text-zinc-600">{p.pe_ratio ? fmtNum(p.pe_ratio, 1) : '—'}</td>
-                <td className="py-2 px-3 text-right text-zinc-600">{p.dividend_yield != null ? `${p.dividend_yield}%` : '—'}</td>
-                <td className="py-2 px-3 text-right text-zinc-600">{p.profit_margin != null ? `${p.profit_margin}%` : '—'}</td>
+              <tr key={i} className="border-b border-[var(--eq-grid)] hover:bg-[var(--eq-card2)]">
+                <td className="py-2 px-3"><span className="font-semibold text-[var(--eq-text)]">{p.symbol}</span> <span className="text-[9px] text-[var(--eq-text2)] truncate">{p.name}</span></td>
+                <td className="py-2 px-3 text-right text-[var(--eq-text2)]">{p.market_cap_fmt || '—'}</td>
+                <td className="py-2 px-3 text-right text-[var(--eq-text2)]">{p.pe_ratio ? fmtNum(p.pe_ratio, 1) : '—'}</td>
+                <td className="py-2 px-3 text-right text-[var(--eq-text2)]">{p.dividend_yield != null ? `${p.dividend_yield}%` : '—'}</td>
+                <td className="py-2 px-3 text-right text-[var(--eq-text2)]">{p.profit_margin != null ? `${p.profit_margin}%` : '—'}</td>
                 <td className="py-2 px-3 text-right"><PctSpan value={p.revenue_growth} /></td>
-                <td className="py-2 px-3 text-right text-zinc-600">{p.beta ? fmtNum(p.beta) : '—'}</td>
+                <td className="py-2 px-3 text-right text-[var(--eq-text2)]">{p.beta ? fmtNum(p.beta) : '—'}</td>
               </tr>
             ))}
           </tbody>
@@ -1330,7 +1330,7 @@ function RatingsPeersSection({ data }) {
       <div className="min-w-0">
         {peers.length > 0 ? <PeersTab data={data} /> : (
           <Card title="Peer Comparison">
-            <div className="py-8 text-center text-sm text-zinc-600">No peer data</div>
+            <div className="py-8 text-center text-sm text-[var(--eq-text2)]">No peer data</div>
           </Card>
         )}
       </div>
@@ -1343,16 +1343,16 @@ function RatingsPeersSection({ data }) {
 // ═══════════════════════════════════════════
 function NewsTab({ data }) {
   const news = data.news || [];
-  if (news.length === 0) return <div className="text-zinc-600 text-sm py-8 text-center">No news</div>;
+  if (news.length === 0) return <div className="text-[var(--eq-text2)] text-sm py-8 text-center">No news</div>;
   return (
     <div className="space-y-2">
       {news.map((a, i) => (
         <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
-          className="flex gap-3 bg-zinc-50/90 shadow-sm ring-1 ring-zinc-200/70 rounded-xl p-3 hover:bg-zinc-100 hover:ring-zinc-300/80 transition-all group">
-          {a.thumbnail && <div className="w-20 h-14 rounded-lg overflow-hidden shrink-0 bg-zinc-100"><img src={a.thumbnail} alt="" className="w-full h-full object-cover" loading="lazy" /></div>}
+          className="flex gap-3 bg-[var(--eq-card2)] shadow-sm ring-1 ring-[var(--eq-border)] rounded-xl p-3 hover:bg-[var(--eq-card2)] hover:ring-[var(--eq-border2)] transition-all group">
+          {a.thumbnail && <div className="w-20 h-14 rounded-lg overflow-hidden shrink-0 bg-[var(--eq-card2)]"><img src={a.thumbnail} alt="" className="w-full h-full object-cover" loading="lazy" /></div>}
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-medium text-zinc-700 group-hover:text-zinc-900 line-clamp-2">{a.title}</div>
-            <div className="flex items-center gap-2 mt-1 text-[10px] text-zinc-500">
+            <div className="text-xs font-medium text-[var(--eq-text2)] group-hover:text-[var(--eq-text)] line-clamp-2">{a.title}</div>
+            <div className="flex items-center gap-2 mt-1 text-[10px] text-[var(--eq-text3)]">
               {a.source && <span>{a.source}</span>}
               {a.date && <span className="flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{new Date(a.date).toLocaleDateString()}</span>}
             </div>
@@ -1385,9 +1385,9 @@ function ResearchMacroChart({ chart }) {
         <div className="h-56">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={rows} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-200" />
-              <XAxis dataKey="label" interval={0} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-500" />
-              <YAxis width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-500" />
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-[var(--eq-grid)]" />
+              <XAxis dataKey="label" interval={0} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-[var(--eq-text3)]" />
+              <YAxis width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-[var(--eq-text3)]" />
               <Tooltip formatter={(value) => [`${Number(value).toFixed(2)}%`, chart.subtitle || 'Value']} />
               <Bar dataKey="value" radius={[5, 5, 0, 0]}>
                 {rows.map((entry) => <Cell key={entry.label} fill={entry.value >= 0 ? (entry.color || '#34d399') : '#fb7185'} />)}
@@ -1405,7 +1405,7 @@ function ResearchMacroChart({ chart }) {
     <Card title={chart.title}>
       <div className="mb-2 flex flex-wrap gap-3">
         {(chart.series || []).map((s) => (
-          <span key={s.key} className="inline-flex items-center gap-1.5 text-[10px] text-zinc-500">
+          <span key={s.key} className="inline-flex items-center gap-1.5 text-[10px] text-[var(--eq-text3)]">
             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
             {s.label}
           </span>
@@ -1414,9 +1414,9 @@ function ResearchMacroChart({ chart }) {
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={rows} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-200" />
-            <XAxis dataKey="date" minTickGap={32} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-500" />
-            <YAxis width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-zinc-500" />
+            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-[var(--eq-grid)]" />
+            <XAxis dataKey="date" minTickGap={32} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-[var(--eq-text3)]" />
+            <YAxis width={42} tick={{ fontSize: 10, fill: 'currentColor' }} className="text-[var(--eq-text3)]" />
             <Tooltip formatter={(value, name) => [fmtNum(value, 2), (chart.series || []).find((s) => s.key === name)?.label || name]} />
             {(chart.series || []).map((s) => (
               <Line key={s.key} type="monotone" dataKey={s.key} stroke={s.color} strokeWidth={2} dot={false} connectNulls />
@@ -1457,41 +1457,41 @@ function AssetOverviewTab({ asset, macroData, macroLoading, onOpenTab }) {
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <Card title="Asset">
-          <div className="text-lg font-bold text-zinc-900">{asset.name}</div>
-          <div className="mt-1 text-xs uppercase tracking-wide text-zinc-500">{asset.type} · {asset.symbol}</div>
+          <div className="text-lg font-bold text-[var(--eq-text)]">{asset.name}</div>
+          <div className="mt-1 text-xs uppercase tracking-wide text-[var(--eq-text3)]">{asset.type} · {asset.symbol}</div>
         </Card>
         <Card title="Research Mode">
-          <div className="text-sm font-semibold text-zinc-900">{asset.chartable === false ? 'Macro series' : 'Market-traded asset'}</div>
-          <div className="mt-1 text-xs text-zinc-500">
+          <div className="text-sm font-semibold text-[var(--eq-text)]">{asset.chartable === false ? 'Macro series' : 'Market-traded asset'}</div>
+          <div className="mt-1 text-xs text-[var(--eq-text3)]">
             {asset.chartable === false ? 'Uses macro charts and related economic context.' : 'Uses live chart data plus related macro context.'}
           </div>
         </Card>
         <Card title="Signal">
           {matchedSignal ? (
             <>
-              <div className="text-sm font-semibold text-zinc-900">Short: {matchedSignal.short_term} · Long: {matchedSignal.long_term}</div>
-              <div className="mt-1 text-xs text-zinc-500">{matchedSignal.rationale}</div>
+              <div className="text-sm font-semibold text-[var(--eq-text)]">Short: {matchedSignal.short_term} · Long: {matchedSignal.long_term}</div>
+              <div className="mt-1 text-xs text-[var(--eq-text3)]">{matchedSignal.rationale}</div>
             </>
           ) : (
-            <div className="text-xs text-zinc-500">Use Macro for the closest economic drivers.</div>
+            <div className="text-xs text-[var(--eq-text3)]">Use Macro for the closest economic drivers.</div>
           )}
         </Card>
       </div>
       <div className="flex flex-wrap gap-2">
         {asset.chartable !== false && (
-          <button type="button" onClick={() => onOpenTab('terminal')} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700">
+          <button type="button" onClick={() => onOpenTab('terminal')} className="rounded-lg bg-[var(--eq-accent)] px-3 py-1.5 text-xs font-semibold text-[var(--eq-bg)] hover:opacity-85">
             Open chart
           </button>
         )}
-        <button type="button" onClick={() => onOpenTab('macro')} className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-200">
+        <button type="button" onClick={() => onOpenTab('macro')} className="rounded-lg bg-[var(--eq-card2)] px-3 py-1.5 text-xs font-semibold text-[var(--eq-text2)] hover:bg-[var(--eq-border)]">
           Macro drivers
         </button>
-        <button type="button" onClick={() => onOpenTab('asset_news')} className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-200">
+        <button type="button" onClick={() => onOpenTab('asset_news')} className="rounded-lg bg-[var(--eq-card2)] px-3 py-1.5 text-xs font-semibold text-[var(--eq-text2)] hover:bg-[var(--eq-border)]">
           Related news
         </button>
       </div>
       {macroLoading ? (
-        <div className="flex h-32 items-center justify-center text-sm text-zinc-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading macro context...</div>
+        <div className="flex h-32 items-center justify-center text-sm text-[var(--eq-text3)]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading macro context...</div>
       ) : macroCharts.length ? (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {macroCharts.slice(0, 2).map((chart) => <ResearchMacroChart key={chart.id} chart={chart} />)}
@@ -1502,10 +1502,10 @@ function AssetOverviewTab({ asset, macroData, macroLoading, onOpenTab }) {
 }
 
 function AssetMacroTab({ asset, macroData, macroLoading, macroError }) {
-  if (macroLoading) return <div className="flex h-48 items-center justify-center text-sm text-zinc-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading macro context...</div>;
-  if (macroError) return <div className="rounded-xl bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-200/80">{macroError}</div>;
+  if (macroLoading) return <div className="flex h-48 items-center justify-center text-sm text-[var(--eq-text3)]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading macro context...</div>;
+  if (macroError) return <div className="rounded-xl bg-[var(--eq-loss-soft)] p-4 text-sm text-[var(--eq-loss)] ring-1 ring-[var(--eq-loss)]/25">{macroError}</div>;
   const charts = relatedMacroCharts(asset, macroData);
-  if (!charts.length) return <div className="py-8 text-center text-sm text-zinc-500">No related macro charts for {asset.name}.</div>;
+  if (!charts.length) return <div className="py-8 text-center text-sm text-[var(--eq-text3)]">No related macro charts for {asset.name}.</div>;
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       {charts.map((chart) => <ResearchMacroChart key={chart.id} chart={chart} />)}
@@ -1514,7 +1514,7 @@ function AssetMacroTab({ asset, macroData, macroLoading, macroError }) {
 }
 
 function AssetNewsTab({ asset, macroData, macroLoading }) {
-  if (macroLoading) return <div className="flex h-48 items-center justify-center text-sm text-zinc-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading news...</div>;
+  if (macroLoading) return <div className="flex h-48 items-center justify-center text-sm text-[var(--eq-text3)]"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading news...</div>;
   const key = String(asset?.symbol || '').toLowerCase();
   const firstWord = String(asset?.name || '').split(' ')[0]?.toLowerCase();
   const news = (macroData?.news || []).filter((n) => {
@@ -1522,14 +1522,14 @@ function AssetNewsTab({ asset, macroData, macroLoading }) {
     return hay.includes(key) || (firstWord && hay.includes(firstWord));
   });
   const rows = news.length ? news : (macroData?.news || []).slice(0, 8);
-  if (!rows.length) return <div className="py-8 text-center text-sm text-zinc-500">No related macro news.</div>;
+  if (!rows.length) return <div className="py-8 text-center text-sm text-[var(--eq-text3)]">No related macro news.</div>;
   return (
     <div className="space-y-2">
       {rows.map((n, idx) => (
         <a key={`${n.symbol}-${idx}`} href={n.url || undefined} target="_blank" rel="noopener noreferrer"
-          className="block rounded-xl bg-zinc-50/90 p-3 text-sm ring-1 ring-zinc-200/70 hover:bg-zinc-100">
-          <div className="text-[11px] font-semibold text-zinc-500">{n.symbol} {n.publisher ? `/ ${n.publisher}` : ''}</div>
-          <div className="mt-1 leading-snug text-zinc-800">{n.title}</div>
+          className="block rounded-xl bg-[var(--eq-card2)] p-3 text-sm ring-1 ring-[var(--eq-border)] hover:bg-[var(--eq-card2)]">
+          <div className="text-[11px] font-semibold text-[var(--eq-text3)]">{n.symbol} {n.publisher ? `/ ${n.publisher}` : ''}</div>
+          <div className="mt-1 leading-snug text-[var(--eq-text)]">{n.title}</div>
         </a>
       ))}
     </div>
@@ -1806,7 +1806,7 @@ function ResearchFundamentals({
     <div className="space-y-4">
       <div className="space-y-2">
         <form onSubmit={handleSubmit} className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--eq-text3)]" />
           <input
             type="text"
             value={symbolInput}
@@ -1814,10 +1814,10 @@ function ResearchFundamentals({
             onChange={e => { setSymbolInput(e.target.value); setSuggestionsOpen(true); setError(null); }}
             onBlur={() => window.setTimeout(() => setSuggestionsOpen(false), 120)}
             placeholder="Search stocks, crypto, commodities, indexes, macro..."
-            className="w-full bg-white rounded-xl pl-10 pr-4 py-2.5 text-zinc-900 text-sm shadow-sm ring-1 ring-zinc-200/70 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            className="w-full bg-[var(--eq-card)] rounded-xl pl-10 pr-4 py-2.5 text-[var(--eq-text)] text-sm shadow-sm ring-1 ring-[var(--eq-border)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]"
           />
           {suggestionsOpen && symbolInput.trim() && (
-            <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-zinc-200/80">
+            <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-xl bg-[var(--eq-card)] shadow-lg ring-1 ring-[var(--eq-border)]">
               {searchSuggestions.length ? searchSuggestions.map(item => (
                 <button
                   key={item.symbol}
@@ -1828,30 +1828,30 @@ function ResearchFundamentals({
                     if (item.stock === false && item.chartable === false) openChartAsset(item);
                     else loadSymbol(item.symbol);
                   }}
-                  className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-zinc-50"
+                  className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-[var(--eq-card2)]"
                 >
                   <span className="min-w-0">
                     <span className="flex items-center gap-1.5">
-                      <span className="text-xs font-semibold text-zinc-900">{item.symbol}</span>
+                      <span className="text-xs font-semibold text-[var(--eq-text)]">{item.symbol}</span>
                       <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${SEARCH_CLASS_STYLE[item.type] || SEARCH_CLASS_STYLE.stock}`}>
                         {SEARCH_CLASS_LABEL[item.type] || item.type || 'stock'}
                       </span>
                     </span>
-                    <span className="block truncate text-[11px] text-zinc-500">{item.name}</span>
+                    <span className="block truncate text-[11px] text-[var(--eq-text3)]">{item.name}</span>
                   </span>
                   {item.covered
-                    ? <span className="shrink-0 text-[9px] font-semibold text-emerald-600" title="Tracked & collected by Equilima">● TRACKED</span>
-                    : <ExternalLink className="h-3.5 w-3.5 shrink-0 text-zinc-300" />}
+                    ? <span className="shrink-0 text-[9px] font-semibold text-[var(--eq-gain)]" title="Tracked & collected by Equilima">● TRACKED</span>
+                    : <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[var(--eq-text3)]" />}
                 </button>
               )) : (
-                <div className="px-3 py-2 text-xs text-zinc-500">No matching company or ticker. Current research stays unchanged.</div>
+                <div className="px-3 py-2 text-xs text-[var(--eq-text3)]">No matching company or ticker. Current research stays unchanged.</div>
               )}
             </div>
           )}
         </form>
         <div className="flex items-center gap-1">
           {assistantSymbols.length > 1 && (
-            <button type="button" onClick={() => openShortcutOffset(-1)} className="shrink-0 p-1 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100" aria-label="Previous assistant ticker">
+            <button type="button" onClick={() => openShortcutOffset(-1)} className="shrink-0 p-1 text-[var(--eq-text3)] hover:text-[var(--eq-text)]" aria-label="Previous assistant ticker">
               <ChevronLeft className="h-4 w-4" />
             </button>
           )}
@@ -1864,30 +1864,30 @@ function ResearchFundamentals({
                 else loadSymbol(target?.symbol || s);
               }}
                 className={`px-2.5 py-1.5 rounded-lg text-[10px] font-medium whitespace-nowrap transition-all ${
-                  symbol === s ? 'bg-indigo-100 text-indigo-800 ring-1 ring-indigo-200' : 'bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200/60 hover:text-zinc-900'
+                  symbol === s ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent-strong)] ring-1 ring-[var(--eq-accent-ring)]' : 'bg-[var(--eq-card2)] text-[var(--eq-text2)] ring-1 ring-[var(--eq-border)] hover:text-[var(--eq-text)]'
                 }`}>{s}</button>
             ))}
           </div>
           {assistantSymbols.length > 1 && (
-            <button type="button" onClick={() => openShortcutOffset(1)} className="shrink-0 p-1 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100" aria-label="Next assistant ticker">
+            <button type="button" onClick={() => openShortcutOffset(1)} className="shrink-0 p-1 text-[var(--eq-text3)] hover:text-[var(--eq-text)]" aria-label="Next assistant ticker">
               <ChevronRight className="h-4 w-4" />
             </button>
           )}
         </div>
       </div>
 
-      {error && <div className="p-4 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-900">{error}</div>}
+      {error && <div className="p-4 rounded-xl bg-[var(--eq-loss-soft)] text-[var(--eq-loss)] text-sm ring-1 ring-[var(--eq-loss)]/25">{error}</div>}
 
       {(
         <>
           {/* Backtest tool */}
           {view === 'backtest' || tab === 'backtest' ? (
-            <Suspense fallback={<div className="flex h-48 items-center justify-center text-zinc-400"><Loader2 className="h-5 w-5 animate-spin" /></div>}>
+            <Suspense fallback={<div className="flex h-48 items-center justify-center text-[var(--eq-text3)]"><Loader2 className="h-5 w-5 animate-spin" /></div>}>
               <ComparePanel strategies={strategies} onCompare={onCompare} results={compareResults} loading={compareLoading} />
             </Suspense>
           ) : tab === 'terminal' ? (
-            <Suspense fallback={<div className="flex h-48 items-center justify-center text-zinc-400"><Loader2 className="h-5 w-5 animate-spin" /></div>}>
-              <div className="overflow-hidden rounded-xl ring-1 ring-zinc-200/70 dark:ring-zinc-800">
+            <Suspense fallback={<div className="flex h-48 items-center justify-center text-[var(--eq-text3)]"><Loader2 className="h-5 w-5 animate-spin" /></div>}>
+              <div className="overflow-hidden rounded-xl ring-1 ring-[var(--eq-border)]">
                 <TerminalPanel embedded symbol={symbol} />
               </div>
             </Suspense>
@@ -1896,16 +1896,16 @@ function ResearchFundamentals({
                while the (slower) research data fills the cards in. */
             <ResearchDashboard symbol={symbol} data={data} loading={loading} intent={agentIntent} onNavigate={onNavigate} />
           ) : loading ? (
-            <div className="flex items-center justify-center h-48 text-zinc-500 dark:text-zinc-400"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...</div>
+            <div className="flex items-center justify-center h-48 text-[var(--eq-text3)]"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...</div>
           ) : assetContext?.stock === false ? (
             /* Macro-only FRED-style series (not a tradable yfinance symbol) */
             <>
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[var(--eq-card)] px-3 py-2 ring-1 ring-[var(--eq-border)]">
                 <div>
-                  <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{assetContext.name}</div>
-                  <div className="text-[10px] uppercase tracking-wide text-zinc-500">{assetContext.type} · {assetContext.symbol}</div>
+                  <div className="text-xs font-semibold text-[var(--eq-text)]">{assetContext.name}</div>
+                  <div className="text-[10px] uppercase tracking-wide text-[var(--eq-text3)]">{assetContext.type} · {assetContext.symbol}</div>
                 </div>
-                <span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-300">Macro research</span>
+                <span className="rounded-full bg-[var(--eq-accent-soft)] px-2 py-1 text-[10px] font-semibold text-[var(--eq-accent)] ring-1 ring-[var(--eq-accent-ring)]">Macro research</span>
               </div>
               <AssetMacroTab asset={assetContext} macroData={macroData} macroLoading={macroLoading} macroError={macroError} />
             </>

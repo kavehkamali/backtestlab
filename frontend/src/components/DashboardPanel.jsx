@@ -56,9 +56,9 @@ function HeroTooltip({ active, payload, periodKey }) {
   const n = Number(v);
   const priceStr = Number.isFinite(n) ? `$${n.toLocaleString()}` : '—';
   return (
-    <div className="bg-white rounded-lg px-3 py-1.5 text-[10px] shadow-md ring-1 ring-zinc-200/80 dark:bg-zinc-800 dark:ring-zinc-600">
-      {when && <div className="text-zinc-500 dark:text-zinc-400 mb-0.5">{when}</div>}
-      <span className="text-zinc-900 font-medium dark:text-zinc-100">{priceStr}</span>
+    <div className="bg-[var(--eq-card)] rounded-lg px-3 py-1.5 text-[10px] shadow-md ring-1 ring-[var(--eq-border)]">
+      {when && <div className="text-[var(--eq-text3)] mb-0.5">{when}</div>}
+      <span className="text-[var(--eq-text)] font-medium">{priceStr}</span>
     </div>
   );
 }
@@ -71,9 +71,9 @@ function QuoteHeroTooltip({ active, payload, decimals, periodKey }) {
   const s = Number.isFinite(n) ? n.toFixed(decimals) : '—';
   const when = row?.ts != null ? formatHeroXTick(periodKey, row.ts) : '';
   return (
-    <div className="bg-white rounded-lg px-3 py-1.5 text-[10px] shadow-md ring-1 ring-zinc-200/80 dark:bg-zinc-800 dark:ring-zinc-600">
-      {when && <div className="text-zinc-500 dark:text-zinc-400 mb-0.5">{when}</div>}
-      <span className="text-zinc-900 font-medium dark:text-zinc-100">{s}</span>
+    <div className="bg-[var(--eq-card)] rounded-lg px-3 py-1.5 text-[10px] shadow-md ring-1 ring-[var(--eq-border)]">
+      {when && <div className="text-[var(--eq-text3)] mb-0.5">{when}</div>}
+      <span className="text-[var(--eq-text)] font-medium">{s}</span>
     </div>
   );
 }
@@ -87,8 +87,8 @@ function Sparkline({ data, height = 32 }) {
   return <svg viewBox={`0 0 ${w} ${height}`} className="w-full" style={{ height }}><polyline fill="none" stroke={data[data.length - 1] >= data[0] ? '#16a34a' : '#dc2626'} strokeWidth="2" points={pts} /></svg>;
 }
 function Pct({ value }) {
-  if (value == null) return <span className="text-zinc-400">—</span>;
-  const c = value > 0 ? 'text-emerald-600' : value < 0 ? 'text-red-600' : 'text-zinc-500';
+  if (value == null) return <span className="text-[var(--eq-text3)]">—</span>;
+  const c = value > 0 ? 'text-[var(--eq-gain)]' : value < 0 ? 'text-[var(--eq-loss)]' : 'text-[var(--eq-text3)]';
   return <span className={`${c} font-mono text-xs`}>{value > 0 ? '+' : ''}{value}%</span>;
 }
 function fmtPrice(v) {
@@ -187,15 +187,15 @@ function MarketCard({ item, period, onClick }) {
     <Wrapper
       type={onClick ? 'button' : undefined}
       onClick={onClick}
-      className={`bg-white rounded-xl p-3 shadow-sm ring-1 ring-zinc-200/70 hover:ring-zinc-300/80 transition-all overflow-hidden min-w-0 ${onClick ? 'w-full text-left hover:-translate-y-0.5 cursor-pointer' : ''}`}
+      className={`bg-[var(--eq-card)] rounded-xl p-3 shadow-sm ring-1 ring-[var(--eq-border)] hover:ring-[var(--eq-border2)] transition-all overflow-hidden min-w-0 ${onClick ? 'w-full text-left hover:-translate-y-0.5 cursor-pointer' : ''}`}
     >
       <div className="flex items-start justify-between mb-1.5">
-        <div className="text-[10px] text-zinc-500 truncate max-w-[80px]">{item.name}</div>
-        <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${change == null ? 'bg-zinc-100 text-zinc-500' : up ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+        <div className="text-[10px] text-[var(--eq-text3)] truncate max-w-[80px]">{item.name}</div>
+        <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${change == null ? 'bg-[var(--eq-card2)] text-[var(--eq-text3)]' : up ? 'bg-[var(--eq-gain-soft)] text-[var(--eq-gain)]' : 'bg-[var(--eq-loss-soft)] text-[var(--eq-loss)]'}`}>
           {change != null ? `${up ? '+' : ''}${change}%` : '—'}
         </div>
       </div>
-      <div className={`text-sm font-bold ${change == null ? 'text-zinc-400' : up ? 'text-emerald-600' : 'text-red-600'}`}>{fmtDisplayPrice(item)}</div>
+      <div className={`text-sm font-bold ${change == null ? 'text-[var(--eq-text3)]' : up ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>{fmtDisplayPrice(item)}</div>
       <div className="mt-1.5"><Sparkline data={sparkData} height={28} /></div>
       <div className="flex gap-2 mt-1.5 flex-wrap">
         {PERIODS.filter(p => p.id !== '1D' && p.key !== period).slice(0, 3).map(p => {
@@ -203,7 +203,7 @@ function MarketCard({ item, period, onClick }) {
           if (val == null) return null;
           return (
             <div key={p.id} className="text-center">
-              <div className="text-[7px] text-zinc-500">{p.label}</div>
+              <div className="text-[7px] text-[var(--eq-text3)]">{p.label}</div>
               <Pct value={val} />
             </div>
           );
@@ -224,9 +224,9 @@ function SectorHeatmap({ sectors, period }) {
         const intensity = Math.min(Math.abs(change) / maxAbs, 1);
         const bg = change >= 0 ? `rgba(34,197,94,${0.08 + intensity * 0.35})` : `rgba(239,68,68,${0.08 + intensity * 0.35})`;
         return (
-          <div key={s.symbol} className="rounded-lg p-2.5 text-center ring-1 ring-zinc-200/50" style={{ background: bg }}>
-            <div className="text-[10px] text-zinc-800 font-medium truncate">{s.name}</div>
-            <div className={`text-sm font-bold ${change >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{change > 0 ? '+' : ''}{change}%</div>
+          <div key={s.symbol} className="rounded-lg p-2.5 text-center ring-1 ring-[var(--eq-border)]" style={{ background: bg }}>
+            <div className="text-[10px] text-[var(--eq-text)] font-medium truncate">{s.name}</div>
+            <div className={`text-sm font-bold ${change >= 0 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>{change > 0 ? '+' : ''}{change}%</div>
           </div>
         );
       })}
@@ -238,7 +238,7 @@ function Section({ title, children, right }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{title}</h3>
+        <h3 className="text-xs font-semibold text-[var(--eq-text3)] uppercase tracking-wider">{title}</h3>
         {right}
       </div>
       {children}
@@ -352,14 +352,14 @@ function formatHeroTickForItem(item, v) {
 
 function PeriodToolbar({ period, setPeriod }) {
   return (
-    <div className="flex gap-0.5 bg-zinc-100 rounded-lg p-0.5 flex-wrap justify-end dark:bg-zinc-800/80">
+    <div className="flex gap-0.5 bg-[var(--eq-card2)] rounded-lg p-0.5 flex-wrap justify-end">
       {PERIODS.map((p) => (
         <button
           key={p.id}
           type="button"
           onClick={() => setPeriod(p.key)}
           className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
-            period === p.key ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-zinc-200/60 dark:bg-zinc-800 dark:text-indigo-300 dark:ring-zinc-600' : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100'
+            period === p.key ? 'bg-[var(--eq-card)] text-[var(--eq-accent)] shadow-sm ring-1 ring-[var(--eq-border)]' : 'text-[var(--eq-text3)] hover:text-[var(--eq-text)]'
           }`}
         >
           {p.label}
@@ -379,14 +379,14 @@ function NewsFeed({ articles, title = 'Market News' }) {
             href={a.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="block bg-white rounded-lg p-2.5 shadow-sm ring-1 ring-zinc-200/70 hover:bg-zinc-50 hover:ring-zinc-300/80 transition-all group dark:bg-zinc-900/80 dark:ring-zinc-700 dark:hover:bg-zinc-800/80"
+            className="block bg-[var(--eq-card)] rounded-lg p-2.5 shadow-sm ring-1 ring-[var(--eq-border)] hover:bg-[var(--eq-card2)] hover:ring-[var(--eq-border2)] transition-all group"
           >
-            <div className="text-[11px] font-medium text-zinc-800 group-hover:text-zinc-950 line-clamp-2 dark:text-zinc-100 dark:group-hover:text-white">{a.title}</div>
-            <div className="flex items-center gap-2 mt-1 text-[9px] text-zinc-500 dark:text-zinc-400">
+            <div className="text-[11px] font-medium text-[var(--eq-text)] group-hover:text-[var(--eq-text)] line-clamp-2">{a.title}</div>
+            <div className="flex items-center gap-2 mt-1 text-[9px] text-[var(--eq-text3)]">
               {a.source && <span>{a.source}</span>}
               <span>{timeAgo(a.date)} ago</span>
               {a.tickers?.slice(0, 3).map((t, j) => (
-                <span key={j} className="px-1 rounded bg-indigo-50 text-indigo-700 text-[8px] ring-1 ring-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-200 dark:ring-indigo-900/50">
+                <span key={j} className="px-1 rounded bg-[var(--eq-accent-soft)] text-[var(--eq-accent)] text-[8px] ring-1 ring-[var(--eq-accent-ring)]">
                   {t}
                 </span>
               ))}
@@ -411,13 +411,13 @@ function OverviewHeroRow({ seriesList, activePeriodKey, useQuoteTooltip, gradPre
         const dec = heroTooltipDecimals(item);
         const gradId = `${gradPrefix}-${index + 1}-${item.symbol.replace(/[^a-z0-9]/gi, '-')}`;
         return (
-          <div key={item.symbol} className="bg-white rounded-xl p-4 sm:p-5 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900/80 dark:ring-zinc-800">
+          <div key={item.symbol} className="bg-[var(--eq-card)] rounded-xl p-4 sm:p-5 shadow-sm ring-1 ring-[var(--eq-border)]">
             <div className="flex items-start justify-between mb-3">
               <div>
-                <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{item.name}</div>
-                <div className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-zinc-100">{fmtDisplayPrice(item)}</div>
+                <div className="text-xs font-medium text-[var(--eq-text3)]">{item.name}</div>
+                <div className="text-2xl sm:text-3xl font-bold text-[var(--eq-text)]">{fmtDisplayPrice(item)}</div>
               </div>
-              <div className={`text-sm font-bold px-2.5 py-1 rounded-lg ${change == null ? 'text-zinc-500' : up ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+              <div className={`text-sm font-bold px-2.5 py-1 rounded-lg ${change == null ? 'text-[var(--eq-text3)]' : up ? 'bg-[var(--eq-gain-soft)] text-[var(--eq-gain)]' : 'bg-[var(--eq-loss-soft)] text-[var(--eq-loss)]'}`}>
                 {change != null ? `${up ? '+' : ''}${change}%` : '—'}
               </div>
             </div>
@@ -429,7 +429,7 @@ function OverviewHeroRow({ seriesList, activePeriodKey, useQuoteTooltip, gradPre
                     <stop offset="100%" stopColor={up ? '#22c55e' : '#ef4444'} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} className="dark:stroke-zinc-700" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} className="" />
                 <XAxis
                   dataKey="ts"
                   type="number"
@@ -504,7 +504,7 @@ function StockMarketsOverviewBody({ market, articles, activePeriodKey, activePer
 
 function ForexMarketsBody({ market, articles, activePeriodKey, activePeriodLabel, orderedPairs, onPromote }) {
   if (!orderedPairs.length) {
-    return <p className="text-sm text-zinc-500 dark:text-zinc-400">No FX data in this snapshot.</p>;
+    return <p className="text-sm text-[var(--eq-text3)]">No FX data in this snapshot.</p>;
   }
   return (
     <div className="space-y-6">
@@ -530,7 +530,7 @@ function ForexMarketsBody({ market, articles, activePeriodKey, activePeriodLabel
 
 function CommoditiesMarketsBody({ market, articles, activePeriodKey, activePeriodLabel, orderedFutures, onPromote }) {
   if (!orderedFutures.length) {
-    return <p className="text-sm text-zinc-500 dark:text-zinc-400">No commodity futures in this snapshot.</p>;
+    return <p className="text-sm text-[var(--eq-text3)]">No commodity futures in this snapshot.</p>;
   }
   return (
     <div className="space-y-6">
@@ -665,7 +665,7 @@ export default function DashboardPanel() {
 
   if (arena !== 'crypto' && marketLoading) {
     return (
-      <div className="flex items-center justify-center h-64 text-zinc-500">
+      <div className="flex items-center justify-center h-64 text-[var(--eq-text3)]">
         <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading market overview...
       </div>
     );
@@ -674,11 +674,11 @@ export default function DashboardPanel() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Markets</h2>
+        <h2 className="text-sm font-semibold text-[var(--eq-text)]">Markets</h2>
         <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
           {arena !== 'crypto' && (
             <form onSubmit={submitMarketSearch} className="relative w-full max-w-xs sm:w-64">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--eq-text3)]" />
               <input
                 type="text"
                 value={marketSearch}
@@ -690,26 +690,26 @@ export default function DashboardPanel() {
                 }}
                 onBlur={() => window.setTimeout(() => setMarketSearchOpen(false), 120)}
                 placeholder="Search chart..."
-                className="h-8 w-full rounded-lg bg-white pl-8 pr-3 text-xs text-zinc-900 shadow-sm ring-1 ring-zinc-200/70 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700"
+                className="h-8 w-full rounded-lg bg-[var(--eq-card)] pl-8 pr-3 text-xs text-[var(--eq-text)] shadow-sm ring-1 ring-[var(--eq-border)] placeholder:text-[var(--eq-text3)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]"
               />
               {marketSearchOpen && marketSearch.trim() && (
-                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-zinc-200/80 dark:bg-zinc-900 dark:ring-zinc-700">
+                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-xl bg-[var(--eq-card)] shadow-lg ring-1 ring-[var(--eq-border)]">
                   {marketSearchSuggestions.length ? marketSearchSuggestions.map((item) => (
                     <button
                       key={`${item.arenaId}:${item.symbol}`}
                       type="button"
                       onMouseDown={(ev) => ev.preventDefault()}
                       onClick={() => openMarketSearchItem(item)}
-                      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-[var(--eq-card2)]"
                     >
                       <span className="min-w-0">
-                        <span className="block text-xs font-semibold text-zinc-900 dark:text-zinc-100">{item.symbol}</span>
-                        <span className="block truncate text-[11px] text-zinc-500 dark:text-zinc-400">{item.name}</span>
+                        <span className="block text-xs font-semibold text-[var(--eq-text)]">{item.symbol}</span>
+                        <span className="block truncate text-[11px] text-[var(--eq-text3)]">{item.name}</span>
                       </span>
-                      <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-[9px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300">{item.arenaLabel}</span>
+                      <span className="shrink-0 rounded bg-[var(--eq-card2)] px-1.5 py-0.5 text-[9px] text-[var(--eq-text3)]">{item.arenaLabel}</span>
                     </button>
                   )) : (
-                    <div className="px-3 py-2 text-xs text-zinc-500">No matching market chart.</div>
+                    <div className="px-3 py-2 text-xs text-[var(--eq-text3)]">No matching market chart.</div>
                   )}
                 </div>
               )}
@@ -718,9 +718,9 @@ export default function DashboardPanel() {
           {arena !== 'crypto' && <PeriodToolbar period={period} setPeriod={setPeriod} />}
         </div>
       </div>
-      {marketSearchError && <div className="text-xs text-red-600 dark:text-red-300">{marketSearchError}</div>}
+      {marketSearchError && <div className="text-xs text-[var(--eq-loss)]">{marketSearchError}</div>}
 
-      <div className="flex flex-wrap gap-1 rounded-xl bg-zinc-100/90 p-1 ring-1 ring-zinc-200/70 dark:bg-zinc-900 dark:ring-zinc-800">
+      <div className="flex flex-wrap gap-1 rounded-xl bg-[var(--eq-card2)] p-1 ring-1 ring-[var(--eq-border)]">
         {MARKET_ARENAS.map((a) => (
           <button
             key={a.id}
@@ -728,8 +728,8 @@ export default function DashboardPanel() {
             onClick={() => setArena(a.id)}
             className={`min-w-[5.5rem] flex-1 rounded-lg px-2.5 py-2 text-center text-xs font-medium transition-all sm:min-w-[6.5rem] ${
               arena === a.id
-                ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-600'
-                : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
+                ? 'bg-[var(--eq-card)] text-[var(--eq-text)] shadow-sm ring-1 ring-[var(--eq-border)]'
+                : 'text-[var(--eq-text2)] hover:text-[var(--eq-text)]'
             }`}
           >
             {a.label}
@@ -773,7 +773,7 @@ export default function DashboardPanel() {
       )}
 
       {arena !== 'crypto' && !market && !marketLoading && (
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">Market data unavailable.</p>
+        <p className="text-sm text-[var(--eq-text3)]">Market data unavailable.</p>
       )}
     </div>
   );

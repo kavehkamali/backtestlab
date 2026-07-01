@@ -84,7 +84,7 @@ function applyIndexSeo() {
 }
 
 const proseClass =
-  'learn-prose max-w-3xl mx-auto text-[15px] leading-relaxed text-zinc-700 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-zinc-900 [&_h1]:mb-4 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-zinc-900 [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:text-lg [&_h3]:font-medium [&_h3]:text-zinc-800 [&_h3]:mt-6 [&_h3]:mb-2 [&_p]:mb-4 [&_a]:text-indigo-600 [&_a]:underline [&_a:hover]:text-indigo-800 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4 [&_li]:mb-1 [&_strong]:text-zinc-900 [&_code]:text-pink-700 [&_code]:text-sm [&_blockquote]:border-l-2 [&_blockquote]:border-indigo-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-zinc-600 [&_table]:w-full [&_table]:text-[13px] [&_th]:text-left [&_th]:py-2 [&_th]:pr-3 [&_th]:text-zinc-500 [&_th]:font-medium [&_td]:py-2 [&_td]:pr-3 [&_td]:border-t [&_td]:border-zinc-200';
+  'learn-prose max-w-3xl mx-auto text-[15px] leading-relaxed text-[var(--eq-text2)] [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-[var(--eq-text)] [&_h1]:mb-4 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-[var(--eq-text)] [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:text-lg [&_h3]:font-medium [&_h3]:text-[var(--eq-text)] [&_h3]:mt-6 [&_h3]:mb-2 [&_p]:mb-4 [&_a]:text-[var(--eq-accent)] [&_a]:underline [&_a:hover]:text-[var(--eq-accent-strong)] [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4 [&_li]:mb-1 [&_strong]:text-[var(--eq-text)] [&_code]:text-pink-700 [&_code]:text-sm [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--eq-accent-ring)] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-[var(--eq-text2)] [&_table]:w-full [&_table]:text-[13px] [&_th]:text-left [&_th]:py-2 [&_th]:pr-3 [&_th]:text-[var(--eq-text3)] [&_th]:font-medium [&_td]:py-2 [&_td]:pr-3 [&_td]:border-t [&_td]:border-[var(--eq-border)]';
 
 /** Equilima product-topic guides first (Research emphasized in nav order), then AI agent series. */
 const CLUSTER_SECTION_ORDER = [
@@ -239,16 +239,16 @@ export default function LearnLayout({ route, setActiveTab }) {
 
   const shellClass = useMediumArticleChrome
     ? 'learn-article-shell min-h-screen'
-    : 'min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100';
+    : 'min-h-screen bg-[var(--eq-card2)] text-[var(--eq-text)]';
   const headerClass = useMediumArticleChrome
     ? 'learn-article-shell-header sticky top-0 z-50'
-    : 'border-b border-zinc-200/60 bg-white/90 backdrop-blur-md sticky top-0 z-50 shadow-sm shadow-zinc-900/[0.02] dark:border-zinc-800 dark:bg-zinc-950/90 dark:shadow-none';
+    : 'border-b border-[var(--eq-border)] bg-[var(--eq-card)]/90 backdrop-blur-md sticky top-0 z-50 ';
   const backBtnClass = useMediumArticleChrome
     ? 'flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors'
-    : 'flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900 transition-colors dark:text-zinc-400 dark:hover:text-zinc-100';
+    : 'flex items-center gap-2 text-sm text-[var(--eq-text2)] hover:text-[var(--eq-text)] transition-colors';
   const navAllClass = useMediumArticleChrome
-    ? 'px-2 py-1 rounded-md text-indigo-700 hover:bg-black/[0.04] dark:text-zinc-300 dark:hover:bg-white/5'
-    : 'px-2 py-1 rounded-md text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800/80';
+    ? 'px-2 py-1 rounded-md text-[var(--eq-accent)] hover:bg-black/[0.04]'
+    : 'px-2 py-1 rounded-md text-[var(--eq-text2)] hover:bg-[var(--eq-card2)]';
 
   return (
     <div className={shellClass}>
@@ -268,7 +268,7 @@ export default function LearnLayout({ route, setActiveTab }) {
             <button type="button" onClick={() => navigateLearn()} className={navAllClass}>
               All articles
             </button>
-            <span className={useMediumArticleChrome ? 'text-neutral-300 hidden sm:inline' : 'text-gray-600 hidden sm:inline dark:text-zinc-600'}>
+            <span className={useMediumArticleChrome ? 'text-neutral-300 hidden sm:inline' : 'text-gray-600 hidden sm:inline'}>
               |
             </span>
             <span className="text-gray-600 sm:hidden w-full" />
@@ -283,8 +283,8 @@ export default function LearnLayout({ route, setActiveTab }) {
                     className={`px-2 py-1 rounded-md hover:bg-black/[0.04] ${
                       topic === 'research'
                         ? active
-                          ? 'text-indigo-800 font-semibold bg-indigo-100'
-                          : 'text-indigo-700 font-semibold'
+                          ? 'text-[var(--eq-accent-strong)] font-semibold bg-[var(--eq-accent-soft)]'
+                          : 'text-[var(--eq-accent)] font-semibold'
                         : active
                           ? 'text-neutral-900 font-medium bg-neutral-100'
                           : 'text-neutral-600 hover:text-neutral-900'
@@ -299,14 +299,14 @@ export default function LearnLayout({ route, setActiveTab }) {
                   key={topic}
                   type="button"
                   onClick={() => navigateLearnTopic(topic)}
-                  className={`px-2 py-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800/80 ${
+                  className={`px-2 py-1 rounded-md hover:bg-[var(--eq-card2)] ${
                     topic === 'research'
                       ? active
-                        ? 'text-zinc-900 font-semibold bg-zinc-200/80 dark:bg-zinc-800 dark:text-zinc-100'
-                        : 'text-zinc-700 font-semibold hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
+                        ? 'text-[var(--eq-text)] font-semibold bg-[var(--eq-border)]'
+                        : 'text-[var(--eq-text2)] font-semibold hover:text-[var(--eq-text)]'
                       : active
-                        ? 'text-zinc-900 font-medium bg-zinc-200/70 dark:bg-zinc-800 dark:text-zinc-100'
-                        : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
+                        ? 'text-[var(--eq-text)] font-medium bg-[var(--eq-border)]'
+                        : 'text-[var(--eq-text2)] hover:text-[var(--eq-text)]'
                   }`}
                 >
                   {TOPIC_LABELS[topic]}
@@ -327,51 +327,51 @@ export default function LearnLayout({ route, setActiveTab }) {
         {route.kind === 'index' && (
           <>
             <div className="flex items-start gap-3 mb-8">
-              <BookOpen className="w-10 h-10 text-zinc-500 dark:text-zinc-400 shrink-0 mt-1" />
+              <BookOpen className="w-10 h-10 text-[var(--eq-text3)] shrink-0 mt-1" />
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 tracking-tight dark:text-zinc-100">Market Blog</h1>
-                <p className="text-sm text-zinc-600 mt-2 max-w-2xl dark:text-zinc-400">
-                  Daily market stories and long-form research on <strong className="text-zinc-800 font-medium dark:text-zinc-200">Research, Macro, Crypto, Screener, Backtest, and Markets</strong>, grounded in current news, fundamentals, and live macro context.
+                <h1 className="text-2xl sm:text-3xl font-bold text-[var(--eq-text)] tracking-tight">Market Blog</h1>
+                <p className="text-sm text-[var(--eq-text2)] mt-2 max-w-2xl">
+                  Daily market stories and long-form research on <strong className="text-[var(--eq-text)] font-medium">Research, Macro, Crypto, Screener, Backtest, and Markets</strong>, grounded in current news, fundamentals, and live macro context.
                 </p>
               </div>
             </div>
-            {loading && <p className="text-zinc-500 text-sm">Loading…</p>}
-            {error && <p className="text-red-600 text-sm">{error}</p>}
+            {loading && <p className="text-[var(--eq-text3)] text-sm">Loading…</p>}
+            {error && <p className="text-[var(--eq-loss)] text-sm">{error}</p>}
             {!loading && !error && list.length === 0 && (
-              <p className="text-zinc-500 text-sm">No published articles yet. Add them from the admin Articles tab.</p>
+              <p className="text-[var(--eq-text3)] text-sm">No published articles yet. Add them from the admin Articles tab.</p>
             )}
             {route.topic && TOPIC_TO_CLUSTER[route.topic] && !loading && !error && (
-              <p className="text-xs text-zinc-600 mb-6 dark:text-zinc-400">
-                Showing <strong className="text-zinc-900 dark:text-zinc-100">{TOPIC_TO_CLUSTER[route.topic]}</strong> guides
+              <p className="text-xs text-[var(--eq-text2)] mb-6">
+                Showing <strong className="text-[var(--eq-text)]">{TOPIC_TO_CLUSTER[route.topic]}</strong> guides
                 {' · '}
-                <button type="button" onClick={() => navigateLearn()} className="underline hover:text-zinc-900 dark:hover:text-zinc-100">
+                <button type="button" onClick={() => navigateLearn()} className="underline hover:text-[var(--eq-text)]">
                   Clear filter
                 </button>
               </p>
             )}
             {!loading && !error && route.topic && filteredList.length === 0 && list.length > 0 && (
-              <p className="text-zinc-500 text-sm mb-6">No published guides for this topic yet.</p>
+              <p className="text-[var(--eq-text3)] text-sm mb-6">No published guides for this topic yet.</p>
             )}
             <div className="space-y-14">
               {groupedList.map(({ clusterKey, items }) => (
                 <section key={clusterKey} className="scroll-mt-8" aria-labelledby={sectionDomId(clusterKey)}>
-                  <div className="flex flex-wrap items-end gap-3 mb-5 pb-4 border-b border-zinc-200/80 dark:border-zinc-800">
+                  <div className="flex flex-wrap items-end gap-3 mb-5 pb-4 border-b border-[var(--eq-border)]">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div
-                        className="h-11 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-zinc-400 via-zinc-500 to-zinc-600 dark:from-zinc-500 dark:via-zinc-600 dark:to-zinc-700"
+                        className="h-11 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-[var(--eq-text3)] via-[var(--eq-text2)] to-[var(--eq-text)]"
                         aria-hidden
                       />
                       <div className="min-w-0">
                         <h2
                           id={sectionDomId(clusterKey)}
-                          className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-zinc-100"
+                          className="text-lg sm:text-xl font-bold text-[var(--eq-text)]"
                         >
                           {clusterKey}
                         </h2>
-                        <p className="text-[11px] text-zinc-500 mt-0.5 dark:text-zinc-400">{items.length} in-depth {items.length === 1 ? 'guide' : 'guides'}</p>
+                        <p className="text-[11px] text-[var(--eq-text3)] mt-0.5">{items.length} in-depth {items.length === 1 ? 'guide' : 'guides'}</p>
                       </div>
                     </div>
-                    <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold dark:text-zinc-500">Guides</span>
+                    <span className="text-[10px] uppercase tracking-widest text-[var(--eq-text3)] font-semibold">Guides</span>
                   </div>
                   <ul className="space-y-4">
                     {items.map((a) => (
@@ -379,12 +379,12 @@ export default function LearnLayout({ route, setActiveTab }) {
                         <button
                           type="button"
                           onClick={() => navigateLearn(a.slug)}
-                          className="w-full text-left p-4 rounded-xl bg-white shadow-sm ring-1 ring-zinc-200/70 hover:ring-zinc-300 hover:shadow-md transition-all dark:bg-zinc-900 dark:ring-zinc-700 dark:hover:ring-zinc-500"
+                          className="w-full text-left p-4 rounded-xl bg-[var(--eq-card)] shadow-sm ring-1 ring-[var(--eq-border)] hover:ring-[var(--eq-border2)] hover:shadow-md transition-all"
                         >
-                          <span className="text-[10px] uppercase tracking-wider text-zinc-600 font-medium dark:text-zinc-400">{a.cluster_key || 'Article'}</span>
-                          <h3 className="text-lg font-semibold text-zinc-900 mt-1 leading-snug [letter-spacing:0.01em] dark:text-zinc-100">{a.title}</h3>
-                          <p className="text-sm text-zinc-600 mt-2 line-clamp-3 dark:text-zinc-400">{a.excerpt || a.meta_description}</p>
-                          <span className="text-[11px] text-zinc-400 mt-2 block">{a.published_at?.slice(0, 10)}</span>
+                          <span className="text-[10px] uppercase tracking-wider text-[var(--eq-text2)] font-medium">{a.cluster_key || 'Article'}</span>
+                          <h3 className="text-lg font-semibold text-[var(--eq-text)] mt-1 leading-snug [letter-spacing:0.01em]">{a.title}</h3>
+                          <p className="text-sm text-[var(--eq-text2)] mt-2 line-clamp-3">{a.excerpt || a.meta_description}</p>
+                          <span className="text-[11px] text-[var(--eq-text3)] mt-2 block">{a.published_at?.slice(0, 10)}</span>
                         </button>
                       </li>
                     ))}
@@ -400,12 +400,12 @@ export default function LearnLayout({ route, setActiveTab }) {
             {loading && (
               <p className={useMediumArticleChrome ? 'text-neutral-500 text-sm' : 'text-gray-500 text-sm'}>Loading…</p>
             )}
-            {error && <p className="text-red-600 text-sm">{error}</p>}
+            {error && <p className="text-[var(--eq-loss)] text-sm">{error}</p>}
             {article && (
               <article>
                 {useMediumArticleChrome ? (
                   <>
-                    <p className="learn-article-hero-meta text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2 dark:text-zinc-400">
+                    <p className="learn-article-hero-meta text-xs font-semibold uppercase tracking-wider text-[var(--eq-text3)] mb-2">
                       {article.cluster_key || 'Article'}
                     </p>
                     <h1 className="learn-article-hero-title text-[2.35rem] sm:text-[2.75rem] font-bold text-neutral-950 mb-3 leading-[1.1]">
@@ -418,7 +418,7 @@ export default function LearnLayout({ route, setActiveTab }) {
                       )}
                     </p>
                     <div className="learn-article-reading" dangerouslySetInnerHTML={{ __html: article.body_html }} />
-                    <aside className="learn-article-cta mt-14 mx-auto p-6 sm:p-7 rounded-2xl bg-white/95 shadow-lg shadow-zinc-900/8 ring-1 ring-zinc-200/70 backdrop-blur-sm dark:bg-zinc-900/95 dark:ring-zinc-700 dark:shadow-black/20">
+                    <aside className="learn-article-cta mt-14 mx-auto p-6 sm:p-7 rounded-2xl bg-[var(--eq-card)]/95 shadow-[var(--eq-shadow-card)] ring-1 ring-[var(--eq-border)] backdrop-blur-sm">
                       <p className="learn-article-hero-meta text-sm font-semibold text-neutral-900 mb-1">Try it in Equilima</p>
                       <p className="learn-article-hero-meta text-xs text-neutral-500 mb-4">
                         Open the app to apply these ideas with live data.
@@ -427,7 +427,7 @@ export default function LearnLayout({ route, setActiveTab }) {
                         <button
                           type="button"
                           onClick={() => openAppTab('research')}
-                          className="learn-article-hero-meta inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                          className="learn-article-hero-meta inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-[var(--eq-text)] hover:opacity-85 text-[var(--eq-bg)] text-xs font-medium"
                         >
                           <Sparkles className="w-3.5 h-3.5" /> Research
                         </button>
@@ -450,37 +450,37 @@ export default function LearnLayout({ route, setActiveTab }) {
                   </>
                 ) : (
                   <>
-                    <p className="text-xs text-zinc-600 uppercase tracking-wider mb-2 dark:text-zinc-400">{article.cluster_key || 'Article'}</p>
-                    <h1 className="text-3xl sm:text-4xl font-bold text-zinc-900 mb-4 [letter-spacing:0.01em] dark:text-zinc-100">{article.title}</h1>
-                    <p className="text-sm text-zinc-500 mb-8 dark:text-zinc-400">
+                    <p className="text-xs text-[var(--eq-text2)] uppercase tracking-wider mb-2">{article.cluster_key || 'Article'}</p>
+                    <h1 className="text-3xl sm:text-4xl font-bold text-[var(--eq-text)] mb-4 [letter-spacing:0.01em]">{article.title}</h1>
+                    <p className="text-sm text-[var(--eq-text3)] mb-8">
                       {article.author_name && <span>{article.author_name}</span>}
                       {article.published_at && (
                         <span className="ml-2">· {article.published_at.slice(0, 10)}</span>
                       )}
                     </p>
                     <div className={proseClass} dangerouslySetInnerHTML={{ __html: article.body_html }} />
-                    <aside className="mt-12 p-5 rounded-xl bg-zinc-100/90 ring-1 ring-zinc-200/80 dark:bg-zinc-900/80 dark:ring-zinc-700">
-                      <p className="text-sm font-medium text-zinc-900 mb-3 dark:text-zinc-100">Try it in Equilima</p>
-                      <p className="text-xs text-zinc-600 mb-4 dark:text-zinc-400">Open the app to explore live data alongside this guide.</p>
+                    <aside className="mt-12 p-5 rounded-xl bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)]">
+                      <p className="text-sm font-medium text-[var(--eq-text)] mb-3">Try it in Equilima</p>
+                      <p className="text-xs text-[var(--eq-text2)] mb-4">Open the app to explore live data alongside this guide.</p>
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => openAppTab('research')}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium shadow-sm dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--eq-text)] hover:opacity-85 text-[var(--eq-bg)] text-xs font-medium shadow-sm"
                         >
                           <Sparkles className="w-3.5 h-3.5" /> Research
                         </button>
                         <button
                           type="button"
                           onClick={() => openAppTab('screener')}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white text-zinc-800 text-xs font-medium ring-1 ring-zinc-200/80 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-600 dark:hover:bg-zinc-700"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--eq-card)] text-[var(--eq-text)] text-xs font-medium ring-1 ring-[var(--eq-border)] hover:bg-[var(--eq-card2)]"
                         >
                           <LayoutGrid className="w-3.5 h-3.5" /> Screener
                         </button>
                         <button
                           type="button"
                           onClick={() => openAppTab('backtest')}
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white text-zinc-800 text-xs font-medium ring-1 ring-zinc-200/80 hover:bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-600 dark:hover:bg-zinc-700"
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--eq-card)] text-[var(--eq-text)] text-xs font-medium ring-1 ring-[var(--eq-border)] hover:bg-[var(--eq-card2)]"
                         >
                           <LineChart className="w-3.5 h-3.5" /> Backtesting
                         </button>

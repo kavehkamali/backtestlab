@@ -115,21 +115,21 @@ function RsiBar({ value }) {
   const color = value >= 70 ? 'bg-red-400' : value <= 30 ? 'bg-emerald-400' : 'bg-indigo-400';
   return (
     <div className="flex items-center gap-1.5">
-      <div className="w-12 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+      <div className="w-12 h-1.5 bg-[var(--eq-card2)] rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${value}%` }} />
       </div>
-      <span className={`text-[10px] font-mono ${value >= 70 ? 'text-red-600' : value <= 30 ? 'text-emerald-600' : 'text-zinc-500'}`}>{value}</span>
+      <span className={`text-[10px] font-mono ${value >= 70 ? 'text-[var(--eq-loss)]' : value <= 30 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-text3)]'}`}>{value}</span>
     </div>
   );
 }
 
 function ScoreBar({ count, total }) {
   const pct = (count / total) * 100;
-  const color = pct >= 66 ? 'bg-emerald-400' : pct >= 33 ? 'bg-yellow-400' : 'bg-red-400';
-  const tc = pct >= 66 ? 'text-emerald-300' : pct >= 33 ? 'text-yellow-300' : 'text-zinc-500';
+  const color = pct >= 66 ? 'bg-emerald-400' : pct >= 33 ? 'bg-[var(--eq-warn)]' : 'bg-red-400';
+  const tc = pct >= 66 ? 'text-[var(--eq-gain)]' : pct >= 33 ? 'text-[var(--eq-warn)]' : 'text-[var(--eq-text3)]';
   return (
     <div className="flex items-center gap-1.5">
-      <div className="w-10 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+      <div className="w-10 h-1.5 bg-[var(--eq-card2)] rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
       <span className={`text-[10px] font-bold ${tc}`}>{count}/{total}</span>
@@ -138,20 +138,20 @@ function ScoreBar({ count, total }) {
 }
 
 function PctCell({ value }) {
-  if (value == null) return <span className="text-zinc-700">—</span>;
-  const c = value > 0 ? 'text-emerald-600' : value < 0 ? 'text-red-600' : 'text-zinc-500';
+  if (value == null) return <span className="text-[var(--eq-text2)]">—</span>;
+  const c = value > 0 ? 'text-[var(--eq-gain)]' : value < 0 ? 'text-[var(--eq-loss)]' : 'text-[var(--eq-text3)]';
   return <span className={`${c} font-mono`}>{value > 0 ? '+' : ''}{value}%</span>;
 }
 
 function RangeRow({ label, value_min, value_max, step = 1, onChange }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] text-zinc-500 w-20 shrink-0">{label}</span>
+      <span className="text-[10px] text-[var(--eq-text3)] w-20 shrink-0">{label}</span>
       <input type="text" inputMode="decimal" value={value_min} onChange={e => onChange('min', parseFloat(e.target.value) || 0)}
-        className="w-16 bg-zinc-100 ring-1 ring-zinc-200/80 rounded px-1.5 py-0.5 text-[10px] text-zinc-900 text-center focus:outline-none focus:border-indigo-500/50" />
-      <span className="text-zinc-600 text-[10px]">to</span>
+        className="w-16 bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded px-1.5 py-0.5 text-[10px] text-[var(--eq-text)] text-center focus:outline-none focus:border-[var(--eq-accent-ring)]" />
+      <span className="text-[var(--eq-text2)] text-[10px]">to</span>
       <input type="text" inputMode="decimal" value={value_max} onChange={e => onChange('max', parseFloat(e.target.value) || 0)}
-        className="w-16 bg-zinc-100 ring-1 ring-zinc-200/80 rounded px-1.5 py-0.5 text-[10px] text-zinc-900 text-center focus:outline-none focus:border-indigo-500/50" />
+        className="w-16 bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded px-1.5 py-0.5 text-[10px] text-[var(--eq-text)] text-center focus:outline-none focus:border-[var(--eq-accent-ring)]" />
     </div>
   );
 }
@@ -159,11 +159,11 @@ function RangeRow({ label, value_min, value_max, step = 1, onChange }) {
 function ToggleRow({ label, value, onChange, options }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[10px] text-zinc-500 w-20 shrink-0">{label}</span>
+      <span className="text-[10px] text-[var(--eq-text3)] w-20 shrink-0">{label}</span>
       <div className="flex gap-0.5">
         {options.map(o => (
           <button key={o.value} onClick={() => onChange(o.value)}
-            className={`px-2 py-0.5 rounded text-[9px] font-medium ${value === o.value ? 'bg-indigo-500/20 text-indigo-700' : 'bg-zinc-100 text-zinc-600 hover:text-zinc-500'}`}>
+            className={`px-2 py-0.5 rounded text-[9px] font-medium ${value === o.value ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)]' : 'bg-[var(--eq-card2)] text-[var(--eq-text2)] hover:text-[var(--eq-text3)]'}`}>
             {o.label}
           </button>
         ))}
@@ -810,7 +810,7 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
           e.stopPropagation();
           openResearch(r.symbol);
         }}
-        className="inline-flex items-center gap-1 font-semibold text-indigo-700 hover:text-indigo-900 hover:underline"
+        className="inline-flex items-center gap-1 font-semibold text-[var(--eq-accent)] hover:text-[var(--eq-accent-strong)] hover:underline"
         title={`Open full research for ${r.symbol}`}
       >
         {r.symbol}
@@ -826,34 +826,34 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
       </div>
     );
     if (colKey === 'vol_ratio') {
-      return <span className={`text-[10px] font-mono ${r.vol_ratio >= 1.5 ? 'text-yellow-400' : 'text-zinc-500'}`}>{r.vol_ratio}x</span>;
+      return <span className={`text-[10px] font-mono ${r.vol_ratio >= 1.5 ? 'text-yellow-400' : 'text-[var(--eq-text3)]'}`}>{r.vol_ratio}x</span>;
     }
     if (col.pct) return <PctCell value={r[colKey]} />;
     if (col.fmt) {
       const val = r[colKey];
-      return <span className="text-zinc-600">{col.fmt(val)}</span>;
+      return <span className="text-[var(--eq-text2)]">{col.fmt(val)}</span>;
     }
-    return <span className="text-zinc-500">{r[colKey] ?? '—'}</span>;
+    return <span className="text-[var(--eq-text3)]">{r[colKey] ?? '—'}</span>;
   };
 
   return (
     <div className="space-y-3">
       {visibleAgentIntent?.chips?.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-indigo-50/70 px-3 py-2 text-xs text-indigo-900 ring-1 ring-indigo-100">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-[var(--eq-accent-soft)] px-3 py-2 text-xs text-[var(--eq-accent)] ring-1 ring-[var(--eq-accent-ring)]">
           <span className="font-semibold">Assistant screen</span>
-          <span className="text-indigo-500">·</span>
+          <span className="text-[var(--eq-accent)]">·</span>
           <span>{visibleAgentIntent.listLabel || 'Market list'}</span>
           {visibleAgentIntent.chips.slice(0, 6).map((chip) => (
-            <span key={chip} className="rounded-full bg-white/75 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-100">
+            <span key={chip} className="rounded-full bg-[var(--eq-card)]/75 px-2 py-0.5 text-[11px] font-semibold text-[var(--eq-accent)] ring-1 ring-[var(--eq-accent-ring)]">
               {chip}
             </span>
           ))}
         </div>
       )}
       {assistantSymbols.length > 0 && (
-        <div className="flex items-center gap-1 rounded-xl bg-white px-2 py-1.5 ring-1 ring-zinc-200/70">
+        <div className="flex items-center gap-1 rounded-xl bg-[var(--eq-card)] px-2 py-1.5 ring-1 ring-[var(--eq-border)]">
           {assistantSymbols.length > 1 && (
-            <button type="button" onClick={() => openAssistantSymbolOffset(-1)} className="shrink-0 p-1 text-zinc-400 hover:text-zinc-900" aria-label="Previous assistant ticker">
+            <button type="button" onClick={() => openAssistantSymbolOffset(-1)} className="shrink-0 p-1 text-[var(--eq-text3)] hover:text-[var(--eq-text)]" aria-label="Previous assistant ticker">
               <ChevronLeft className="h-4 w-4" />
             </button>
           )}
@@ -864,7 +864,7 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
                 type="button"
                 onClick={() => handleStockClick(s)}
                 className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap transition-all ${
-                  selectedStock === s ? 'bg-indigo-100 text-indigo-800 ring-1 ring-indigo-200' : 'bg-zinc-100 text-zinc-600 hover:text-zinc-900'
+                  selectedStock === s ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent-strong)] ring-1 ring-[var(--eq-accent-ring)]' : 'bg-[var(--eq-card2)] text-[var(--eq-text2)] hover:text-[var(--eq-text)]'
                 }`}
               >
                 {s}
@@ -872,26 +872,26 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
             ))}
           </div>
           {assistantSymbols.length > 1 && (
-            <button type="button" onClick={() => openAssistantSymbolOffset(1)} className="shrink-0 p-1 text-zinc-400 hover:text-zinc-900" aria-label="Next assistant ticker">
+            <button type="button" onClick={() => openAssistantSymbolOffset(1)} className="shrink-0 p-1 text-[var(--eq-text3)] hover:text-[var(--eq-text)]" aria-label="Next assistant ticker">
               <ChevronRight className="h-4 w-4" />
             </button>
           )}
         </div>
       )}
       {appliedFilterChips.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-[10px] ring-1 ring-zinc-200/70">
-          <span className="mr-1 font-semibold uppercase tracking-wider text-zinc-500">Applied</span>
+        <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-[var(--eq-card)] px-3 py-2 text-[10px] ring-1 ring-[var(--eq-border)]">
+          <span className="mr-1 font-semibold uppercase tracking-wider text-[var(--eq-text3)]">Applied</span>
           {appliedFilterChips.slice(0, 18).map((chip) => (
-            <span key={chip} className="rounded-full bg-zinc-100 px-2 py-1 font-medium text-zinc-700 ring-1 ring-zinc-200/60">
+            <span key={chip} className="rounded-full bg-[var(--eq-card2)] px-2 py-1 font-medium text-[var(--eq-text2)] ring-1 ring-[var(--eq-border)]">
               {chip}
             </span>
           ))}
           {appliedFilterChips.length > 18 && (
-            <span className="rounded-full bg-zinc-100 px-2 py-1 font-medium text-zinc-500">
+            <span className="rounded-full bg-[var(--eq-card2)] px-2 py-1 font-medium text-[var(--eq-text3)]">
               +{appliedFilterChips.length - 18}
             </span>
           )}
-          <button type="button" onClick={resetFilters} className="ml-auto text-[10px] font-semibold text-zinc-500 hover:text-zinc-900">
+          <button type="button" onClick={resetFilters} className="ml-auto text-[10px] font-semibold text-[var(--eq-text3)] hover:text-[var(--eq-text)]">
             Clear numeric
           </button>
         </div>
@@ -901,25 +901,25 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
         {marketLists.map(l => (
           <button key={l.id} onClick={() => handleScan(l.id)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              activeList === l.id && results ? 'bg-indigo-500/20 text-indigo-700 border ring-indigo-200'
-                : 'bg-white text-zinc-500 ring-1 ring-zinc-200/60 hover:text-zinc-900 hover:ring-zinc-300/70'
+              activeList === l.id && results ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)] border ring-[var(--eq-accent-ring)]'
+                : 'bg-[var(--eq-card)] text-[var(--eq-text3)] ring-1 ring-[var(--eq-border)] hover:text-[var(--eq-text)] hover:ring-[var(--eq-border2)]'
             }`}>
-            {l.name} <span className="ml-1 text-zinc-600">{l.count}</span>
+            {l.name} <span className="ml-1 text-[var(--eq-text2)]">{l.count}</span>
           </button>
         ))}
-        <div className="w-px h-6 bg-zinc-200/60" />
+        <div className="w-px h-6 bg-[var(--eq-border)]" />
         <div className="relative group">
           <button className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-            activeList.startsWith('sector_') && results ? 'bg-indigo-500/20 text-indigo-700 ring-indigo-200'
-              : 'bg-white text-zinc-500 ring-1 ring-zinc-200/70 hover:text-zinc-900 hover:ring-zinc-300/70'
+            activeList.startsWith('sector_') && results ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)] ring-[var(--eq-accent-ring)]'
+              : 'bg-[var(--eq-card)] text-[var(--eq-text3)] ring-1 ring-[var(--eq-border)] hover:text-[var(--eq-text)] hover:ring-[var(--eq-border2)]'
           }`}>
             Sectors <ChevronDown className="w-3 h-3" />
           </button>
-          <div className="absolute left-0 top-full mt-1 z-50 hidden group-hover:block bg-white ring-1 ring-zinc-200/80 rounded-xl shadow-2xl py-1 min-w-[180px]">
+          <div className="absolute left-0 top-full mt-1 z-50 hidden group-hover:block bg-[var(--eq-card)] ring-1 ring-[var(--eq-border)] rounded-xl shadow-2xl py-1 min-w-[180px]">
             {sectorLists.map(l => (
               <button key={l.id} onClick={() => handleScan(l.id)}
-                className="w-full text-left px-3 py-2 text-xs text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 flex justify-between">
-                <span>{l.name}</span><span className="text-zinc-600">{l.count}</span>
+                className="w-full text-left px-3 py-2 text-xs text-[var(--eq-text3)] hover:text-[var(--eq-text)] hover:bg-[var(--eq-card2)] flex justify-between">
+                <span>{l.name}</span><span className="text-[var(--eq-text2)]">{l.count}</span>
               </button>
             ))}
           </div>
@@ -930,8 +930,8 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
         {/* Columns toggle */}
         <button onClick={() => { setColumnsOpen(!columnsOpen); setFiltersOpen(false); }}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            columnsOpen ? 'bg-indigo-500/20 text-indigo-700 border ring-indigo-200'
-              : 'bg-white text-zinc-500 ring-1 ring-zinc-200/60 hover:text-zinc-900 hover:ring-zinc-300/70'
+            columnsOpen ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)] border ring-[var(--eq-accent-ring)]'
+              : 'bg-[var(--eq-card)] text-[var(--eq-text3)] ring-1 ring-[var(--eq-border)] hover:text-[var(--eq-text)] hover:ring-[var(--eq-border2)]'
           }`}>
           <Columns3 className="w-3 h-3" /> Columns
         </button>
@@ -939,62 +939,62 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
         {/* Filters toggle */}
         <button onClick={() => { setFiltersOpen(!filtersOpen); setColumnsOpen(false); }}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            filtersOpen || activeFilterCount > 0 ? 'bg-indigo-500/20 text-indigo-700 border ring-indigo-200'
-              : 'bg-white text-zinc-500 ring-1 ring-zinc-200/60 hover:text-zinc-900 hover:ring-zinc-300/70'
+            filtersOpen || activeFilterCount > 0 ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)] border ring-[var(--eq-accent-ring)]'
+              : 'bg-[var(--eq-card)] text-[var(--eq-text3)] ring-1 ring-[var(--eq-border)] hover:text-[var(--eq-text)] hover:ring-[var(--eq-border2)]'
           }`}>
           <SlidersHorizontal className="w-3 h-3" /> Filters
-          {activeFilterCount > 0 && <span className="bg-indigo-500 text-white text-[9px] rounded-full w-4 h-4 flex items-center justify-center">{activeFilterCount}</span>}
+          {activeFilterCount > 0 && <span className="bg-[var(--eq-accent)] text-[var(--eq-bg)] text-[9px] rounded-full w-4 h-4 flex items-center justify-center">{activeFilterCount}</span>}
         </button>
 
         {results && (
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--eq-text3)]" />
             <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search ticker or name..."
-              className="bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg pl-8 pr-3 py-1.5 text-zinc-900 text-xs w-36 focus:outline-none focus:border-indigo-500/50 focus:w-52 transition-all" />
+              className="bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-lg pl-8 pr-3 py-1.5 text-[var(--eq-text)] text-xs w-36 focus:outline-none focus:border-[var(--eq-accent-ring)] focus:w-52 transition-all" />
           </div>
         )}
       </div>
 
       {/* ─── Columns Panel ─── */}
       {columnsOpen && (
-        <div className="bg-zinc-50/90 shadow-sm ring-1 ring-zinc-200/70 rounded-xl p-4">
+        <div className="bg-[var(--eq-card2)] shadow-sm ring-1 ring-[var(--eq-border)] rounded-xl p-4">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {Object.entries(COL_GROUPS).map(([groupKey, groupLabel]) => (
               <div key={groupKey}>
-                <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-2 font-semibold">{groupLabel}</div>
+                <div className="text-[9px] text-[var(--eq-text3)] uppercase tracking-widest mb-2 font-semibold">{groupLabel}</div>
                 <div className="space-y-1">
                   {Object.entries(COLUMNS).filter(([, v]) => v.group === groupKey).map(([colKey, col]) => (
                     <label key={colKey} className={`flex items-center gap-1.5 cursor-pointer ${col.alwaysOn ? 'opacity-50' : ''}`}>
                       <input type="checkbox" checked={visibleCols[colKey]} onChange={() => toggleCol(colKey)}
-                        disabled={col.alwaysOn} className="accent-indigo-500 w-3 h-3" />
-                      <span className={`text-[10px] ${visibleCols[colKey] ? 'text-zinc-700' : 'text-zinc-600'}`}>{col.label}</span>
+                        disabled={col.alwaysOn} className="accent-[var(--eq-accent)] w-3 h-3" />
+                      <span className={`text-[10px] ${visibleCols[colKey] ? 'text-[var(--eq-text2)]' : 'text-[var(--eq-text2)]'}`}>{col.label}</span>
                     </label>
                   ))}
                 </div>
               </div>
             ))}
           </div>
-          <div className="flex gap-2 mt-3 pt-3 border-t border-zinc-200/80">
+          <div className="flex gap-2 mt-3 pt-3 border-t border-[var(--eq-border)]">
             <button onClick={() => {
               const all = {};
               Object.keys(COLUMNS).forEach(k => { all[k] = true; });
               setVisibleCols(all);
-            }} className="px-2 py-1 rounded text-[10px] bg-zinc-100 text-zinc-500 hover:text-zinc-900">Show All</button>
+            }} className="px-2 py-1 rounded text-[10px] bg-[var(--eq-card2)] text-[var(--eq-text3)] hover:text-[var(--eq-text)]">Show All</button>
             <button onClick={() => {
               const def = {};
               Object.entries(COLUMNS).forEach(([k, v]) => { def[k] = v.default; });
               setVisibleCols(def);
-            }} className="px-2 py-1 rounded text-[10px] bg-zinc-100 text-zinc-500 hover:text-zinc-900">Reset Default</button>
+            }} className="px-2 py-1 rounded text-[10px] bg-[var(--eq-card2)] text-[var(--eq-text3)] hover:text-[var(--eq-text)]">Reset Default</button>
           </div>
         </div>
       )}
 
       {/* ─── Filters Panel ─── */}
       {filtersOpen && (
-        <div className="bg-zinc-50/90 shadow-sm ring-1 ring-zinc-200/70 rounded-xl overflow-hidden">
+        <div className="bg-[var(--eq-card2)] shadow-sm ring-1 ring-[var(--eq-border)] rounded-xl overflow-hidden">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-x-6 gap-y-2 p-4">
             <div>
-              <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-2 font-semibold">Performance</div>
+              <div className="text-[9px] text-[var(--eq-text3)] uppercase tracking-widest mb-2 font-semibold">Performance</div>
               <div className="space-y-1.5">
                 <RangeRow label="1D Change %" value_min={filters.change_1d_min} value_max={filters.change_1d_max} onChange={(s, v) => updateFilter(s === 'min' ? 'change_1d_min' : 'change_1d_max', v)} />
                 <RangeRow label="5D Change %" value_min={filters.change_5d_min} value_max={filters.change_5d_max} onChange={(s, v) => updateFilter(s === 'min' ? 'change_5d_min' : 'change_5d_max', v)} />
@@ -1004,7 +1004,7 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
               </div>
             </div>
             <div>
-              <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-2 font-semibold">Technical</div>
+              <div className="text-[9px] text-[var(--eq-text3)] uppercase tracking-widest mb-2 font-semibold">Technical</div>
               <div className="space-y-1.5">
                 <RangeRow label="RSI (14)" value_min={filters.rsi_min} value_max={filters.rsi_max} onChange={(s, v) => updateFilter(s === 'min' ? 'rsi_min' : 'rsi_max', v)} />
                 <RangeRow label="BB Position" step={0.05} value_min={filters.bb_pos_min} value_max={filters.bb_pos_max} onChange={(s, v) => updateFilter(s === 'min' ? 'bb_pos_min' : 'bb_pos_max', v)} />
@@ -1017,7 +1017,7 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
               </div>
             </div>
             <div>
-              <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-2 font-semibold">Fundamentals</div>
+              <div className="text-[9px] text-[var(--eq-text3)] uppercase tracking-widest mb-2 font-semibold">Fundamentals</div>
               <div className="space-y-1.5">
                 <RangeRow label="Mkt Cap ($B)" step={0.1} value_min={filters.market_cap_min} value_max={filters.market_cap_max} onChange={(s, v) => updateFilter(s === 'min' ? 'market_cap_min' : 'market_cap_max', v)} />
                 <RangeRow label="P/E Ratio" step={0.1} value_min={filters.pe_min} value_max={filters.pe_max} onChange={(s, v) => updateFilter(s === 'min' ? 'pe_min' : 'pe_max', v)} />
@@ -1027,31 +1027,31 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
               </div>
             </div>
             <div>
-              <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-2 font-semibold">Ownership & Signals</div>
+              <div className="text-[9px] text-[var(--eq-text3)] uppercase tracking-widest mb-2 font-semibold">Ownership & Signals</div>
               <div className="space-y-1.5">
                 <RangeRow label="Short Float %" step={0.1} value_min={filters.short_pct_min} value_max={filters.short_pct_max} onChange={(s, v) => updateFilter(s === 'min' ? 'short_pct_min' : 'short_pct_max', v)} />
                 <RangeRow label="Insider Own %" step={0.1} value_min={filters.insider_pct_min} value_max={filters.insider_pct_max} onChange={(s, v) => updateFilter(s === 'min' ? 'insider_pct_min' : 'insider_pct_max', v)} />
                 <div className="flex items-center gap-2 pt-1">
-                  <span className="text-[10px] text-zinc-500 w-20 shrink-0">Min Signals</span>
+                  <span className="text-[10px] text-[var(--eq-text3)] w-20 shrink-0">Min Signals</span>
                   <div className="flex gap-0.5">
                     {[0,1,2,3,4,5,6,7].map(n => (
                       <button key={n} onClick={() => updateFilter('min_buy_signals', n)}
-                        className={`w-6 h-6 rounded text-[10px] font-medium ${filters.min_buy_signals === n ? 'bg-indigo-500/20 text-indigo-700' : 'bg-zinc-100 text-zinc-600 hover:text-zinc-500'}`}>{n}</button>
+                        className={`w-6 h-6 rounded text-[10px] font-medium ${filters.min_buy_signals === n ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)]' : 'bg-[var(--eq-card2)] text-[var(--eq-text2)] hover:text-[var(--eq-text3)]'}`}>{n}</button>
                     ))}
                   </div>
                 </div>
               </div>
-              <div className="mt-4 pt-3 border-t border-zinc-200/80">
-                <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-2 font-semibold">Quick Presets</div>
+              <div className="mt-4 pt-3 border-t border-[var(--eq-border)]">
+                <div className="text-[9px] text-[var(--eq-text3)] uppercase tracking-widest mb-2 font-semibold">Quick Presets</div>
                 <div className="flex flex-wrap gap-1.5">
-                  <button onClick={() => setFilters({ ...DEFAULT_FILTERS, rsi_max: 30 })} className="px-2 py-1 rounded text-[10px] bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20">Oversold</button>
-                  <button onClick={() => setFilters({ ...DEFAULT_FILTERS, rsi_min: 70 })} className="px-2 py-1 rounded text-[10px] bg-red-500/10 text-red-600 hover:bg-red-500/20">Overbought</button>
-                  <button onClick={() => setFilters({ ...DEFAULT_FILTERS, above_sma20: 'yes', above_sma50: 'yes', above_sma200: 'yes', min_buy_signals: 3 })} className="px-2 py-1 rounded text-[10px] bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20">Bullish</button>
+                  <button onClick={() => setFilters({ ...DEFAULT_FILTERS, rsi_max: 30 })} className="px-2 py-1 rounded text-[10px] bg-emerald-500/10 text-[var(--eq-gain)] hover:bg-emerald-500/20">Oversold</button>
+                  <button onClick={() => setFilters({ ...DEFAULT_FILTERS, rsi_min: 70 })} className="px-2 py-1 rounded text-[10px] bg-red-500/10 text-[var(--eq-loss)] hover:bg-red-500/20">Overbought</button>
+                  <button onClick={() => setFilters({ ...DEFAULT_FILTERS, above_sma20: 'yes', above_sma50: 'yes', above_sma200: 'yes', min_buy_signals: 3 })} className="px-2 py-1 rounded text-[10px] bg-[var(--eq-accent-soft)] text-[var(--eq-accent)] hover:opacity-85/20">Bullish</button>
                   <button onClick={() => setFilters({ ...DEFAULT_FILTERS, above_sma200: 'no', pct_from_52w_high_min: -50, pct_from_52w_high_max: -20 })} className="px-2 py-1 rounded text-[10px] bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20">Deep Value</button>
                   <button onClick={() => setFilters({ ...DEFAULT_FILTERS, market_cap_min: 0, market_cap_max: 2 })} className="px-2 py-1 rounded text-[10px] bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20">Small Cap</button>
                   <button onClick={() => setFilters({ ...DEFAULT_FILTERS, dividend_yield_min: 3 })} className="px-2 py-1 rounded text-[10px] bg-purple-500/10 text-purple-400 hover:bg-purple-500/20">High Dividend</button>
                   <button onClick={() => setFilters({ ...DEFAULT_FILTERS, short_pct_min: 15 })} className="px-2 py-1 rounded text-[10px] bg-orange-500/10 text-orange-400 hover:bg-orange-500/20">High Short</button>
-                  <button onClick={resetFilters} className="px-2 py-1 rounded text-[10px] bg-zinc-100 text-zinc-500 hover:text-zinc-900">Reset All</button>
+                  <button onClick={resetFilters} className="px-2 py-1 rounded text-[10px] bg-[var(--eq-card2)] text-[var(--eq-text3)] hover:text-[var(--eq-text)]">Reset All</button>
                 </div>
               </div>
             </div>
@@ -1061,20 +1061,20 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
 
       {/* ─── Interactive Snowflake Filters ─── */}
       {results && (
-        <div className="bg-white shadow-sm ring-1 ring-zinc-200/60 rounded-xl px-4 py-3">
+        <div className="bg-[var(--eq-card)] shadow-sm ring-1 ring-[var(--eq-border)] rounded-xl px-4 py-3">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
-              <span className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Visual Filters</span>
-              <span className="text-[9px] text-zinc-600">Drag points to set minimum thresholds</span>
+              <span className="text-[10px] text-[var(--eq-text3)] font-semibold uppercase tracking-wider">Visual Filters</span>
+              <span className="text-[9px] text-[var(--eq-text2)]">Drag points to set minimum thresholds</span>
             </div>
             <div className="flex gap-1.5">
               <button onClick={() => { setSfQualityEnabled(false); setSfFundEnabled(false); setSfTechEnabled(false); setSfMomEnabled(false); setSfAgent(prev => prev ? { ...prev, enabled: false } : prev); }}
-                className="px-2 py-0.5 rounded text-[9px] text-zinc-500 hover:text-zinc-900 bg-zinc-100">All Off</button>
+                className="px-2 py-0.5 rounded text-[9px] text-[var(--eq-text3)] hover:text-[var(--eq-text)] bg-[var(--eq-card2)]">All Off</button>
               <button onClick={() => {
                 setActiveSnowflakeIds(['quality', 'fund', 'tech', 'mom', ...(sfAgent ? ['agent'] : [])]);
                 setSfQualityEnabled(true); setSfFundEnabled(true); setSfTechEnabled(true); setSfMomEnabled(true); setSfAgent(prev => prev ? { ...prev, enabled: true } : prev);
               }}
-                className="px-2 py-0.5 rounded text-[9px] text-zinc-500 hover:text-zinc-900 bg-zinc-100">All On</button>
+                className="px-2 py-0.5 rounded text-[9px] text-[var(--eq-text3)] hover:text-[var(--eq-text)] bg-[var(--eq-card2)]">All On</button>
               <button onClick={() => {
                 setSfQuality({ value: 3, future: 3, past: 3, health: 3, dividend: 3 });
                 setSfFund({ valuation: 3, growth: 3, profitability: 3, balance: 3, income: 3 });
@@ -1082,7 +1082,7 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
                 setSfMom({ mom_1d: 3, mom_5d: 3, mom_20d: 3, mom_60d: 3, mom_52w: 3 });
                 setSfAgent(prev => prev ? { ...prev, values: Object.fromEntries((prev.dims || []).map(d => [d.key, 3])) } : prev);
               }}
-                className="px-2 py-0.5 rounded text-[9px] text-zinc-500 hover:text-zinc-900 bg-zinc-100">Reset Shapes</button>
+                className="px-2 py-0.5 rounded text-[9px] text-[var(--eq-text3)] hover:text-[var(--eq-text)] bg-[var(--eq-card2)]">Reset Shapes</button>
             </div>
           </div>
           <div className="flex justify-around flex-wrap gap-2">
@@ -1098,13 +1098,13 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
               />
             ))}
             {snowflakeControllers.length === 0 && (
-              <div className="py-8 text-center text-xs text-zinc-500">
+              <div className="py-8 text-center text-xs text-[var(--eq-text3)]">
                 No visual filters applied. Ask the assistant for a screen or use All On.
               </div>
             )}
           </div>
           {anySfActive && (
-            <div className="text-center mt-2 text-[9px] text-indigo-600">
+            <div className="text-center mt-2 text-[9px] text-[var(--eq-accent)]">
               Snowflake filters active — showing stocks that meet all minimum thresholds
             </div>
           )}
@@ -1113,28 +1113,28 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
 
       {/* ─── Status bar ─── */}
       {results && (
-        <div className="flex items-center gap-2 text-[10px] text-zinc-600">
-          <span className="text-zinc-500 font-medium">{listName}</span>
+        <div className="flex items-center gap-2 text-[10px] text-[var(--eq-text2)]">
+          <span className="text-[var(--eq-text3)] font-medium">{listName}</span>
           <span>·</span><span>{filteredResults.length} of {results.length} stocks</span>
           {activeFilterCount > 0 && <>
-            <span>·</span><span className="text-indigo-600">{activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''}</span>
-            <button onClick={resetFilters} className="text-zinc-500 hover:text-zinc-900 underline">clear</button>
+            <span>·</span><span className="text-[var(--eq-accent)]">{activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''}</span>
+            <button onClick={resetFilters} className="text-[var(--eq-text3)] hover:text-[var(--eq-text)] underline">clear</button>
           </>}
         </div>
       )}
 
-      {error && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-600 text-sm">{error}</div>}
-      {loading && <div className="flex items-center justify-center h-48 text-zinc-500"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Scanning stocks...</div>}
-      {!loading && !results && <div className="flex items-center justify-center h-48 text-zinc-600 text-sm">Select a market or sector above to scan</div>}
+      {error && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-[var(--eq-loss)] text-sm">{error}</div>}
+      {loading && <div className="flex items-center justify-center h-48 text-[var(--eq-text3)]"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Scanning stocks...</div>}
+      {!loading && !results && <div className="flex items-center justify-center h-48 text-[var(--eq-text2)] text-sm">Select a market or sector above to scan</div>}
 
       {/* ─── Table + Detail ─── */}
       {!loading && results && (
         <div className={`grid gap-4 ${selectedStock ? 'grid-cols-1 xl:grid-cols-[1fr_420px]' : 'grid-cols-1'}`}>
-          <div className="bg-white shadow-sm ring-1 ring-zinc-200/70 rounded-xl overflow-hidden">
+          <div className="bg-[var(--eq-card)] shadow-sm ring-1 ring-[var(--eq-border)] rounded-xl overflow-hidden">
             <div className="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
               <table className="w-full text-[11px]">
-                <thead className="sticky top-0 bg-zinc-100 z-10">
-                  <tr className="text-zinc-500 border-b border-zinc-200/80">
+                <thead className="sticky top-0 bg-[var(--eq-card2)] z-10">
+                  <tr className="text-[var(--eq-text3)] border-b border-[var(--eq-border)]">
                     {visCols.map(colKey => {
                       const col = COLUMNS[colKey];
                       if (colKey === 'signals') {
@@ -1144,7 +1144,7 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
                       }
                       return (
                         <th key={colKey}
-                          className={`py-2.5 px-2 font-medium whitespace-nowrap ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'} ${col.sortable ? 'cursor-pointer hover:text-zinc-600' : ''}`}
+                          className={`py-2.5 px-2 font-medium whitespace-nowrap ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'} ${col.sortable ? 'cursor-pointer hover:text-[var(--eq-text2)]' : ''}`}
                           style={col.minW ? { minWidth: col.minW } : undefined}
                           onClick={() => col.sortable && handleSort(colKey)}>
                           {col.label}
@@ -1157,7 +1157,7 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
                 <tbody>
                   {filteredResults.map(r => (
                     <tr key={r.symbol} onClick={() => handleStockClick(r.symbol)}
-                      className={`border-b border-zinc-100 cursor-pointer transition-colors ${selectedStock === r.symbol ? 'bg-indigo-500/10' : 'hover:bg-zinc-50'}`}>
+                      className={`border-b border-[var(--eq-grid)] cursor-pointer transition-colors ${selectedStock === r.symbol ? 'bg-[var(--eq-accent-soft)]' : 'hover:bg-[var(--eq-card2)]'}`}>
                       {visCols.map(colKey => {
                         const col = COLUMNS[colKey];
                         return (
@@ -1170,28 +1170,28 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
                   ))}
                 </tbody>
               </table>
-              {filteredResults.length === 0 && <div className="text-center py-8 text-zinc-600 text-xs">No stocks match your filters</div>}
+              {filteredResults.length === 0 && <div className="text-center py-8 text-[var(--eq-text2)] text-xs">No stocks match your filters</div>}
             </div>
           </div>
 
           {selectedStock && (
-            <div className="bg-white shadow-sm ring-1 ring-zinc-200/70 rounded-xl overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200/80">
-                <span className="text-sm font-semibold text-zinc-900">{selectedStock}</span>
+            <div className="bg-[var(--eq-card)] shadow-sm ring-1 ring-[var(--eq-border)] rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--eq-border)]">
+                <span className="text-sm font-semibold text-[var(--eq-text)]">{selectedStock}</span>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => openResearch(selectedStock)}
-                    className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 text-[10px] font-medium text-indigo-700 hover:bg-indigo-100"
+                    className="inline-flex items-center gap-1 rounded-md bg-[var(--eq-accent-soft)] px-2 py-1 text-[10px] font-medium text-[var(--eq-accent)] hover:bg-[var(--eq-accent-soft)]"
                   >
                     <ExternalLink className="h-3 w-3" /> Full Research
                   </button>
-                  <button onClick={() => { setSelectedStock(null); setStockDetail(null); }} className="text-zinc-500 hover:text-zinc-900"><X className="w-4 h-4" /></button>
+                  <button onClick={() => { setSelectedStock(null); setStockDetail(null); }} className="text-[var(--eq-text3)] hover:text-[var(--eq-text)]"><X className="w-4 h-4" /></button>
                 </div>
               </div>
-              {detailLoading ? <div className="flex items-center justify-center h-48 text-zinc-500"><Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading...</div>
+              {detailLoading ? <div className="flex items-center justify-center h-48 text-[var(--eq-text3)]"><Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading...</div>
                 : stockDetail ? <StockDetail data={stockDetail} />
-                : <div className="p-4 text-zinc-500 text-sm">Failed to load</div>}
+                : <div className="p-4 text-[var(--eq-text3)] text-sm">Failed to load</div>}
             </div>
           )}
         </div>

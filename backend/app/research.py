@@ -193,7 +193,7 @@ def _research_compute_nonstock(symbol: str, ticker, info: dict, asset_class: str
             "total_assets_fmt": _fmt_large(g("totalAssets")),
             "nav_price": _safe(g("navPrice")),
             "yield": _safe(g("yield"), 4),
-            "yield_pct": round(g("yield", 0) * 100, 2) if g("yield") else None,
+            "yield_pct": round(g("yield", 0), 2) if g("yield") else None,  # yf >=0.2.50: already percent
             "category": g("category"),
             "fund_family": g("fundFamily"),
             "ytd_return": _safe(g("ytdReturn"), 4),
@@ -274,7 +274,7 @@ def _research_compute(symbol: str):
             "eps_forward": _safe(info.get("forwardEps")),
             "dividend_rate": _safe(info.get("dividendRate")),
             "dividend_yield": _safe(info.get("dividendYield"), 4),
-            "dividend_yield_pct": round(info.get("dividendYield", 0) * 100, 2) if info.get("dividendYield") else None,
+            "dividend_yield_pct": round(info.get("dividendYield", 0), 2) if info.get("dividendYield") else None,  # yf >=0.2.50: already percent
             "ex_dividend_date": info.get("exDividendDate"),
             "payout_ratio": _safe(info.get("payoutRatio"), 4),
             "target_mean": _safe(info.get("targetMeanPrice")),
@@ -406,8 +406,8 @@ def _research_compute(symbol: str):
         health_score = round((h_de + h_cr) / 2, 1)
 
         # Dividend: yield, payout ratio, consistency
-        div_yield = info.get("dividendYield", 0) or 0
-        d_y = _snowflake_score(div_yield, [0, 0.01, 0.02, 0.03, 0.04, 0.06])
+        div_yield = info.get("dividendYield", 0) or 0  # yf >=0.2.50: percent (0.37 = 0.37%)
+        d_y = _snowflake_score(div_yield, [0, 1.0, 2.0, 3.0, 4.0, 6.0])
         payout = info.get("payoutRatio", 0) or 0
         d_p = _snowflake_score(payout, [0, 0.2, 0.4, 0.6, 0.8, 1.0], reverse=True) if payout > 0 else 3
         dividend_score = round((d_y + d_p) / 2, 1) if div_yield > 0 else 0

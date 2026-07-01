@@ -17,8 +17,8 @@ function Sparkline({ data, width = 100, height = 32 }) {
 }
 
 function Pct({ value }) {
-  if (value == null) return <span className="text-zinc-400">—</span>;
-  const c = value > 0 ? 'text-emerald-600' : value < 0 ? 'text-red-600' : 'text-zinc-500';
+  if (value == null) return <span className="text-[var(--eq-text3)]">—</span>;
+  const c = value > 0 ? 'text-[var(--eq-gain)]' : value < 0 ? 'text-[var(--eq-loss)]' : 'text-[var(--eq-text3)]';
   return <span className={`${c} font-mono text-xs`}>{value > 0 ? '+' : ''}{value}%</span>;
 }
 
@@ -31,16 +31,16 @@ function fmtPrice(v) {
 function MarketCard({ item, large }) {
   const up = item.change_1d >= 0;
   return (
-    <div className={`bg-white rounded-xl p-4 shadow-sm ring-1 ring-zinc-200/70 hover:ring-zinc-300/80 transition-all ${large ? '' : ''}`}>
+    <div className={`bg-[var(--eq-card)] rounded-xl p-4 shadow-sm ring-1 ring-[var(--eq-border)] hover:ring-[var(--eq-border2)] transition-all ${large ? '' : ''}`}>
       <div className="flex items-start justify-between mb-2">
         <div>
-          <div className="text-[10px] text-zinc-500 uppercase tracking-wider">{item.name}</div>
-          <div className={`text-lg font-bold ${up ? 'text-emerald-600' : 'text-red-600'}`}>
+          <div className="text-[10px] text-[var(--eq-text3)] uppercase tracking-wider">{item.name}</div>
+          <div className={`text-lg font-bold ${up ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>
             {fmtPrice(item.price)}
           </div>
         </div>
         <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${
-          up ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+          up ? 'bg-[var(--eq-gain-soft)] text-[var(--eq-gain)]' : 'bg-[var(--eq-loss-soft)] text-[var(--eq-loss)]'
         }`}>
           {up ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
           {item.change_1d > 0 ? '+' : ''}{item.change_1d}%
@@ -50,7 +50,7 @@ function MarketCard({ item, large }) {
       <div className="flex gap-2 mt-2 flex-wrap">
         {Object.entries(item.changes || {}).map(([k, v]) => (
           <div key={k} className="text-center">
-            <div className="text-[8px] text-zinc-500">{k}</div>
+            <div className="text-[8px] text-[var(--eq-text3)]">{k}</div>
             <Pct value={v} />
           </div>
         ))}
@@ -70,12 +70,12 @@ function SectorHeatmap({ sectors }) {
           ? `rgba(34, 197, 94, ${0.08 + intensity * 0.35})`
           : `rgba(239, 68, 68, ${0.08 + intensity * 0.35})`;
         return (
-          <div key={s.symbol} className="rounded-lg p-3 text-center ring-1 ring-zinc-200/50" style={{ background: bg }}>
-            <div className="text-[10px] text-zinc-800 font-medium truncate">{s.name}</div>
-            <div className={`text-sm font-bold ${s.change_1d >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+          <div key={s.symbol} className="rounded-lg p-3 text-center ring-1 ring-[var(--eq-border)]" style={{ background: bg }}>
+            <div className="text-[10px] text-[var(--eq-text)] font-medium truncate">{s.name}</div>
+            <div className={`text-sm font-bold ${s.change_1d >= 0 ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>
               {s.change_1d > 0 ? '+' : ''}{s.change_1d}%
             </div>
-            <div className="text-[9px] text-zinc-600 mt-0.5">
+            <div className="text-[9px] text-[var(--eq-text2)] mt-0.5">
               YTD: <Pct value={s.changes?.YTD} />
             </div>
           </div>
@@ -88,7 +88,7 @@ function SectorHeatmap({ sectors }) {
 function Section({ title, children }) {
   return (
     <div>
-      <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">{title}</h3>
+      <h3 className="text-xs font-semibold text-[var(--eq-text3)] uppercase tracking-wider mb-3">{title}</h3>
       {children}
     </div>
   );
@@ -106,8 +106,8 @@ export default function MarketPanel() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="flex items-center justify-center h-64 text-zinc-500"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading market data...</div>;
-  if (error) return <div className="p-4 rounded-xl bg-red-50 text-red-800 ring-1 ring-red-200/80">{error}</div>;
+  if (loading) return <div className="flex items-center justify-center h-64 text-[var(--eq-text3)]"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading market data...</div>;
+  if (error) return <div className="p-4 rounded-xl bg-[var(--eq-loss-soft)] text-[var(--eq-loss)] ring-1 ring-[var(--eq-loss)]/25">{error}</div>;
   if (!data) return null;
 
   return (

@@ -45,9 +45,9 @@ function CryptoHeroTooltip({ active, payload, periodKey }) {
   const n = Number(v);
   const priceStr = Number.isFinite(n) ? `$${n.toLocaleString(undefined, { maximumFractionDigits: n < 1 ? 6 : 2 })}` : '—';
   return (
-    <div className="bg-white rounded-lg px-3 py-1.5 text-[10px] shadow-md ring-1 ring-zinc-200/80 dark:bg-zinc-800 dark:ring-zinc-600">
-      {when && <div className="text-zinc-500 dark:text-zinc-400 mb-0.5">{when}</div>}
-      <span className="text-zinc-900 font-medium dark:text-zinc-100">{priceStr}</span>
+    <div className="bg-[var(--eq-card)] rounded-lg px-3 py-1.5 text-[10px] shadow-md ring-1 ring-[var(--eq-border)]">
+      {when && <div className="text-[var(--eq-text3)] mb-0.5">{when}</div>}
+      <span className="text-[var(--eq-text)] font-medium">{priceStr}</span>
     </div>
   );
 }
@@ -62,8 +62,8 @@ function Sparkline({ data, height = 32 }) {
 }
 
 function Pct({ value }) {
-  if (value == null) return <span className="text-zinc-400">—</span>;
-  const c = value > 0 ? 'text-emerald-600' : value < 0 ? 'text-red-600' : 'text-zinc-500';
+  if (value == null) return <span className="text-[var(--eq-text3)]">—</span>;
+  const c = value > 0 ? 'text-[var(--eq-gain)]' : value < 0 ? 'text-[var(--eq-loss)]' : 'text-[var(--eq-text3)]';
   return <span className={`${c} font-mono text-xs`}>{value > 0 ? '+' : ''}{value}%</span>;
 }
 
@@ -111,14 +111,14 @@ function CryptoCard({ item, period }) {
   const change = getCryptoChange(item, period);
   const up = change != null && change >= 0;
   return (
-    <div className="bg-white rounded-xl p-3 shadow-sm ring-1 ring-zinc-200/70 hover:ring-zinc-300/80 transition-all overflow-hidden min-w-0">
+    <div className="bg-[var(--eq-card)] rounded-xl p-3 shadow-sm ring-1 ring-[var(--eq-border)] hover:ring-[var(--eq-border2)] transition-all overflow-hidden min-w-0">
       <div className="flex items-start justify-between mb-1.5">
-        <div className="text-[10px] text-zinc-500 truncate max-w-[100px]">{item.name}</div>
-        <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${change == null ? 'bg-zinc-100 text-zinc-500' : up ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+        <div className="text-[10px] text-[var(--eq-text3)] truncate max-w-[100px]">{item.name}</div>
+        <div className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${change == null ? 'bg-[var(--eq-card2)] text-[var(--eq-text3)]' : up ? 'bg-[var(--eq-gain-soft)] text-[var(--eq-gain)]' : 'bg-[var(--eq-loss-soft)] text-[var(--eq-loss)]'}`}>
           {change != null ? `${up ? '+' : ''}${change}%` : '—'}
         </div>
       </div>
-      <div className={`text-sm font-bold ${change == null ? 'text-zinc-400' : up ? 'text-emerald-600' : 'text-red-600'}`}>{fmtPrice(item.price)}</div>
+      <div className={`text-sm font-bold ${change == null ? 'text-[var(--eq-text3)]' : up ? 'text-[var(--eq-gain)]' : 'text-[var(--eq-loss)]'}`}>{fmtPrice(item.price)}</div>
       <div className="mt-1.5"><Sparkline data={sliceSparkline(item.sparkline, period)} height={28} /></div>
       <div className="flex gap-2 mt-1.5 flex-wrap">
         {PERIODS.filter(p => p.id !== '1D' && p.key !== period).slice(0, 3).map(p => {
@@ -126,13 +126,13 @@ function CryptoCard({ item, period }) {
           if (val == null) return null;
           return (
             <div key={p.id} className="text-center">
-              <div className="text-[7px] text-zinc-500">{p.label}</div>
+              <div className="text-[7px] text-[var(--eq-text3)]">{p.label}</div>
               <Pct value={val} />
             </div>
           );
         })}
       </div>
-      <div className="text-[9px] text-zinc-500 mt-1">Vol 24h: {item.volume_24h != null ? fmtCap(item.volume_24h) : '—'} · MCap: {fmtCap(item.market_cap)}</div>
+      <div className="text-[9px] text-[var(--eq-text3)] mt-1">Vol 24h: {item.volume_24h != null ? fmtCap(item.volume_24h) : '—'} · MCap: {fmtCap(item.market_cap)}</div>
     </div>
   );
 }
@@ -141,7 +141,7 @@ function Section({ title, children, right }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{title}</h3>
+        <h3 className="text-xs font-semibold text-[var(--eq-text3)] uppercase tracking-wider">{title}</h3>
         {right}
       </div>
       {children}
@@ -167,7 +167,7 @@ export default function CryptoPanel({ embedded = false }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-zinc-500">
+      <div className="flex items-center justify-center h-64 text-[var(--eq-text3)]">
         <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading crypto overview...
       </div>
     );
@@ -187,15 +187,15 @@ export default function CryptoPanel({ embedded = false }) {
   return (
     <div className={`space-y-6 ${embedded ? 'pt-0' : ''}`}>
       <div className={`flex items-center gap-2 ${embedded ? 'justify-end' : 'justify-between'}`}>
-        {!embedded && <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Crypto overview</h2>}
-        <div className="flex gap-0.5 bg-zinc-100 rounded-lg p-0.5 flex-wrap justify-end dark:bg-zinc-800/80">
+        {!embedded && <h2 className="text-sm font-semibold text-[var(--eq-text)]">Crypto overview</h2>}
+        <div className="flex gap-0.5 bg-[var(--eq-card2)] rounded-lg p-0.5 flex-wrap justify-end">
           {PERIODS.map((p) => (
             <button
               key={p.id}
               type="button"
               onClick={() => setPeriod(p.key)}
               className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
-                period === p.key ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-zinc-200/60' : 'text-zinc-500 hover:text-zinc-800'
+                period === p.key ? 'bg-[var(--eq-card)] text-[var(--eq-accent)] shadow-sm ring-1 ring-[var(--eq-border)]' : 'text-[var(--eq-text3)] hover:text-[var(--eq-text)]'
               }`}
             >
               {p.label}
@@ -212,15 +212,15 @@ export default function CryptoPanel({ embedded = false }) {
             const change = getCryptoChange(coin, activePeriodKey);
             const up = change != null && change >= 0;
             return (
-              <div key={coin.symbol} className="bg-white rounded-xl p-4 sm:p-5 shadow-sm ring-1 ring-zinc-200/70 dark:bg-zinc-900/80 dark:ring-zinc-800">
+              <div key={coin.symbol} className="bg-[var(--eq-card)] rounded-xl p-4 sm:p-5 shadow-sm ring-1 ring-[var(--eq-border)]">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{coin.name}</div>
-                    <div className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-zinc-100">{fmtPrice(coin.price)}</div>
+                    <div className="text-xs font-medium text-[var(--eq-text3)]">{coin.name}</div>
+                    <div className="text-2xl sm:text-3xl font-bold text-[var(--eq-text)]">{fmtPrice(coin.price)}</div>
                   </div>
                   <div
                     className={`text-sm font-bold px-2.5 py-1 rounded-lg ${
-                      change == null ? 'text-zinc-500' : up ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+                      change == null ? 'text-[var(--eq-text3)]' : up ? 'bg-[var(--eq-gain-soft)] text-[var(--eq-gain)]' : 'bg-[var(--eq-loss-soft)] text-[var(--eq-loss)]'
                     }`}
                   >
                     {change != null ? `${up ? '+' : ''}${change}%` : '—'}
@@ -282,14 +282,14 @@ export default function CryptoPanel({ embedded = false }) {
                 href={a.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block bg-white rounded-lg p-2.5 shadow-sm ring-1 ring-zinc-200/70 hover:bg-zinc-50 hover:ring-zinc-300/80 transition-all group"
+                className="block bg-[var(--eq-card)] rounded-lg p-2.5 shadow-sm ring-1 ring-[var(--eq-border)] hover:bg-[var(--eq-card2)] hover:ring-[var(--eq-border2)] transition-all group"
               >
-                <div className="text-[11px] font-medium text-zinc-800 group-hover:text-zinc-950 line-clamp-2">{a.title}</div>
-                <div className="flex items-center gap-2 mt-1 text-[9px] text-zinc-500">
+                <div className="text-[11px] font-medium text-[var(--eq-text)] group-hover:text-[var(--eq-text)] line-clamp-2">{a.title}</div>
+                <div className="flex items-center gap-2 mt-1 text-[9px] text-[var(--eq-text3)]">
                   {a.source && <span>{a.source}</span>}
                   <span>{timeAgo(a.date)} ago</span>
                   {a.tickers?.slice(0, 4).map((t, j) => (
-                    <span key={j} className="px-1 rounded bg-indigo-50 text-indigo-700 text-[8px] ring-1 ring-indigo-100">
+                    <span key={j} className="px-1 rounded bg-[var(--eq-accent-soft)] text-[var(--eq-accent)] text-[8px] ring-1 ring-[var(--eq-accent-ring)]">
                       {t}
                     </span>
                   ))}

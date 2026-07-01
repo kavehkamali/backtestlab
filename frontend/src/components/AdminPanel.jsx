@@ -39,15 +39,15 @@ Placeholders: {{name}}, {{email}}, {{first_name}}
 Follow the admin's intent (announcement, reminder, survey, etc.) in a professional tone.`,
 };
 
-function StatCard({ label, value, sub, icon: Icon, color = 'text-indigo-600' }) {
+function StatCard({ label, value, sub, icon: Icon, color = 'text-[var(--eq-accent)]' }) {
   return (
-    <div className="bg-white shadow-sm ring-1 ring-zinc-200/70 rounded-xl p-4">
+    <div className="bg-[var(--eq-card)] shadow-sm ring-1 ring-[var(--eq-border)] rounded-xl p-4">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] text-zinc-500 uppercase tracking-wider">{label}</span>
+        <span className="text-[10px] text-[var(--eq-text3)] uppercase tracking-wider">{label}</span>
         {Icon && <Icon className={`w-4 h-4 ${color}`} />}
       </div>
-      <div className="text-2xl font-bold text-zinc-900">{value?.toLocaleString() ?? '—'}</div>
-      {sub && <div className="text-[10px] text-zinc-500 mt-1">{sub}</div>}
+      <div className="text-2xl font-bold text-[var(--eq-text)]">{value?.toLocaleString() ?? '—'}</div>
+      {sub && <div className="text-[10px] text-[var(--eq-text3)] mt-1">{sub}</div>}
     </div>
   );
 }
@@ -55,8 +55,8 @@ function StatCard({ label, value, sub, icon: Icon, color = 'text-indigo-600' }) 
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white ring-1 ring-zinc-200/80 rounded-lg px-3 py-2 text-[10px]">
-      <p className="text-zinc-500 mb-1">{label}</p>
+    <div className="bg-[var(--eq-card)] ring-1 ring-[var(--eq-border)] rounded-lg px-3 py-2 text-[10px]">
+      <p className="text-[var(--eq-text3)] mb-1">{label}</p>
       {payload.map((p, i) => {
         const v = p.value;
         const isPct = p.dataKey === 'retention_pct';
@@ -73,9 +73,9 @@ function ChartTooltip({ active, payload, label }) {
 
 function Section({ title, children, right }) {
   return (
-    <div className="bg-zinc-50/90 shadow-sm ring-1 ring-zinc-200/70 rounded-xl p-4">
+    <div className="bg-[var(--eq-card2)] shadow-sm ring-1 ring-[var(--eq-border)] rounded-xl p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{title}</h3>
+        <h3 className="text-xs font-semibold text-[var(--eq-text3)] uppercase tracking-wider">{title}</h3>
         {right}
       </div>
       {children}
@@ -128,7 +128,7 @@ function AdminLogin({ onLogin }) {
 
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="bg-white shadow-sm ring-1 ring-zinc-200/70 rounded-2xl p-8 w-full max-w-sm">
+      <div className="bg-[var(--eq-card)] shadow-sm ring-1 ring-[var(--eq-border)] rounded-2xl p-8 w-full max-w-sm">
         <div className="text-center mb-6">
           <img
             src="/logo-mark.svg"
@@ -138,17 +138,17 @@ function AdminLogin({ onLogin }) {
             className="w-8 h-8 mx-auto mb-2"
             aria-hidden
           />
-          <h2 className="text-lg font-bold text-zinc-900">Admin Dashboard</h2>
-          <p className="text-xs text-zinc-500">Enter admin credentials</p>
+          <h2 className="text-lg font-bold text-[var(--eq-text)]">Admin Dashboard</h2>
+          <p className="text-xs text-[var(--eq-text3)]">Enter admin credentials</p>
         </div>
         <div className="space-y-3" onKeyDown={e => e.key === 'Enter' && handleSubmit()}>
           <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Username"
-            className="w-full bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-4 py-2.5 text-zinc-900 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80" />
+            className="w-full bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-lg px-4 py-2.5 text-[var(--eq-text)] text-sm placeholder:text-[var(--eq-text3)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]" />
           <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password"
-            className="w-full bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-4 py-2.5 text-zinc-900 text-sm placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80" />
-          {error && <p className="text-red-600 text-xs">{error}</p>}
+            className="w-full bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-lg px-4 py-2.5 text-[var(--eq-text)] text-sm placeholder:text-[var(--eq-text3)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]" />
+          {error && <p className="text-[var(--eq-loss)] text-xs">{error}</p>}
           <button onClick={handleSubmit} disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
+            className="w-full bg-[var(--eq-accent)] hover:opacity-85 disabled:opacity-50 text-[var(--eq-bg)] font-medium py-2.5 rounded-lg text-sm flex items-center justify-center gap-2">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Login
           </button>
         </div>
@@ -466,7 +466,7 @@ export default function AdminPanel() {
   };
 
   if (!authed) return <AdminLogin onLogin={() => { setAuthed(true); }} />;
-  if (loading && !data) return <div className="flex items-center justify-center h-64 text-zinc-500"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading analytics...</div>;
+  if (loading && !data) return <div className="flex items-center justify-center h-64 text-[var(--eq-text3)]"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading analytics...</div>;
   if (!data) return null;
 
   const mailEligible = (usersData || []).filter((u) => u.active && u.email_verified && !u.is_admin);
@@ -499,7 +499,7 @@ export default function AdminPanel() {
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-zinc-900">
+            <h2 className="text-lg font-bold text-[var(--eq-text)]">
               {adminTab === 'analytics'
                 ? 'Analytics'
                 : adminTab === 'usage'
@@ -512,12 +512,12 @@ export default function AdminPanel() {
                     ? 'Data Platform'
                     : 'Email & newsletters'}
             </h2>
-            <p className="text-xs text-zinc-500 mt-0.5">
+            <p className="text-xs text-[var(--eq-text3)] mt-0.5">
               {adminTab === 'analytics'
                 ? (
                     <>
                       Visitor tracking and insights. Dates, “today”, and hourly buckets use{' '}
-                      <span className="text-zinc-500">
+                      <span className="text-[var(--eq-text3)]">
                         {data.analytics_tz_abbrev ? `${data.analytics_tz_abbrev} (${data.analytics_timezone || 'America/New_York'})` : (data.analytics_timezone || 'US Eastern')}
                       </span>
                       — daylight saving included.
@@ -537,7 +537,7 @@ export default function AdminPanel() {
           <button
             type="button"
             onClick={handleLogout}
-            className="p-1.5 rounded-lg text-zinc-500 hover:text-red-600 hover:bg-zinc-100 shrink-0"
+            className="p-1.5 rounded-lg text-[var(--eq-text3)] hover:text-[var(--eq-loss)] hover:bg-[var(--eq-card2)] shrink-0"
             title="Logout"
           >
             <LogOut className="w-4 h-4" />
@@ -547,7 +547,7 @@ export default function AdminPanel() {
         <div className="flex flex-col gap-3 min-w-0">
           {/* Own row so Analytics range controls never squeeze the tab strip (third tab was clipping on narrow viewports with overflow-x-hidden). */}
           <div
-            className="flex flex-wrap gap-0.5 bg-zinc-100 rounded-lg p-0.5 w-full sm:w-fit max-w-full"
+            className="flex flex-wrap gap-0.5 bg-[var(--eq-card2)] rounded-lg p-0.5 w-full sm:w-fit max-w-full"
             role="tablist"
             aria-label="Admin section"
           >
@@ -574,7 +574,7 @@ export default function AdminPanel() {
                   }
                 }}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium min-w-[5.5rem] flex-1 sm:flex-none text-center ${
-                  adminTab === t.id ? 'bg-indigo-500/20 text-indigo-700' : 'text-zinc-500 hover:text-zinc-600'
+                  adminTab === t.id ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)]' : 'text-[var(--eq-text3)] hover:text-[var(--eq-text2)]'
                 }`}
               >
                 {t.label}
@@ -584,15 +584,15 @@ export default function AdminPanel() {
 
           {adminTab === 'analytics' && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] text-zinc-600 uppercase tracking-wide">Range</span>
-              <div className="flex gap-0.5 bg-zinc-100 rounded-lg p-0.5">
+              <span className="text-[10px] text-[var(--eq-text2)] uppercase tracking-wide">Range</span>
+              <div className="flex gap-0.5 bg-[var(--eq-card2)] rounded-lg p-0.5">
                 {[7, 14, 30, 90].map((d) => (
                   <button
                     key={d}
                     type="button"
                     onClick={() => handlePeriod(d)}
                     className={`px-2.5 py-1 rounded-md text-[10px] font-medium ${
-                      days === d ? 'bg-indigo-500/20 text-indigo-700' : 'text-zinc-500 hover:text-zinc-600'
+                      days === d ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)]' : 'text-[var(--eq-text3)] hover:text-[var(--eq-text2)]'
                     }`}
                   >
                     {d}D
@@ -602,7 +602,7 @@ export default function AdminPanel() {
               <button
                 type="button"
                 onClick={() => load()}
-                className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
+                className="p-1.5 rounded-lg text-[var(--eq-text3)] hover:text-[var(--eq-text)] hover:bg-[var(--eq-card2)]"
                 title="Refresh analytics"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -611,15 +611,15 @@ export default function AdminPanel() {
           )}
           {adminTab === 'usage' && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] text-zinc-600 uppercase tracking-wide">Range</span>
-              <div className="flex gap-0.5 bg-zinc-100 rounded-lg p-0.5">
+              <span className="text-[10px] text-[var(--eq-text2)] uppercase tracking-wide">Range</span>
+              <div className="flex gap-0.5 bg-[var(--eq-card2)] rounded-lg p-0.5">
                 {[7, 14, 30, 90].map((d) => (
                   <button
                     key={d}
                     type="button"
                     onClick={() => { setUsageDays(d); loadUsage(d); }}
                     className={`px-2.5 py-1 rounded-md text-[10px] font-medium ${
-                      usageDays === d ? 'bg-indigo-500/20 text-indigo-700' : 'text-zinc-500 hover:text-zinc-600'
+                      usageDays === d ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)]' : 'text-[var(--eq-text3)] hover:text-[var(--eq-text2)]'
                     }`}
                   >
                     {d}D
@@ -629,7 +629,7 @@ export default function AdminPanel() {
               <button
                 type="button"
                 onClick={() => loadUsage()}
-                className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100"
+                className="p-1.5 rounded-lg text-[var(--eq-text3)] hover:text-[var(--eq-text)] hover:bg-[var(--eq-card2)]"
                 title="Refresh usage"
               >
                 <RefreshCw className={`w-4 h-4 ${usageLoading ? 'animate-spin' : ''}`} />
@@ -642,21 +642,21 @@ export default function AdminPanel() {
       {adminTab === 'usage' && (
         <div className="space-y-4">
           {!usageData && usageLoading && (
-            <div className="flex items-center justify-center h-40 text-zinc-500 text-sm">
+            <div className="flex items-center justify-center h-40 text-[var(--eq-text3)] text-sm">
               <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading usage…
             </div>
           )}
           {usageData && (
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatCard label="Events" value={usageData.summary?.events} icon={Bot} color="text-indigo-600" />
-                <StatCard label="New Chats" value={usageData.summary?.new_chats} icon={MessageSquare} color="text-emerald-600" />
+                <StatCard label="Events" value={usageData.summary?.events} icon={Bot} color="text-[var(--eq-accent)]" />
+                <StatCard label="New Chats" value={usageData.summary?.new_chats} icon={MessageSquare} color="text-[var(--eq-gain)]" />
                 <StatCard label="Input Tokens" value={usageData.summary?.input_tokens} icon={Eye} color="text-cyan-500" />
                 <StatCard label="Output Tokens" value={usageData.summary?.output_tokens} icon={Send} color="text-pink-500" />
               </div>
 
-              <Section title="Usage by page history" right={<Bot className="w-3.5 h-3.5 text-zinc-500" />}>
-                <p className="text-[10px] text-zinc-500 mb-3 leading-relaxed">
+              <Section title="Usage by page history" right={<Bot className="w-3.5 h-3.5 text-[var(--eq-text3)]" />}>
+                <p className="text-[10px] text-[var(--eq-text3)] mb-3 leading-relaxed">
                   Daily request events by page for the selected range. Token totals stay in the table below; this chart shows which tools are being used over time.
                 </p>
                 <ResponsiveContainer width="100%" height={280}>
@@ -669,7 +669,7 @@ export default function AdminPanel() {
                       verticalAlign="top"
                       height={30}
                       wrapperStyle={{ fontSize: '10px', color: '#666' }}
-                      formatter={(value) => <span className="capitalize text-zinc-500">{value}</span>}
+                      formatter={(value) => <span className="capitalize text-[var(--eq-text3)]">{value}</span>}
                     />
                     {(usageData.top_pages || []).map((page, i) => (
                       <Line
@@ -686,15 +686,15 @@ export default function AdminPanel() {
                   </ComposedChart>
                 </ResponsiveContainer>
                 {(!usageData.daily_usage || usageData.daily_usage.length === 0) && (
-                  <p className="text-xs text-zinc-600 text-center py-4">No historical usage yet for this period</p>
+                  <p className="text-xs text-[var(--eq-text2)] text-center py-4">No historical usage yet for this period</p>
                 )}
               </Section>
 
-              <Section title="Usage by page" right={<Bot className="w-3.5 h-3.5 text-zinc-500" />}>
+              <Section title="Usage by page" right={<Bot className="w-3.5 h-3.5 text-[var(--eq-text3)]" />}>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[11px]">
-                    <thead className="bg-zinc-100">
-                      <tr className="text-zinc-500 border-b border-zinc-200/80">
+                    <thead className="bg-[var(--eq-card2)]">
+                      <tr className="text-[var(--eq-text3)] border-b border-[var(--eq-border)]">
                         <th className="text-left py-2 px-2 font-medium">Page</th>
                         <th className="text-right py-2 px-2 font-medium">New chat</th>
                         <th className="text-right py-2 px-2 font-medium">Total conversation</th>
@@ -706,17 +706,17 @@ export default function AdminPanel() {
                     </thead>
                     <tbody>
                       {(usageData.pages || []).map((p) => (
-                        <tr key={p.page} className="border-b border-zinc-100 hover:bg-zinc-50">
-                          <td className="py-2 px-2 text-zinc-900 font-semibold capitalize">{p.page}</td>
-                          <td className="py-2 px-2 text-right text-zinc-700">{p.new_chats?.toLocaleString?.() ?? p.new_chats}</td>
-                          <td className="py-2 px-2 text-right text-zinc-700">{p.total_conversations?.toLocaleString?.() ?? p.total_conversations}</td>
-                          <td className="py-2 px-2 text-right text-zinc-700">{p.events?.toLocaleString?.() ?? p.events}</td>
+                        <tr key={p.page} className="border-b border-[var(--eq-grid)] hover:bg-[var(--eq-card2)]">
+                          <td className="py-2 px-2 text-[var(--eq-text)] font-semibold capitalize">{p.page}</td>
+                          <td className="py-2 px-2 text-right text-[var(--eq-text2)]">{p.new_chats?.toLocaleString?.() ?? p.new_chats}</td>
+                          <td className="py-2 px-2 text-right text-[var(--eq-text2)]">{p.total_conversations?.toLocaleString?.() ?? p.total_conversations}</td>
+                          <td className="py-2 px-2 text-right text-[var(--eq-text2)]">{p.events?.toLocaleString?.() ?? p.events}</td>
                           <td className="py-2 px-2 text-right text-cyan-700 font-mono">{p.input_tokens?.toLocaleString?.() ?? p.input_tokens}</td>
                           <td className="py-2 px-2 text-right text-pink-700 font-mono">{p.output_tokens?.toLocaleString?.() ?? p.output_tokens}</td>
-                          <td className="py-2 px-2 text-zinc-500">
+                          <td className="py-2 px-2 text-[var(--eq-text3)]">
                             <div className="flex flex-wrap gap-1.5">
                               {(p.sections || []).map((s) => (
-                                <span key={s.section} className="rounded bg-zinc-100 px-1.5 py-0.5 ring-1 ring-zinc-200/80">
+                                <span key={s.section} className="rounded bg-[var(--eq-card2)] px-1.5 py-0.5 ring-1 ring-[var(--eq-border)]">
                                   {s.section}: {s.events}
                                 </span>
                               ))}
@@ -727,7 +727,7 @@ export default function AdminPanel() {
                     </tbody>
                   </table>
                   {(!usageData.pages || usageData.pages.length === 0) && (
-                    <p className="text-xs text-zinc-600 text-center py-6">No usage yet for this period</p>
+                    <p className="text-xs text-[var(--eq-text2)] text-center py-6">No usage yet for this period</p>
                   )}
                 </div>
               </Section>
@@ -735,8 +735,8 @@ export default function AdminPanel() {
               <Section title="Stored user inputs by IP or username">
                 <div className="overflow-x-auto max-h-[460px] overflow-y-auto">
                   <table className="w-full text-[11px]">
-                    <thead className="sticky top-0 bg-zinc-100">
-                      <tr className="text-zinc-500 border-b border-zinc-200/80">
+                    <thead className="sticky top-0 bg-[var(--eq-card2)]">
+                      <tr className="text-[var(--eq-text3)] border-b border-[var(--eq-border)]">
                         <th className="text-left py-2 px-2 font-medium">Time</th>
                         <th className="text-left py-2 px-2 font-medium">User / IP</th>
                         <th className="text-left py-2 px-2 font-medium">Page</th>
@@ -746,21 +746,21 @@ export default function AdminPanel() {
                     </thead>
                     <tbody>
                       {(usageData.recent_inputs || []).map((r) => (
-                        <tr key={r.id} className="border-b border-zinc-100 align-top hover:bg-zinc-50">
-                          <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{formatAdminEt(r.timestamp, { includeYear: false })}</td>
-                          <td className="py-1.5 px-2 text-zinc-600">
+                        <tr key={r.id} className="border-b border-[var(--eq-grid)] align-top hover:bg-[var(--eq-card2)]">
+                          <td className="py-1.5 px-2 text-[var(--eq-text3)] whitespace-nowrap">{formatAdminEt(r.timestamp, { includeYear: false })}</td>
+                          <td className="py-1.5 px-2 text-[var(--eq-text2)]">
                             <div className="font-mono">{r.username || (r.user_id ? `#${r.user_id}` : r.ip)}</div>
-                            {r.username && <div className="text-[10px] text-zinc-500 font-mono">{r.ip}</div>}
+                            {r.username && <div className="text-[10px] text-[var(--eq-text3)] font-mono">{r.ip}</div>}
                           </td>
                           <td className="py-1.5 px-2">
-                            <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 text-[9px] font-medium">{r.page}</span>
-                            {r.section ? <span className="ml-1 text-[10px] text-zinc-500">{r.section}</span> : null}
-                            {r.forced ? <span className="ml-1 text-[10px] text-red-600">forced</span> : null}
+                            <span className="px-1.5 py-0.5 rounded bg-[var(--eq-accent-soft)] text-[var(--eq-accent)] text-[9px] font-medium">{r.page}</span>
+                            {r.section ? <span className="ml-1 text-[10px] text-[var(--eq-text3)]">{r.section}</span> : null}
+                            {r.forced ? <span className="ml-1 text-[10px] text-[var(--eq-loss)]">forced</span> : null}
                           </td>
-                          <td className="py-1.5 px-2 text-right font-mono text-zinc-600 whitespace-nowrap">
+                          <td className="py-1.5 px-2 text-right font-mono text-[var(--eq-text2)] whitespace-nowrap">
                             {r.input_tokens?.toLocaleString?.() ?? r.input_tokens} / {r.output_tokens?.toLocaleString?.() ?? r.output_tokens}
                           </td>
-                          <td className="py-1.5 px-2 text-zinc-700 max-w-[520px]">
+                          <td className="py-1.5 px-2 text-[var(--eq-text2)] max-w-[520px]">
                             <div className="line-clamp-3 whitespace-pre-wrap break-words">{r.input || '—'}</div>
                           </td>
                         </tr>
@@ -768,7 +768,7 @@ export default function AdminPanel() {
                     </tbody>
                   </table>
                   {(!usageData.recent_inputs || usageData.recent_inputs.length === 0) && (
-                    <p className="text-xs text-zinc-600 text-center py-6">No stored inputs yet</p>
+                    <p className="text-xs text-[var(--eq-text2)] text-center py-6">No stored inputs yet</p>
                   )}
                 </div>
               </Section>
@@ -779,8 +779,8 @@ export default function AdminPanel() {
 
       {adminTab === 'users' && (
         <div className="space-y-4">
-        <Section title="Usage IP overrides" right={<Filter className="w-3.5 h-3.5 text-zinc-500" />}>
-          <p className="text-[11px] text-zinc-500 mb-3">
+        <Section title="Usage IP overrides" right={<Filter className="w-3.5 h-3.5 text-[var(--eq-text3)]" />}>
+          <p className="text-[11px] text-[var(--eq-text3)] mb-3">
             Add your own IP here to bypass anonymous limits, or force the friendly suggestion / lock screen for testing. These overrides apply before the daily IP counters.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 mb-3">
@@ -788,27 +788,27 @@ export default function AdminPanel() {
               value={usageOverrideIp}
               onChange={(e) => setUsageOverrideIp(e.target.value)}
               placeholder="IP address, e.g. 184.146.x.x"
-              className="bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-3 py-2 text-zinc-900 text-xs placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80"
+              className="bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-lg px-3 py-2 text-[var(--eq-text)] text-xs placeholder:text-[var(--eq-text3)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]"
             />
             <input
               value={usageOverrideNote}
               onChange={(e) => setUsageOverrideNote(e.target.value)}
               placeholder="Note, e.g. my home"
-              className="bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-3 py-2 text-zinc-900 text-xs placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80"
+              className="bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-lg px-3 py-2 text-[var(--eq-text)] text-xs placeholder:text-[var(--eq-text3)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]"
             />
             <button
               type="button"
               onClick={addUsageOverride}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-500"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--eq-accent)] text-[var(--eq-bg)] text-xs font-medium hover:opacity-85"
             >
               <Plus className="w-3.5 h-3.5" /> Add unlimited
             </button>
           </div>
-          {usageOverrideError && <p className="text-xs text-red-600 mb-2">{usageOverrideError}</p>}
+          {usageOverrideError && <p className="text-xs text-[var(--eq-loss)] mb-2">{usageOverrideError}</p>}
           <div className="overflow-x-auto">
             <table className="w-full text-[11px]">
-              <thead className="bg-zinc-100">
-                <tr className="text-zinc-500 border-b border-zinc-200/80">
+              <thead className="bg-[var(--eq-card2)]">
+                <tr className="text-[var(--eq-text3)] border-b border-[var(--eq-border)]">
                   <th className="text-left py-2 px-2 font-medium">IP</th>
                   <th className="text-left py-2 px-2 font-medium">Note</th>
                   <th className="text-center py-2 px-2 font-medium">Unlimited</th>
@@ -820,9 +820,9 @@ export default function AdminPanel() {
               </thead>
               <tbody>
                 {(usageOverrides || []).map((row) => (
-                  <tr key={row.ip} className="border-b border-zinc-100 hover:bg-zinc-50">
-                    <td className="py-1.5 px-2 text-zinc-700 font-mono">{row.ip}</td>
-                    <td className="py-1.5 px-2 text-zinc-500 max-w-[180px] truncate" title={row.note}>{row.note || '—'}</td>
+                  <tr key={row.ip} className="border-b border-[var(--eq-grid)] hover:bg-[var(--eq-card2)]">
+                    <td className="py-1.5 px-2 text-[var(--eq-text2)] font-mono">{row.ip}</td>
+                    <td className="py-1.5 px-2 text-[var(--eq-text3)] max-w-[180px] truncate" title={row.note}>{row.note || '—'}</td>
                     {[
                       ['unlimited', 'Unlimited'],
                       ['force_prompt', 'Force suggestion'],
@@ -843,12 +843,12 @@ export default function AdminPanel() {
                         />
                       </td>
                     ))}
-                    <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{formatAdminEt(row.updated_at, { includeYear: false })}</td>
+                    <td className="py-1.5 px-2 text-[var(--eq-text3)] whitespace-nowrap">{formatAdminEt(row.updated_at, { includeYear: false })}</td>
                     <td className="py-1.5 px-2 text-right">
                       <button
                         type="button"
                         onClick={() => removeUsageOverride(row.ip)}
-                        className="px-2 py-1 rounded bg-red-600/80 hover:bg-red-600 text-[10px] text-white"
+                        className="px-2 py-1 rounded bg-red-600/80 hover:bg-red-600 text-[10px] text-[var(--eq-bg)]"
                       >
                         Remove
                       </button>
@@ -857,34 +857,34 @@ export default function AdminPanel() {
                 ))}
               </tbody>
             </table>
-            {usageOverridesLoading && <p className="text-xs text-zinc-600 text-center py-4">Loading overrides…</p>}
+            {usageOverridesLoading && <p className="text-xs text-[var(--eq-text2)] text-center py-4">Loading overrides…</p>}
             {!usageOverridesLoading && (!usageOverrides || usageOverrides.length === 0) && (
-              <p className="text-xs text-zinc-600 text-center py-4">No IP overrides yet</p>
+              <p className="text-xs text-[var(--eq-text2)] text-center py-4">No IP overrides yet</p>
             )}
           </div>
         </Section>
 
-        <Section title="User Management" right={<Users className="w-3.5 h-3.5 text-zinc-500" />}>
+        <Section title="User Management" right={<Users className="w-3.5 h-3.5 text-[var(--eq-text3)]" />}>
           <div className="flex flex-col sm:flex-row gap-2 sm:items-center mb-3">
             <input
               value={usersQ}
               onChange={(e) => setUsersQ(e.target.value)}
               placeholder="Search by email or name"
-              className="flex-1 bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-3 py-2 text-zinc-900 text-xs placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80"
+              className="flex-1 bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-lg px-3 py-2 text-[var(--eq-text)] text-xs placeholder:text-[var(--eq-text3)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]"
             />
             <button
               type="button"
               onClick={loadUsers}
-              className="px-3 py-2 rounded-lg bg-zinc-100 ring-1 ring-zinc-200/80 text-xs text-zinc-600 hover:bg-zinc-200/60"
+              className="px-3 py-2 rounded-lg bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] text-xs text-[var(--eq-text2)] hover:bg-[var(--eq-border)]"
             >
               Refresh
             </button>
           </div>
-          {usersError && <p className="text-xs text-red-600 mb-2">{usersError}</p>}
+          {usersError && <p className="text-xs text-[var(--eq-loss)] mb-2">{usersError}</p>}
           <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
             <table className="w-full text-[11px]">
-              <thead className="sticky top-0 bg-zinc-100">
-                <tr className="text-zinc-500 border-b border-zinc-200/80">
+              <thead className="sticky top-0 bg-[var(--eq-card2)]">
+                <tr className="text-[var(--eq-text3)] border-b border-[var(--eq-border)]">
                   <th className="text-left py-2 px-2 font-medium">ID</th>
                   <th className="text-left py-2 px-2 font-medium">Email</th>
                   <th className="text-left py-2 px-2 font-medium">Name</th>
@@ -896,32 +896,32 @@ export default function AdminPanel() {
               </thead>
               <tbody>
                 {(usersData || []).map((u) => (
-                  <tr key={u.id} className="border-b border-zinc-100 hover:bg-zinc-50">
-                    <td className="py-1.5 px-2 text-zinc-500 font-mono">#{u.id}</td>
-                    <td className="py-1.5 px-2 text-zinc-700 font-mono">{u.email}</td>
-                    <td className="py-1.5 px-2 text-zinc-600">{u.name || '—'}</td>
-                    <td className="py-1.5 px-2 text-center">{u.email_verified ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600 mx-auto" /> : <XCircle className="w-3.5 h-3.5 text-zinc-600 mx-auto" />}</td>
-                    <td className="py-1.5 px-2 text-center">{u.active ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600 mx-auto" /> : <XCircle className="w-3.5 h-3.5 text-red-600 mx-auto" />}</td>
-                    <td className="py-1.5 px-2 text-center">{u.newsletter ? <Mail className="w-3.5 h-3.5 text-indigo-600 mx-auto" /> : <span className="text-zinc-700">—</span>}</td>
+                  <tr key={u.id} className="border-b border-[var(--eq-grid)] hover:bg-[var(--eq-card2)]">
+                    <td className="py-1.5 px-2 text-[var(--eq-text3)] font-mono">#{u.id}</td>
+                    <td className="py-1.5 px-2 text-[var(--eq-text2)] font-mono">{u.email}</td>
+                    <td className="py-1.5 px-2 text-[var(--eq-text2)]">{u.name || '—'}</td>
+                    <td className="py-1.5 px-2 text-center">{u.email_verified ? <CheckCircle className="w-3.5 h-3.5 text-[var(--eq-gain)] mx-auto" /> : <XCircle className="w-3.5 h-3.5 text-[var(--eq-text2)] mx-auto" />}</td>
+                    <td className="py-1.5 px-2 text-center">{u.active ? <CheckCircle className="w-3.5 h-3.5 text-[var(--eq-gain)] mx-auto" /> : <XCircle className="w-3.5 h-3.5 text-[var(--eq-loss)] mx-auto" />}</td>
+                    <td className="py-1.5 px-2 text-center">{u.newsletter ? <Mail className="w-3.5 h-3.5 text-[var(--eq-accent)] mx-auto" /> : <span className="text-[var(--eq-text2)]">—</span>}</td>
                     <td className="py-1.5 px-2 text-right whitespace-nowrap">
                       <button
                         type="button"
                         onClick={async () => { await updateAdminUser(u.id, { email_verified: !u.email_verified }); await loadUsers(); }}
-                        className="px-2 py-1 rounded bg-zinc-100 ring-1 ring-zinc-200/80 text-[10px] text-zinc-600 hover:bg-zinc-200/60 mr-2"
+                        className="px-2 py-1 rounded bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] text-[10px] text-[var(--eq-text2)] hover:bg-[var(--eq-border)] mr-2"
                       >
                         {u.email_verified ? 'Unverify' : 'Verify'}
                       </button>
                       <button
                         type="button"
                         onClick={async () => { await updateAdminUser(u.id, { active: !u.active }); await loadUsers(); }}
-                        className="px-2 py-1 rounded bg-zinc-100 ring-1 ring-zinc-200/80 text-[10px] text-zinc-600 hover:bg-zinc-200/60 mr-2"
+                        className="px-2 py-1 rounded bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] text-[10px] text-[var(--eq-text2)] hover:bg-[var(--eq-border)] mr-2"
                       >
                         {u.active ? 'Disable' : 'Enable'}
                       </button>
                       <button
                         type="button"
                         onClick={async () => { if (!confirm(`Delete user ${u.email}?`)) return; await deleteAdminUser(u.id); await loadUsers(); }}
-                        className="px-2 py-1 rounded bg-red-600/80 hover:bg-red-600 text-[10px] text-white"
+                        className="px-2 py-1 rounded bg-red-600/80 hover:bg-red-600 text-[10px] text-[var(--eq-bg)]"
                       >
                         Delete
                       </button>
@@ -930,8 +930,8 @@ export default function AdminPanel() {
                 ))}
               </tbody>
             </table>
-            {usersLoading && <p className="text-xs text-zinc-600 text-center py-4">Loading users…</p>}
-            {!usersLoading && (!usersData || usersData.length === 0) && <p className="text-xs text-zinc-600 text-center py-4">No users found</p>}
+            {usersLoading && <p className="text-xs text-[var(--eq-text2)] text-center py-4">Loading users…</p>}
+            {!usersLoading && (!usersData || usersData.length === 0) && <p className="text-xs text-[var(--eq-text2)] text-center py-4">No users found</p>}
           </div>
         </Section>
         </div>
@@ -939,7 +939,7 @@ export default function AdminPanel() {
 
       {adminTab === 'email' && (
         <div className="space-y-4">
-          <Section title="Message type" right={<Mail className="w-3.5 h-3.5 text-zinc-500" />}>
+          <Section title="Message type" right={<Mail className="w-3.5 h-3.5 text-[var(--eq-text3)]" />}>
             <div className="flex flex-wrap gap-2 mb-3">
               {[
                 { id: 'newsletter', label: 'Newsletter' },
@@ -952,53 +952,53 @@ export default function AdminPanel() {
                   onClick={() => setMailKind(k.id)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${
                     mailKind === k.id
-                      ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-700'
-                      : 'bg-zinc-100 border-zinc-200/80 text-zinc-500 hover:text-zinc-600'
+                      ? 'bg-[var(--eq-accent-soft)] border-[var(--eq-accent-ring)] text-[var(--eq-accent)]'
+                      : 'bg-[var(--eq-card2)] border-[var(--eq-border)] text-[var(--eq-text3)] hover:text-[var(--eq-text2)]'
                   }`}
                 >
                   {k.label}
                 </button>
               ))}
             </div>
-            <p className="text-[11px] text-zinc-500 mb-2">
+            <p className="text-[11px] text-[var(--eq-text3)] mb-2">
               Copy the block below into ChatGPT (or another LLM). Use the reply as your HTML body; set the subject line in the next section. The server replaces{' '}
-              <code className="text-zinc-500">{'{{name}}'}</code>, <code className="text-zinc-500">{'{{email}}'}</code>, and{' '}
-              <code className="text-zinc-500">{'{{first_name}}'}</code> for each user.
+              <code className="text-[var(--eq-text3)]">{'{{name}}'}</code>, <code className="text-[var(--eq-text3)]">{'{{email}}'}</code>, and{' '}
+              <code className="text-[var(--eq-text3)]">{'{{first_name}}'}</code> for each user.
             </p>
             <textarea
               readOnly
               value={LLM_INSTRUCTIONS[mailKind]}
               rows={10}
-              className="w-full bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-3 py-2 text-[11px] text-zinc-600 font-mono leading-relaxed resize-y min-h-[140px]"
+              className="w-full bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-lg px-3 py-2 text-[11px] text-[var(--eq-text2)] font-mono leading-relaxed resize-y min-h-[140px]"
             />
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <button
                 type="button"
                 onClick={copyLlmInstruction}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-200/60 ring-1 ring-zinc-200/80 text-xs text-zinc-700 hover:bg-white/15"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--eq-border)] ring-1 ring-[var(--eq-border)] text-xs text-[var(--eq-text2)] hover:bg-[var(--eq-card)]/15"
               >
                 <Copy className="w-3.5 h-3.5" /> Copy instructions
               </button>
-              {mailCopyHint && <span className="text-[10px] text-emerald-600">{mailCopyHint}</span>}
+              {mailCopyHint && <span className="text-[10px] text-[var(--eq-gain)]">{mailCopyHint}</span>}
             </div>
           </Section>
 
           <Section title="Subject & HTML body">
-            <label className="block text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Subject</label>
+            <label className="block text-[10px] text-[var(--eq-text3)] uppercase tracking-wider mb-1">Subject</label>
             <input
               type="text"
               value={mailSubject}
               onChange={(e) => setMailSubject(e.target.value)}
               placeholder="e.g. April update from Equilima"
-              className="w-full bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-3 py-2 text-zinc-900 text-sm placeholder:text-zinc-400 mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-200/80"
+              className="w-full bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-lg px-3 py-2 text-[var(--eq-text)] text-sm placeholder:text-[var(--eq-text3)] mb-3 focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]"
             />
-            <label className="block text-[10px] text-zinc-500 uppercase tracking-wider mb-1">HTML body</label>
+            <label className="block text-[10px] text-[var(--eq-text3)] uppercase tracking-wider mb-1">HTML body</label>
             <textarea
               value={mailHtml}
               onChange={(e) => setMailHtml(e.target.value)}
               placeholder="<p>Hi {{first_name}},</p><p>...</p>"
               rows={12}
-              className="w-full bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-3 py-2 text-[11px] text-zinc-700 font-mono leading-relaxed resize-y min-h-[180px] focus:outline-none focus:border-indigo-500/50"
+              className="w-full bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-lg px-3 py-2 text-[11px] text-[var(--eq-text2)] font-mono leading-relaxed resize-y min-h-[180px] focus:outline-none focus:border-[var(--eq-accent-ring)]"
             />
           </Section>
 
@@ -1012,7 +1012,7 @@ export default function AdminPanel() {
                 <label
                   key={a.id}
                   className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer ${
-                    mailAudience === a.id ? 'border-indigo-500/40 bg-indigo-500/10' : 'border-zinc-200/80 bg-white'
+                    mailAudience === a.id ? 'border-[var(--eq-accent-ring)] bg-[var(--eq-accent-soft)]' : 'border-[var(--eq-border)] bg-[var(--eq-card)]'
                   }`}
                 >
                   <input
@@ -1023,8 +1023,8 @@ export default function AdminPanel() {
                     className="mt-0.5"
                   />
                   <span>
-                    <span className="text-xs text-zinc-700 block">{a.label}</span>
-                    <span className="text-[10px] text-zinc-500">{a.sub}</span>
+                    <span className="text-xs text-[var(--eq-text2)] block">{a.label}</span>
+                    <span className="text-[10px] text-[var(--eq-text3)]">{a.sub}</span>
                   </span>
                 </label>
               ))}
@@ -1036,23 +1036,23 @@ export default function AdminPanel() {
                   <button
                     type="button"
                     onClick={() => setMailSelectedIds(new Set(mailEligible.map((u) => u.id)))}
-                    className="text-[10px] px-2 py-1 rounded bg-zinc-100 ring-1 ring-zinc-200/80 text-zinc-500 hover:text-zinc-700"
+                    className="text-[10px] px-2 py-1 rounded bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] text-[var(--eq-text3)] hover:text-[var(--eq-text)]"
                   >
                     Select all listed
                   </button>
                   <button
                     type="button"
                     onClick={() => setMailSelectedIds(new Set())}
-                    className="text-[10px] px-2 py-1 rounded bg-zinc-100 ring-1 ring-zinc-200/80 text-zinc-500 hover:text-zinc-700"
+                    className="text-[10px] px-2 py-1 rounded bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] text-[var(--eq-text3)] hover:text-[var(--eq-text)]"
                   >
                     Clear
                   </button>
                 </div>
-                <div className="max-h-48 overflow-y-auto ring-1 ring-zinc-200/80 rounded-lg p-2 space-y-1">
-                  {usersLoading && <p className="text-[10px] text-zinc-500">Loading users…</p>}
+                <div className="max-h-48 overflow-y-auto ring-1 ring-[var(--eq-border)] rounded-lg p-2 space-y-1">
+                  {usersLoading && <p className="text-[10px] text-[var(--eq-text3)]">Loading users…</p>}
                   {!usersLoading &&
                     mailEligible.map((u) => (
-                      <label key={u.id} className="flex items-center gap-2 text-[11px] text-zinc-600 cursor-pointer hover:bg-zinc-100 rounded px-1 py-0.5">
+                      <label key={u.id} className="flex items-center gap-2 text-[11px] text-[var(--eq-text2)] cursor-pointer hover:bg-[var(--eq-card2)] rounded px-1 py-0.5">
                         <input
                           type="checkbox"
                           checked={mailSelectedIds.has(u.id)}
@@ -1065,16 +1065,16 @@ export default function AdminPanel() {
                             });
                           }}
                         />
-                        <span className="font-mono text-zinc-500">#{u.id}</span>
-                        <span className="text-zinc-700">{u.email}</span>
-                        {u.name ? <span className="text-zinc-500 truncate">({u.name})</span> : null}
+                        <span className="font-mono text-[var(--eq-text3)]">#{u.id}</span>
+                        <span className="text-[var(--eq-text2)]">{u.email}</span>
+                        {u.name ? <span className="text-[var(--eq-text3)] truncate">({u.name})</span> : null}
                       </label>
                     ))}
                   {!usersLoading && mailEligible.length === 0 && (
-                    <p className="text-[10px] text-zinc-500">No eligible users. Refresh the user list from the Users tab or adjust accounts.</p>
+                    <p className="text-[10px] text-[var(--eq-text3)]">No eligible users. Refresh the user list from the Users tab or adjust accounts.</p>
                   )}
                 </div>
-                <p className="text-[10px] text-zinc-600 mt-1">Selected: {mailSelectedIds.size}</p>
+                <p className="text-[10px] text-[var(--eq-text2)] mt-1">Selected: {mailSelectedIds.size}</p>
               </div>
             )}
 
@@ -1083,15 +1083,15 @@ export default function AdminPanel() {
                 type="button"
                 onClick={runMailPreview}
                 disabled={mailPreviewLoading}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-200/60 ring-1 ring-zinc-200/80 text-xs text-zinc-700 hover:bg-white/15 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--eq-border)] ring-1 ring-[var(--eq-border)] text-xs text-[var(--eq-text2)] hover:bg-[var(--eq-card)]/15 disabled:opacity-50"
               >
                 {mailPreviewLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
                 {'Refresh list & count'}
               </button>
-              <span className="text-xs text-zinc-500">
+              <span className="text-xs text-[var(--eq-text3)]">
                 {mailPreviewCount != null ? (
                   <>
-                    <strong className="text-zinc-900">{mailPreviewCount}</strong> recipient(s) match
+                    <strong className="text-[var(--eq-text)]">{mailPreviewCount}</strong> recipient(s) match
                   </>
                 ) : (
                   'Click refresh to load the recipient list and count'
@@ -1100,22 +1100,22 @@ export default function AdminPanel() {
             </div>
 
             <div className="mt-4 max-w-2xl w-full">
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1.5">Who will receive this send</p>
-              <div className="h-72 max-h-[min(18rem,50vh)] overflow-y-auto overflow-x-hidden rounded-xl ring-1 ring-zinc-200/80 bg-zinc-100 p-2 sm:p-3 shadow-inner">
+              <p className="text-[10px] text-[var(--eq-text3)] uppercase tracking-wider mb-1.5">Who will receive this send</p>
+              <div className="h-72 max-h-[min(18rem,50vh)] overflow-y-auto overflow-x-hidden rounded-xl ring-1 ring-[var(--eq-border)] bg-[var(--eq-card2)] p-2 sm:p-3 shadow-inner">
                 {mailPreviewRecipients.length === 0 ? (
-                  <p className="text-[11px] text-zinc-600 text-center py-8 px-2">
-                    Choose an audience above, then click <span className="text-zinc-500">Refresh list & count</span> to see every email address for the current option.
+                  <p className="text-[11px] text-[var(--eq-text2)] text-center py-8 px-2">
+                    Choose an audience above, then click <span className="text-[var(--eq-text3)]">Refresh list & count</span> to see every email address for the current option.
                   </p>
                 ) : (
                   <ul className="space-y-1 text-[11px]">
                     {mailPreviewRecipients.map((r) => (
                       <li
                         key={r.id}
-                        className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-b border-zinc-100 pb-1 last:border-0 last:pb-0"
+                        className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-b border-[var(--eq-grid)] pb-1 last:border-0 last:pb-0"
                       >
-                        <span className="font-mono text-zinc-500 shrink-0">#{r.id}</span>
-                        <span className="text-zinc-700 font-mono break-all">{r.email}</span>
-                        {r.name ? <span className="text-zinc-500 truncate">({r.name})</span> : null}
+                        <span className="font-mono text-[var(--eq-text3)] shrink-0">#{r.id}</span>
+                        <span className="text-[var(--eq-text2)] font-mono break-all">{r.email}</span>
+                        {r.name ? <span className="text-[var(--eq-text3)] truncate">({r.name})</span> : null}
                       </li>
                     ))}
                   </ul>
@@ -1127,18 +1127,18 @@ export default function AdminPanel() {
                 </p>
               )}
             </div>
-            {mailSendError && <p className="text-xs text-red-600 mt-2">{mailSendError}</p>}
+            {mailSendError && <p className="text-xs text-[var(--eq-loss)] mt-2">{mailSendError}</p>}
           </Section>
 
-          <Section title="Send" right={<Send className="w-3.5 h-3.5 text-zinc-500" />}>
-            <p className="text-[11px] text-zinc-500 mb-3">
+          <Section title="Send" right={<Send className="w-3.5 h-3.5 text-[var(--eq-text3)]" />}>
+            <p className="text-[11px] text-[var(--eq-text3)] mb-3">
               Sends use your configured SMTP (same as verification emails). Each recipient gets a personalized body if you used placeholders. After sending, check the result and the history table for success vs failure counts.
             </p>
             <button
               type="button"
               onClick={handleSendMail}
               disabled={mailSendLoading}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-sm font-medium text-white"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--eq-accent)] hover:opacity-85 disabled:opacity-50 text-sm font-medium text-[var(--eq-bg)]"
             >
               {mailSendLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               Send email
@@ -1154,7 +1154,7 @@ export default function AdminPanel() {
                 <p className="font-medium mb-1">
                   {mailSendResult.verified ? 'Send completed — all deliveries reported OK' : 'Send finished with some failures'}
                 </p>
-                <p className="text-zinc-600">
+                <p className="text-[var(--eq-text2)]">
                   Log #{mailSendResult.log_id}: {mailSendResult.ok_count} ok / {mailSendResult.fail_count} failed of{' '}
                   {mailSendResult.recipient_count} recipients.
                 </p>
@@ -1177,15 +1177,15 @@ export default function AdminPanel() {
                 type="button"
                 onClick={loadNewsletterHistory}
                 disabled={mailHistoryLoading}
-                className="text-[10px] px-2 py-1 rounded bg-zinc-100 ring-1 ring-zinc-200/80 text-zinc-500 hover:text-zinc-700"
+                className="text-[10px] px-2 py-1 rounded bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] text-[var(--eq-text3)] hover:text-[var(--eq-text)]"
               >
                 {mailHistoryLoading ? 'Loading…' : 'Refresh history'}
               </button>
             </div>
             <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
               <table className="w-full text-[11px]">
-                <thead className="sticky top-0 bg-zinc-100">
-                  <tr className="text-zinc-500 border-b border-zinc-200/80">
+                <thead className="sticky top-0 bg-[var(--eq-card2)]">
+                  <tr className="text-[var(--eq-text3)] border-b border-[var(--eq-border)]">
                     <th className="text-left py-2 px-2 font-medium">When</th>
                     <th className="text-left py-2 px-2 font-medium">Kind</th>
                     <th className="text-left py-2 px-2 font-medium">Subject</th>
@@ -1195,24 +1195,24 @@ export default function AdminPanel() {
                 </thead>
                 <tbody>
                   {(mailHistory || []).map((row) => (
-                    <tr key={row.id} className="border-b border-zinc-100">
-                      <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{formatAdminEt(row.sent_at)}</td>
-                      <td className="py-1.5 px-2 text-zinc-600">{row.kind}</td>
-                      <td className="py-1.5 px-2 text-zinc-700 max-w-[200px] truncate" title={row.subject}>
+                    <tr key={row.id} className="border-b border-[var(--eq-grid)]">
+                      <td className="py-1.5 px-2 text-[var(--eq-text3)] whitespace-nowrap">{formatAdminEt(row.sent_at)}</td>
+                      <td className="py-1.5 px-2 text-[var(--eq-text2)]">{row.kind}</td>
+                      <td className="py-1.5 px-2 text-[var(--eq-text2)] max-w-[200px] truncate" title={row.subject}>
                         {row.subject}
                       </td>
-                      <td className="py-1.5 px-2 text-zinc-500">{row.audience}</td>
+                      <td className="py-1.5 px-2 text-[var(--eq-text3)]">{row.audience}</td>
                       <td className="py-1.5 px-2 text-right">
-                        <span className="text-emerald-600">{row.ok_count}</span>
-                        <span className="text-zinc-600"> / </span>
-                        <span className={row.fail_count > 0 ? 'text-amber-400' : 'text-zinc-500'}>{row.fail_count}</span>
+                        <span className="text-[var(--eq-gain)]">{row.ok_count}</span>
+                        <span className="text-[var(--eq-text2)]"> / </span>
+                        <span className={row.fail_count > 0 ? 'text-amber-400' : 'text-[var(--eq-text3)]'}>{row.fail_count}</span>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               {!mailHistoryLoading && (!mailHistory || mailHistory.length === 0) && (
-                <p className="text-xs text-zinc-600 text-center py-6">No sends logged yet</p>
+                <p className="text-xs text-[var(--eq-text2)] text-center py-6">No sends logged yet</p>
               )}
             </div>
           </Section>
@@ -1227,24 +1227,24 @@ export default function AdminPanel() {
         <>
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-        <StatCard label="Today Views" value={s.today_views} icon={Eye} color="text-indigo-600" />
-        <StatCard label="Today Visitors" value={s.today_visitors} icon={Users} color="text-emerald-600" />
+        <StatCard label="Today Views" value={s.today_views} icon={Eye} color="text-[var(--eq-accent)]" />
+        <StatCard label="Today Visitors" value={s.today_visitors} icon={Users} color="text-[var(--eq-gain)]" />
         <StatCard label="New Users Today" value={s.new_users_today} icon={Users} color="text-cyan-400" />
-        <StatCard label={`${days}D Views`} value={s.total_views} icon={Eye} color="text-indigo-600" />
-        <StatCard label={`${days}D Visitors`} value={s.unique_visitors} icon={Globe} color="text-emerald-600" />
+        <StatCard label={`${days}D Views`} value={s.total_views} icon={Eye} color="text-[var(--eq-accent)]" />
+        <StatCard label={`${days}D Visitors`} value={s.unique_visitors} icon={Globe} color="text-[var(--eq-gain)]" />
         <StatCard label="Sessions" value={s.unique_sessions} icon={Clock} color="text-yellow-400" />
         <StatCard label="Registered Users" value={s.registered_users} icon={Users} color="text-pink-400" />
       </div>
 
       {ipFilterError && (
-        <div className="text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+        <div className="text-xs text-[var(--eq-loss)] bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
           {ipFilterError}
         </div>
       )}
 
       {/* Views, visitors, returning — shared left Y-axis (counts) */}
       <Section title="Views, Visitors & Returning Visitors Over Time">
-        <p className="text-[10px] text-zinc-500 mb-3 leading-relaxed">
+        <p className="text-[10px] text-[var(--eq-text3)] mb-3 leading-relaxed">
           Returning visitors is the count of unique IPs on that calendar day who also had at least one visit on an earlier day within this date range. The first day in the range is often lower because there is no prior day in the window.
         </p>
         <ResponsiveContainer width="100%" height={300}>
@@ -1272,7 +1272,7 @@ export default function AdminPanel() {
               verticalAlign="top"
               height={28}
               wrapperStyle={{ fontSize: '10px', color: '#888' }}
-              formatter={(value) => <span className="text-zinc-500">{value}</span>}
+              formatter={(value) => <span className="text-[var(--eq-text3)]">{value}</span>}
             />
             <Area
               yAxisId="left"
@@ -1348,8 +1348,8 @@ export default function AdminPanel() {
               {data.devices.map((d, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
-                  <span className="text-xs text-zinc-500">{d.name}</span>
-                  <span className="text-xs text-zinc-900 font-medium">{d.value}</span>
+                  <span className="text-xs text-[var(--eq-text3)]">{d.name}</span>
+                  <span className="text-xs text-[var(--eq-text)] font-medium">{d.value}</span>
                 </div>
               ))}
             </div>
@@ -1369,8 +1369,8 @@ export default function AdminPanel() {
               {data.browsers.map((d, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLORS[(i + 2) % COLORS.length] }} />
-                  <span className="text-xs text-zinc-500">{d.name}</span>
-                  <span className="text-xs text-zinc-900 font-medium">{d.value}</span>
+                  <span className="text-xs text-[var(--eq-text3)]">{d.name}</span>
+                  <span className="text-xs text-[var(--eq-text)] font-medium">{d.value}</span>
                 </div>
               ))}
             </div>
@@ -1381,12 +1381,12 @@ export default function AdminPanel() {
           <div className="space-y-1.5 max-h-[140px] overflow-y-auto">
             {data.top_countries.map((c, i) => (
               <div key={i} className="flex items-center gap-2">
-                <span className="text-xs text-zinc-600 flex-1">{c.country}</span>
-                <span className="text-[10px] text-zinc-500">{c.visitors} visitors</span>
-                <span className="text-xs text-zinc-900 font-medium w-12 text-right">{c.views}</span>
+                <span className="text-xs text-[var(--eq-text2)] flex-1">{c.country}</span>
+                <span className="text-[10px] text-[var(--eq-text3)]">{c.visitors} visitors</span>
+                <span className="text-xs text-[var(--eq-text)] font-medium w-12 text-right">{c.views}</span>
               </div>
             ))}
-            {data.top_countries.length === 0 && <p className="text-xs text-zinc-600">No data yet</p>}
+            {data.top_countries.length === 0 && <p className="text-xs text-[var(--eq-text2)]">No data yet</p>}
           </div>
         </Section>
       </div>
@@ -1397,12 +1397,12 @@ export default function AdminPanel() {
           <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
             {data.top_cities.map((c, i) => (
               <div key={i} className="flex items-center gap-2 text-xs">
-                <span className="text-zinc-600 flex-1">{c.city}, {c.country}</span>
-                <span className="text-zinc-500">{c.visitors} visitors</span>
-                <span className="text-zinc-900 font-medium w-10 text-right">{c.views}</span>
+                <span className="text-[var(--eq-text2)] flex-1">{c.city}, {c.country}</span>
+                <span className="text-[var(--eq-text3)]">{c.visitors} visitors</span>
+                <span className="text-[var(--eq-text)] font-medium w-10 text-right">{c.views}</span>
               </div>
             ))}
-            {data.top_cities.length === 0 && <p className="text-xs text-zinc-600">No data yet</p>}
+            {data.top_cities.length === 0 && <p className="text-xs text-[var(--eq-text2)]">No data yet</p>}
           </div>
         </Section>
 
@@ -1410,11 +1410,11 @@ export default function AdminPanel() {
           <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
             {data.top_referrers.map((r, i) => (
               <div key={i} className="flex items-center gap-2 text-xs">
-                <span className="text-zinc-600 flex-1 truncate">{r.referer}</span>
-                <span className="text-zinc-900 font-medium w-10 text-right">{r.views}</span>
+                <span className="text-[var(--eq-text2)] flex-1 truncate">{r.referer}</span>
+                <span className="text-[var(--eq-text)] font-medium w-10 text-right">{r.views}</span>
               </div>
             ))}
-            {data.top_referrers.length === 0 && <p className="text-xs text-zinc-600">No referrer data yet</p>}
+            {data.top_referrers.length === 0 && <p className="text-xs text-[var(--eq-text2)]">No referrer data yet</p>}
           </div>
         </Section>
       </div>
@@ -1424,8 +1424,8 @@ export default function AdminPanel() {
       <Section title={`Registered Users (${data.users?.length || 0})`}>
         <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
           <table className="w-full text-[11px]">
-            <thead className="sticky top-0 bg-zinc-100">
-              <tr className="text-zinc-500 border-b border-zinc-200/80">
+            <thead className="sticky top-0 bg-[var(--eq-card2)]">
+              <tr className="text-[var(--eq-text3)] border-b border-[var(--eq-border)]">
                 <th className="text-left py-2 px-2 font-medium">ID</th>
                 <th className="text-left py-2 px-2 font-medium">Name</th>
                 <th className="text-left py-2 px-2 font-medium">Email</th>
@@ -1437,23 +1437,23 @@ export default function AdminPanel() {
             </thead>
             <tbody>
               {(data.users || []).map(u => (
-                <tr key={u.id} className="border-b border-zinc-100 hover:bg-zinc-50">
-                  <td className="py-1.5 px-2 text-zinc-500 font-mono">#{u.id}</td>
-                  <td className="py-1.5 px-2 text-zinc-900 font-medium">{u.name || '—'}</td>
-                  <td className="py-1.5 px-2 text-zinc-600">{u.email}</td>
-                  <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{formatAdminEt(u.created_at)}</td>
-                  <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{u.last_login ? formatAdminEt(u.last_login) : 'Never'}</td>
+                <tr key={u.id} className="border-b border-[var(--eq-grid)] hover:bg-[var(--eq-card2)]">
+                  <td className="py-1.5 px-2 text-[var(--eq-text3)] font-mono">#{u.id}</td>
+                  <td className="py-1.5 px-2 text-[var(--eq-text)] font-medium">{u.name || '—'}</td>
+                  <td className="py-1.5 px-2 text-[var(--eq-text2)]">{u.email}</td>
+                  <td className="py-1.5 px-2 text-[var(--eq-text3)] whitespace-nowrap">{formatAdminEt(u.created_at)}</td>
+                  <td className="py-1.5 px-2 text-[var(--eq-text3)] whitespace-nowrap">{u.last_login ? formatAdminEt(u.last_login) : 'Never'}</td>
                   <td className="py-1.5 px-2 text-center">
-                    {u.newsletter ? <Mail className="w-3.5 h-3.5 text-indigo-600 mx-auto" /> : <span className="text-zinc-700">—</span>}
+                    {u.newsletter ? <Mail className="w-3.5 h-3.5 text-[var(--eq-accent)] mx-auto" /> : <span className="text-[var(--eq-text2)]">—</span>}
                   </td>
                   <td className="py-1.5 px-2 text-center">
-                    {u.active ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600 mx-auto" /> : <XCircle className="w-3.5 h-3.5 text-red-600 mx-auto" />}
+                    {u.active ? <CheckCircle className="w-3.5 h-3.5 text-[var(--eq-gain)] mx-auto" /> : <XCircle className="w-3.5 h-3.5 text-[var(--eq-loss)] mx-auto" />}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {(!data.users || data.users.length === 0) && <p className="text-xs text-zinc-600 text-center py-4">No registered users yet</p>}
+          {(!data.users || data.users.length === 0) && <p className="text-xs text-[var(--eq-text2)] text-center py-4">No registered users yet</p>}
         </div>
       </Section>
 
@@ -1467,12 +1467,12 @@ export default function AdminPanel() {
               value={recentCityFilter}
               onChange={(e) => setRecentCityFilter(e.target.value)}
               placeholder="Filter by city (e.g. richmond)"
-              className="w-44 bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-2.5 py-1.5 text-zinc-900 text-[11px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80"
+              className="w-44 bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-lg px-2.5 py-1.5 text-[var(--eq-text)] text-[11px] placeholder:text-[var(--eq-text3)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]"
             />
             <select
               value={recentDays}
               onChange={(e) => { const v = Number(e.target.value); setRecentDays(v); load(); }}
-              className="bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-2 py-1.5 text-zinc-900 text-[11px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80"
+              className="bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-lg px-2 py-1.5 text-[var(--eq-text)] text-[11px] placeholder:text-[var(--eq-text3)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]"
               title="Show recent visitors from last N days"
             >
               {[1, 2, 3, 7, 14, 30, 90].map((d) => (
@@ -1482,7 +1482,7 @@ export default function AdminPanel() {
             <select
               value={recentLimit}
               onChange={(e) => { const v = Number(e.target.value); setRecentLimit(v); load(); }}
-              className="bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-2 py-1.5 text-zinc-900 text-[11px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80"
+              className="bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-lg px-2 py-1.5 text-[var(--eq-text)] text-[11px] placeholder:text-[var(--eq-text3)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]"
               title="Max rows to show"
             >
               {[50, 200, 500, 1000, 2000].map((n) => (
@@ -1494,8 +1494,8 @@ export default function AdminPanel() {
       >
         <div className="overflow-x-auto max-h-[300px] overflow-y-auto">
           <table className="w-full text-[11px]">
-            <thead className="sticky top-0 bg-zinc-100">
-              <tr className="text-zinc-500 border-b border-zinc-200/80">
+            <thead className="sticky top-0 bg-[var(--eq-card2)]">
+              <tr className="text-[var(--eq-text3)] border-b border-[var(--eq-border)]">
                 <th className="text-left py-2 px-2 font-medium">Time</th>
                 <th className="text-left py-2 px-2 font-medium">IP</th>
                 <th className="text-left py-2 px-2 font-medium">Location</th>
@@ -1506,35 +1506,35 @@ export default function AdminPanel() {
             </thead>
             <tbody>
               {recentRows.map((v, i) => (
-                <tr key={i} className="border-b border-zinc-100 hover:bg-zinc-50">
-                  <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{formatAdminEt(v.timestamp, { includeYear: false })}</td>
-                  <td className="py-1.5 px-2 text-zinc-500 font-mono">
+                <tr key={i} className="border-b border-[var(--eq-grid)] hover:bg-[var(--eq-card2)]">
+                  <td className="py-1.5 px-2 text-[var(--eq-text3)] whitespace-nowrap">{formatAdminEt(v.timestamp, { includeYear: false })}</td>
+                  <td className="py-1.5 px-2 text-[var(--eq-text3)] font-mono">
                     <button
                       type="button"
                       onClick={() => ignoreRecentIp(v.ip)}
-                      className="text-left hover:text-zinc-900"
+                      className="text-left hover:text-[var(--eq-text)]"
                       title="Exclude this IP from all analytics (same as the directory below)"
                     >
                       {v.ip}
                     </button>
                   </td>
-                  <td className="py-1.5 px-2 text-zinc-600">
+                  <td className="py-1.5 px-2 text-[var(--eq-text2)]">
                     {v.city && v.country ? `${v.city}, ${v.country}` : v.country || '—'}
                   </td>
                   <td className="py-1.5 px-2">
-                    <span className="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 text-[9px] font-medium">{v.tab || v.path}</span>
+                    <span className="px-1.5 py-0.5 rounded bg-[var(--eq-accent-soft)] text-[var(--eq-accent)] text-[9px] font-medium">{v.tab || v.path}</span>
                   </td>
-                  <td className="py-1.5 px-2 text-zinc-500">
+                  <td className="py-1.5 px-2 text-[var(--eq-text3)]">
                     {v.device === 'Mobile' ? <Smartphone className="w-3 h-3 inline" /> : <Monitor className="w-3 h-3 inline" />}
                     <span className="ml-1">{v.device}</span>
                   </td>
-                  <td className="py-1.5 px-2 text-zinc-500">{v.user_id ? `#${v.user_id}` : '—'}</td>
+                  <td className="py-1.5 px-2 text-[var(--eq-text3)]">{v.user_id ? `#${v.user_id}` : '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           {recentRows.length === 0 && (
-            <p className="text-xs text-zinc-600 text-center py-4">No recent visitors match that city filter</p>
+            <p className="text-xs text-[var(--eq-text2)] text-center py-4">No recent visitors match that city filter</p>
           )}
         </div>
       </Section>
@@ -1548,13 +1548,13 @@ export default function AdminPanel() {
               value={ipDirectoryCityFilter}
               onChange={(e) => setIpDirectoryCityFilter(e.target.value)}
               placeholder="Search city (partial)"
-              className="w-36 sm:w-44 bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-2.5 py-1.5 text-zinc-900 text-[11px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80"
+              className="w-36 sm:w-44 bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-lg px-2.5 py-1.5 text-[var(--eq-text)] text-[11px] placeholder:text-[var(--eq-text3)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]"
               title="Match any substring in the city name (case-insensitive)"
             />
             <select
               value={ipTableDays}
               onChange={(e) => { const v = Number(e.target.value); setIpTableDays(v); load(); }}
-              className="bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-2 py-1.5 text-zinc-900 text-[11px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80"
+              className="bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-lg px-2 py-1.5 text-[var(--eq-text)] text-[11px] placeholder:text-[var(--eq-text3)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]"
               title="Look back N days for unique IPs"
             >
               {[1, 2, 3, 7, 14, 30, 90].map((d) => (
@@ -1564,7 +1564,7 @@ export default function AdminPanel() {
             <select
               value={ipTableLimit}
               onChange={(e) => { const v = Number(e.target.value); setIpTableLimit(v); load(); }}
-              className="bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-2 py-1.5 text-zinc-900 text-[11px] placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80"
+              className="bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-lg px-2 py-1.5 text-[var(--eq-text)] text-[11px] placeholder:text-[var(--eq-text3)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]"
               title="Max unique IPs (sorted by last visit)"
             >
               {[50, 200, 500, 1000, 2000].map((n) => (
@@ -1574,13 +1574,13 @@ export default function AdminPanel() {
           </div>
         }
       >
-        <p className="text-[11px] text-zinc-500 mb-3">
-          One row per IP in the window below (included and excluded). Check <strong className="text-zinc-500 font-normal">Ignore</strong> to drop that address from all dashboard totals and charts. Last visit is the most recent page view in Eastern time. City search matches partial text (e.g. <span className="font-mono text-zinc-500">rich</span> finds Richmond).
+        <p className="text-[11px] text-[var(--eq-text3)] mb-3">
+          One row per IP in the window below (included and excluded). Check <strong className="text-[var(--eq-text3)] font-normal">Ignore</strong> to drop that address from all dashboard totals and charts. Last visit is the most recent page view in Eastern time. City search matches partial text (e.g. <span className="font-mono text-[var(--eq-text3)]">rich</span> finds Richmond).
         </p>
         <div className="overflow-x-auto max-h-[320px] overflow-y-auto">
           <table className="w-full text-[11px]">
-            <thead className="sticky top-0 bg-zinc-100">
-              <tr className="text-zinc-500 border-b border-zinc-200/80">
+            <thead className="sticky top-0 bg-[var(--eq-card2)]">
+              <tr className="text-[var(--eq-text3)] border-b border-[var(--eq-border)]">
                 <th className="text-center py-2 px-2 font-medium w-14">Ignore</th>
                 <th className="text-left py-2 px-2 font-medium">IP</th>
                 <th className="text-left py-2 px-2 font-medium">Location</th>
@@ -1590,7 +1590,7 @@ export default function AdminPanel() {
             </thead>
             <tbody>
               {ipDirectoryRows.map((row) => (
-                <tr key={row.ip} className="border-b border-zinc-100 hover:bg-zinc-50">
+                <tr key={row.ip} className="border-b border-[var(--eq-grid)] hover:bg-[var(--eq-card2)]">
                   <td className="py-1.5 px-2 text-center">
                     <input
                       type="checkbox"
@@ -1602,49 +1602,49 @@ export default function AdminPanel() {
                       aria-label={row.ignored ? `Stop ignoring ${row.ip}` : `Ignore ${row.ip}`}
                     />
                   </td>
-                  <td className="py-1.5 px-2 text-zinc-500 font-mono">{row.ip}</td>
-                  <td className="py-1.5 px-2 text-zinc-600">
+                  <td className="py-1.5 px-2 text-[var(--eq-text3)] font-mono">{row.ip}</td>
+                  <td className="py-1.5 px-2 text-[var(--eq-text2)]">
                     {row.city && row.country ? `${row.city}, ${row.country}` : row.country || row.city || '—'}
                   </td>
-                  <td className="py-1.5 px-2 text-right text-zinc-900 font-medium">{row.visits?.toLocaleString?.() ?? row.visits}</td>
-                  <td className="py-1.5 px-2 text-zinc-500 whitespace-nowrap">{formatAdminEt(row.last_visit)}</td>
+                  <td className="py-1.5 px-2 text-right text-[var(--eq-text)] font-medium">{row.visits?.toLocaleString?.() ?? row.visits}</td>
+                  <td className="py-1.5 px-2 text-[var(--eq-text3)] whitespace-nowrap">{formatAdminEt(row.last_visit)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           {(!data.ip_directory || data.ip_directory.length === 0) && (
-            <p className="text-xs text-zinc-600 text-center py-4">No page views in this window</p>
+            <p className="text-xs text-[var(--eq-text2)] text-center py-4">No page views in this window</p>
           )}
           {(data.ip_directory || []).length > 0 && ipDirectoryRows.length === 0 && (
-            <p className="text-xs text-zinc-600 text-center py-4">No rows match that city search</p>
+            <p className="text-xs text-[var(--eq-text2)] text-center py-4">No rows match that city search</p>
           )}
         </div>
       </Section>
 
       <Section
         title="Advanced: subnets & wildcards"
-        right={<Filter className="w-3.5 h-3.5 text-zinc-500" />}
+        right={<Filter className="w-3.5 h-3.5 text-[var(--eq-text3)]" />}
       >
-        <p className="text-[11px] text-zinc-500 mb-3">
-          CIDR ranges and <span className="font-mono text-zinc-500">a.b.c.*</span> rules are edited here and replace the full list when you save. Single-IP ignore/unignore is faster from the table above.
+        <p className="text-[11px] text-[var(--eq-text3)] mb-3">
+          CIDR ranges and <span className="font-mono text-[var(--eq-text3)]">a.b.c.*</span> rules are edited here and replace the full list when you save. Single-IP ignore/unignore is faster from the table above.
         </p>
         {Array.isArray(data.ignored_canonical) && data.ignored_canonical.length > 0 && (
-          <p className="text-[10px] text-zinc-600 font-mono mb-2">
+          <p className="text-[10px] text-[var(--eq-text2)] font-mono mb-2">
             Literal IPs compared as: {data.ignored_canonical.join(', ')}
           </p>
         )}
         <div className="flex flex-wrap gap-2 mb-3">
-          {ignoredDraft.length === 0 && <span className="text-xs text-zinc-600">No rules yet</span>}
+          {ignoredDraft.length === 0 && <span className="text-xs text-[var(--eq-text2)]">No rules yet</span>}
           {ignoredDraft.map((ip) => (
             <span
               key={ip}
-              className="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-lg bg-zinc-100 ring-1 ring-zinc-200/80 text-xs text-zinc-700 font-mono"
+              className="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-lg bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] text-xs text-[var(--eq-text2)] font-mono"
             >
               {ip}
               <button
                 type="button"
                 onClick={() => setIgnoredDraft((p) => p.filter((x) => x !== ip))}
-                className="p-0.5 rounded hover:bg-zinc-200/60 text-zinc-500 hover:text-zinc-900"
+                className="p-0.5 rounded hover:bg-[var(--eq-border)] text-[var(--eq-text3)] hover:text-[var(--eq-text)]"
                 title="Remove"
               >
                 <X className="w-3 h-3" />
@@ -1659,13 +1659,13 @@ export default function AdminPanel() {
             onChange={(e) => setNewIp(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addIgnoredIp()}
             placeholder="e.g. 203.0.113.0/24 or 203.0.113.*"
-            className="flex-1 bg-zinc-100 ring-1 ring-zinc-200/80 rounded-lg px-3 py-2 text-zinc-900 text-xs font-mono placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-200/80"
+            className="flex-1 bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded-lg px-3 py-2 text-[var(--eq-text)] text-xs font-mono placeholder:text-[var(--eq-text3)] focus:outline-none focus:ring-2 focus:ring-[var(--eq-accent-ring)]"
           />
           <div className="flex gap-2">
             <button
               type="button"
               onClick={addIgnoredIp}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-100 ring-1 ring-zinc-200/80 text-xs text-zinc-600 hover:bg-zinc-200/60"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] text-xs text-[var(--eq-text2)] hover:bg-[var(--eq-border)]"
             >
               <Plus className="w-3.5 h-3.5" /> Add
             </button>
@@ -1673,7 +1673,7 @@ export default function AdminPanel() {
               type="button"
               onClick={saveIgnoredIps}
               disabled={ipFilterSaving}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-xs text-white font-medium"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--eq-accent)] hover:opacity-85 disabled:opacity-50 text-xs text-[var(--eq-bg)] font-medium"
             >
               {ipFilterSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
               Save rules

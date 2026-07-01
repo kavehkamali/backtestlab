@@ -263,12 +263,12 @@ export default function CandlestickChart({ symbol, timeframe, interval, indicato
     <div
       className={`relative flex h-full min-h-0 flex-col overflow-hidden rounded-lg border ${
         focused
-          ? 'border-zinc-400 shadow-md shadow-zinc-900/10 dark:border-zinc-500 dark:shadow-black/30'
-          : 'border-zinc-200 dark:border-zinc-700'
-      } bg-[#fafafa] dark:bg-zinc-900`}
+          ? 'border-[var(--eq-border2)] shadow-[var(--eq-shadow-card)]'
+          : 'border-[var(--eq-border)]'
+      } bg-[#fafafa]`}
     >
       {/* Header */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-zinc-200 bg-white px-3 py-1.5 dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="flex shrink-0 items-center gap-2 border-b border-[var(--eq-border)] bg-[var(--eq-card)] px-3 py-1.5">
         <form onSubmit={handleSubmit}>
           <input
             type="text" value={symbolInput}
@@ -284,14 +284,14 @@ export default function CandlestickChart({ symbol, timeframe, interval, indicato
         <span
           className={`rounded px-1.5 py-0.5 text-[9px] border ${
             chromeDark
-              ? 'border-zinc-600 bg-zinc-800 text-zinc-300'
-              : 'border-zinc-200 bg-zinc-100 text-zinc-600'
+              ? 'border-[var(--eq-border2)] bg-[var(--eq-text)] text-[var(--eq-bg)]'
+              : 'border-[var(--eq-border)] bg-[var(--eq-card2)] text-[var(--eq-text2)]'
           }`}
         >
           {interval}
         </span>
         <div className="flex-1" />
-        {loading && <Loader2 className={`h-3 w-3 animate-spin ${chromeDark ? 'text-zinc-500' : 'text-zinc-400'}`} />}
+        {loading && <Loader2 className={`h-3 w-3 animate-spin ${chromeDark ? 'text-[var(--eq-text3)]' : 'text-[var(--eq-text3)]'}`} />}
       </div>
 
       {/* Chart container */}
@@ -301,15 +301,15 @@ export default function CandlestickChart({ symbol, timeframe, interval, indicato
       {error && !loading && (
         <div
           className={`absolute inset-0 z-20 flex items-center justify-center ${
-            chromeDark ? 'bg-zinc-900/92' : 'bg-[#fafafa]/92'
+            chromeDark ? 'bg-[var(--eq-text)]/92' : 'bg-[#fafafa]/92'
           }`}
         >
           <div className="text-center">
-            <div className="mb-1 text-xs text-red-500">{error}</div>
+            <div className="mb-1 text-xs text-[var(--eq-loss)]">{error}</div>
             <button
               type="button"
               onClick={() => { setError(null); setReady(false); setTimeout(() => setReady(true), 100); }}
-              className="text-[10px] text-zinc-500 underline hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+              className="text-[10px] text-[var(--eq-text3)] underline hover:text-[var(--eq-text)]"
             >
               Retry
             </button>
