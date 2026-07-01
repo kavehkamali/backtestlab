@@ -18,11 +18,32 @@ Keys via env / EnvironmentFile: FRED_API_KEY, SEC_USER_AGENT, optional BLS_API_K
 
 import os
 import sys
+import time
+import fcntl
 
 # Make the backend package importable regardless of CWD.
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _BACKEND = os.path.join(_HERE, "..", "backend")
 sys.path.insert(0, os.path.abspath(_BACKEND))
+
+
+def _acquire_run_lock():
+    """Serialize collectors: DuckDB is single-writer, so overlapping collector
+    runs would fight for the file lock and hard-fail. A blocking flock queues
+    them — timers still fire whenever, but only one collector writes at a time.
+    Returns the open lock fd (kept for the process lifetime) or None."""
+    from app.datawarehouse.db import warehouse_path
+    lock_path = str(warehouse_path()) + ".collector.lock"
+    try:
+        fd = open(lock_path, "w")
+    except Exception:
+        return None
+    t0 = time.monotonic()
+    fcntl.flock(fd, fcntl.LOCK_EX)  # blocks until any other collector finishes
+    waited = time.monotonic() - t0
+    if waited > 1:
+        print(f"[collect] waited {waited:.0f}s for collector lock", flush=True)
+    return fd
 
 
 def main():
@@ -31,6 +52,9 @@ def main():
     from app.datawarehouse.sources import prices, edgar, macro, info, intraday
 
     db.init_schema()
+
+    # Serialize the actual collection (skip for the trivial no-write commands).
+    _lock = None if cmd in ("init",) else _acquire_run_lock()
 
     if cmd == "init":
         print("schema ready")
