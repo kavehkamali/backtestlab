@@ -1857,10 +1857,9 @@ function ResearchFundamentals({
         </div>
       </div>
 
-      {loading && <div className="flex items-center justify-center h-48 text-zinc-500 dark:text-zinc-400"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...</div>}
       {error && <div className="p-4 rounded-xl bg-red-50 text-red-800 text-sm ring-1 ring-red-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:ring-rose-900">{error}</div>}
 
-      {!loading && (
+      {(
         <>
           {/* Backtest tool */}
           {view === 'backtest' || tab === 'backtest' ? (
@@ -1873,9 +1872,12 @@ function ResearchFundamentals({
                 <TerminalPanel embedded symbol={symbol} />
               </div>
             </Suspense>
-          ) : data ? (
-            /* Adaptive, card-based research dashboard (all asset classes) */
-            <ResearchDashboard symbol={symbol} data={data} intent={agentIntent} onNavigate={onNavigate} />
+          ) : (data || (loading && assetContext?.stock !== false)) ? (
+            /* Adaptive dashboard mounts immediately — chart loads from the symbol
+               while the (slower) research data fills the cards in. */
+            <ResearchDashboard symbol={symbol} data={data} loading={loading} intent={agentIntent} onNavigate={onNavigate} />
+          ) : loading ? (
+            <div className="flex items-center justify-center h-48 text-zinc-500 dark:text-zinc-400"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...</div>
           ) : assetContext?.stock === false ? (
             /* Macro-only FRED-style series (not a tradable yfinance symbol) */
             <>

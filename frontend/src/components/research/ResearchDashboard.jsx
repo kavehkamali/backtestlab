@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Search } from 'lucide-react';
+import { BarChart3, Loader2 } from 'lucide-react';
 import { fetchWarehouseFinancials, fetchWarehouseFilings } from '../../api';
 import ProChart from './ProChart';
 import {
@@ -43,7 +43,7 @@ function intentBoost(id, intent) {
   return map[id]?.test(t) ? 100 : 0;
 }
 
-export default function ResearchDashboard({ symbol, data, intent = '', onNavigate }) {
+export default function ResearchDashboard({ symbol, data, loading = false, intent = '', onNavigate }) {
   const [dark, setDark] = useState(isDark());
   const [financials, setFinancials] = useState(null);
   const [filings, setFilings] = useState(null);
@@ -71,6 +71,7 @@ export default function ResearchDashboard({ symbol, data, intent = '', onNavigat
   const ctx = { s, ac, data, rm, financials, filings, dark };
 
   const cards = useMemo(() => {
+    if (!data) return [];  // chart-first: cards fill in once research data arrives
     const reg = buildRegistry(dark);
     return reg
       .filter((card) => (card.classes === '*' || card.classes.includes(ac)) && card.ok(ctx))
@@ -88,7 +89,7 @@ export default function ResearchDashboard({ symbol, data, intent = '', onNavigat
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h2 className="truncate text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">{s.name || symbol}</h2>
-            <span className="shrink-0 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-300 dark:ring-indigo-900">{CLASS_LABEL[ac] || ac}</span>
+            {data && <span className="shrink-0 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-300 dark:ring-indigo-900">{CLASS_LABEL[ac] || ac}</span>}
           </div>
           <div className="mt-0.5 text-xs text-zinc-400">
             {symbol}{s.exchange ? ` · ${s.exchange}` : ''}{s.sector ? ` · ${s.sector}` : ''}
@@ -119,6 +120,12 @@ export default function ResearchDashboard({ symbol, data, intent = '', onNavigat
           <div key={card.id} className={card.span === 2 ? 'lg:col-span-2' : ''}>{card.node(ctx)}</div>
         ))}
       </div>
+
+      {!data && loading && (
+        <div className="flex items-center gap-2 rounded-2xl bg-white p-4 text-xs text-zinc-400 ring-1 ring-zinc-200/70 dark:bg-zinc-900/70 dark:ring-zinc-800">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading fundamentals, stats & financials…
+        </div>
+      )}
     </div>
   );
 }
