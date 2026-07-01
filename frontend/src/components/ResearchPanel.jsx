@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { Loader2, Search, ExternalLink, Clock, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell, ComposedChart, Line, LineChart, PieChart, Pie } from 'recharts';
 import { fetchMacroOverview, fetchResearch, searchSymbols } from '../api';
 import SnowflakeChart from './SnowflakeChart';
 import { buildResearchPriceChartRows, formatResearchPriceXTick } from '../utils/marketHeroChart';
-import TerminalPanel from './terminal/TerminalPanel';
-import ComparePanel from './ComparePanel';
+const TerminalPanel = lazy(() => import('./terminal/TerminalPanel'));
+const ComparePanel = lazy(() => import('./ComparePanel'));
 import ResearchDashboard from './research/ResearchDashboard';
 
 const RESEARCH_RECENTS_KEY = 'eq_research_recent_symbols_v1';
@@ -1864,11 +1864,15 @@ function ResearchFundamentals({
         <>
           {/* Backtest tool */}
           {view === 'backtest' || tab === 'backtest' ? (
-            <ComparePanel strategies={strategies} onCompare={onCompare} results={compareResults} loading={compareLoading} />
+            <Suspense fallback={<div className="flex h-48 items-center justify-center text-zinc-400"><Loader2 className="h-5 w-5 animate-spin" /></div>}>
+              <ComparePanel strategies={strategies} onCompare={onCompare} results={compareResults} loading={compareLoading} />
+            </Suspense>
           ) : tab === 'terminal' ? (
-            <div className="overflow-hidden rounded-xl ring-1 ring-zinc-200/70 dark:ring-zinc-800">
-              <TerminalPanel embedded symbol={symbol} />
-            </div>
+            <Suspense fallback={<div className="flex h-48 items-center justify-center text-zinc-400"><Loader2 className="h-5 w-5 animate-spin" /></div>}>
+              <div className="overflow-hidden rounded-xl ring-1 ring-zinc-200/70 dark:ring-zinc-800">
+                <TerminalPanel embedded symbol={symbol} />
+              </div>
+            </Suspense>
           ) : data ? (
             /* Adaptive, card-based research dashboard (all asset classes) */
             <ResearchDashboard symbol={symbol} data={data} intent={agentIntent} onNavigate={onNavigate} />

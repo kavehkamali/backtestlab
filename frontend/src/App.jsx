@@ -1,14 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { fetchStrategies, compareStrategies, getStoredUser, signout, checkInteraction, trackPageView, fetchMe } from './api';
 import ScreenerPanel from './components/ScreenerPanel';
 import ResearchPanel from './components/ResearchPanel';
 import Header from './components/Header';
 import AuthModal from './components/AuthModal';
-import AdminPanel from './components/AdminPanel';
 import AgentPanel from './components/AgentPanel';
 import ConsentBanner from './components/ConsentBanner';
 import AccountPanel from './components/AccountPanel';
-import LearnLayout from './components/LearnLayout';
+// Route-gated heavy views — loaded on demand, kept out of the initial bundle.
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
+const LearnLayout = lazy(() => import('./components/LearnLayout'));
 import SiteFooter from './components/SiteFooter';
 import { getLearnRoute } from './learnNavigation';
 import { applyDocumentTheme, syncSiteThemeUserMeta } from './siteTheme';
@@ -335,7 +336,9 @@ function App() {
   if (learnRoute && !isAdmin) {
     return (
       <div className="min-h-screen bg-zinc-50 text-zinc-900 overflow-x-hidden dark:bg-zinc-950 dark:text-zinc-100">
-        <LearnLayout route={learnRoute} setActiveTab={setActiveTab} />
+        <Suspense fallback={<div className="p-8 text-sm text-zinc-400">Loading…</div>}>
+          <LearnLayout route={learnRoute} setActiveTab={setActiveTab} />
+        </Suspense>
         {showAuth && (
           <AuthModal
             mode={authMode}
@@ -372,7 +375,9 @@ function App() {
           </div>
         </header>
         <main className="max-w-7xl mx-auto px-3 sm:px-6 pb-8 sm:pb-12 mt-2 sm:mt-4">
-          <AdminPanel />
+          <Suspense fallback={<div className="p-8 text-sm text-zinc-400">Loading…</div>}>
+            <AdminPanel />
+          </Suspense>
         </main>
       </div>
     );
