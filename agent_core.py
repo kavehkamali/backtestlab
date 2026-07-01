@@ -29,6 +29,7 @@ from agents import (
     Agent,
     ModelSettings,
     Runner,
+    WebSearchTool,
     function_tool,
     set_default_openai_key,
     set_tracing_disabled,
@@ -44,6 +45,9 @@ BACKEND_URL = os.environ.get("EQUILIMA_BACKEND_URL", "http://localhost:8080").rs
 # OFF by default for the snappy /quick path (the UI loads live data itself).
 REASONING_EFFORT = os.environ.get("EQUILIMA_REASONING_EFFORT", "low").strip()
 USE_TOOLS = os.environ.get("EQUILIMA_AGENT_TOOLS", "0").strip().lower() in ("1", "true", "yes")
+# Web search keeps the agent current (recent news, prices, private companies,
+# anything past the model's training cutoff). On by default; adds a little latency.
+USE_WEBSEARCH = os.environ.get("EQUILIMA_AGENT_WEBSEARCH", "1").strip().lower() in ("1", "true", "yes")
 
 
 def _fast_settings() -> ModelSettings:
@@ -172,10 +176,13 @@ Your job has two parts every turn:
    - news     : catalysts, headlines, "what happened", "why did it move", "today".
    - overview : greetings, vague, or multi-topic where no single tab dominates.
 
-If tools are available, use the one matching the tab you will route to, to ground
-the answer in live data; otherwise answer from your knowledge and state when a number
-needs live confirmation. Be fast and decisive. Always fill `ticker` with the primary
-symbol (or '') and list every referenced symbol in `tickers`."""
+You have a web_search tool — USE IT whenever the answer depends on anything current:
+live/recent prices, latest news or earnings, private companies (e.g. SpaceX,
+OpenAI, Stripe — no ticker), valuations, funding rounds, or any event after your
+training cutoff. Do not answer stale from memory when the question is time-sensitive;
+search first, then give the current picture and note the "as of" date. Be fast and
+decisive. Always fill `ticker` with the primary symbol (or '') and list every
+referenced symbol in `tickers`."""
 
 _ROUTER_INSTRUCTIONS = """Classify the user's latest message into ONE workspace tab and primary symbol.
 Tabs: research (ONE asset of any class — stock, crypto, commodity, ETF, index, or currency),
@@ -189,12 +196,17 @@ Return ticker='' when no single asset is in focus. One short sentence reason. Se
 
 
 def build_agent() -> Agent:
+    tools = []
+    if USE_WEBSEARCH:
+        tools.append(WebSearchTool())
+    if USE_TOOLS:
+        tools += [research_ticker, price_chart, screen_stocks, macro_overview, latest_news]
     return Agent(
         name="Equilima Analyst",
         instructions=_INSTRUCTIONS,
         model=OPENAI_MODEL,
         model_settings=_fast_settings(),
-        tools=[research_ticker, price_chart, screen_stocks, macro_overview, latest_news] if USE_TOOLS else [],
+        tools=tools,
         output_type=AgentOutput,
     )
 
@@ -229,7 +241,12 @@ def _router() -> Agent:
 
 
 def _to_input(message: str, history: list[dict] | None) -> list[dict]:
-    items: list[dict] = []
+    from datetime import datetime
+    items: list[dict] = [{
+        "role": "system",
+        "content": f"Today's date is {datetime.utcnow():%Y-%m-%d}. Treat this as current; "
+                   f"web_search for anything time-sensitive rather than relying on training data.",
+    }]
     for h in (history or [])[-12:]:
         role = "user" if (h.get("role") or "").lower() == "user" else "assistant"
         content = str(h.get("content") or "")[:6000]
