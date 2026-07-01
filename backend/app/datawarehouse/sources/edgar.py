@@ -119,58 +119,67 @@ def _f(v):
         return None
 
 
+_FACTS_SQL = """INSERT INTO fundamentals_facts
+    (cik,symbol,taxonomy,tag,unit,fy,fp,period_end,value,form,filed,accn)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT (cik,taxonomy,tag,unit,period_end,fy,fp,accn) DO UPDATE SET
+      value=excluded.value, filed=excluded.filed, symbol=excluded.symbol"""
+_FILINGS_SQL = """INSERT INTO filings
+    (cik,symbol,accession,form,filed,period,primary_doc_url,title)
+    VALUES (?,?,?,?,?,?,?,?)
+    ON CONFLICT (accession) DO UPDATE SET
+      form=excluded.form, primary_doc_url=excluded.primary_doc_url"""
+
+
+def _write_rows(sql, rows):
+    """Short-lived connection per write so the single-writer lock is held only
+    briefly — edgar doesn't block other collectors or the web reader."""
+    if not rows:
+        return
+    con = connect()
+    try:
+        con.executemany(sql, rows)
+    finally:
+        con.close()
+
+
 def collect_edgar(symbols: list[str] | None = None, max_companies: int | None = None) -> dict:
     all_tags = os.environ.get("EQUILIMA_EDGAR_ALL_TAGS", "").strip() in ("1", "true", "yes")
-    con = connect()
     started = datetime.utcnow()
     fact_n = filing_n = 0
     note = ""
+    con = connect()
     try:
-        q = "SELECT symbol, cik FROM symbols WHERE cik IS NOT NULL AND active"
-        rows = con.execute(q).fetchall()
-        if symbols:
-            want = {s.upper() for s in symbols}
-            rows = [r for r in rows if r[0].upper() in want]
-        if max_companies:
-            rows = rows[:max_companies]
-
-        set_collector_state("edgar", "running", total=len(rows), done=0, started=True)
-        with httpx.Client(timeout=40.0, headers={"User-Agent": _ua(),
-                                                 "Accept-Encoding": "gzip, deflate"}) as client:
-            for i, (symbol, cik) in enumerate(rows):
-                try:
-                    facts = _company_facts(client, cik, symbol, all_tags)
-                    if facts:
-                        con.executemany(
-                            """INSERT INTO fundamentals_facts
-                               (cik,symbol,taxonomy,tag,unit,fy,fp,period_end,value,form,filed,accn)
-                               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-                               ON CONFLICT (cik,taxonomy,tag,unit,period_end,fy,fp,accn) DO UPDATE SET
-                                 value=excluded.value, filed=excluded.filed, symbol=excluded.symbol""",
-                            facts)
-                        fact_n += len(facts)
-                    fil = _submissions(client, cik, symbol)
-                    if fil:
-                        con.executemany(
-                            """INSERT INTO filings
-                               (cik,symbol,accession,form,filed,period,primary_doc_url,title)
-                               VALUES (?,?,?,?,?,?,?,?)
-                               ON CONFLICT (accession) DO UPDATE SET
-                                 form=excluded.form, primary_doc_url=excluded.primary_doc_url""",
-                            fil)
-                        filing_n += len(fil)
-                except Exception as e:
-                    note += f"{symbol}:{type(e).__name__}; "
-                if (i + 1) % 25 == 0:
-                    print(f"[edgar] {i+1}/{len(rows)} companies, {fact_n} facts, {filing_n} filings")
-                    set_collector_state("edgar", "running", total=len(rows), done=i + 1, rows=fact_n + filing_n)
-        con.execute(
-            """INSERT INTO collector_runs (collector,started_at,finished_at,ok,rows,note)
-               VALUES ('edgar',?,?,?,?,?)""",
-            [started, datetime.utcnow(), True, fact_n + filing_n, note[:2000]])
+        rows = con.execute("SELECT symbol, cik FROM symbols WHERE cik IS NOT NULL AND active").fetchall()
     finally:
         con.close()
-    set_collector_state("edgar", "idle", total=len(rows) if 'rows' in dir() else 0, done=fact_n + filing_n, rows=fact_n + filing_n)
+    if symbols:
+        want = {s.upper() for s in symbols}
+        rows = [r for r in rows if r[0].upper() in want]
+    if max_companies:
+        rows = rows[:max_companies]
+
+    set_collector_state("edgar", "running", total=len(rows), done=0, started=True)
+    with httpx.Client(timeout=40.0, headers={"User-Agent": _ua(),
+                                             "Accept-Encoding": "gzip, deflate"}) as client:
+        for i, (symbol, cik) in enumerate(rows):
+            try:
+                facts = _company_facts(client, cik, symbol, all_tags)  # network, no lock
+                if facts:
+                    _write_rows(_FACTS_SQL, facts); fact_n += len(facts)
+                fil = _submissions(client, cik, symbol)
+                if fil:
+                    _write_rows(_FILINGS_SQL, fil); filing_n += len(fil)
+            except Exception as e:
+                note += f"{symbol}:{type(e).__name__}; "
+            if (i + 1) % 25 == 0:
+                print(f"[edgar] {i+1}/{len(rows)} companies, {fact_n} facts, {filing_n} filings")
+                set_collector_state("edgar", "running", total=len(rows), done=i + 1, rows=fact_n + filing_n)
+    _write_rows(
+        """INSERT INTO collector_runs (collector,started_at,finished_at,ok,rows,note)
+           VALUES ('edgar',?,?,?,?,?)""",
+        [[started, datetime.utcnow(), True, fact_n + filing_n, note[:2000]]])
+    set_collector_state("edgar", "idle", total=len(rows), done=fact_n + filing_n, rows=fact_n + filing_n)
     print(f"[edgar] done: {fact_n} facts, {filing_n} filings")
     return {"facts": fact_n, "filings": filing_n}
 
