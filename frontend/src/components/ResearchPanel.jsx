@@ -118,6 +118,18 @@ const RESEARCH_SEARCH_INDEX = [
   ['SU.TO', 'Suncor Energy Inc.'],
 ].map(([symbol, name]) => ({ symbol, name }));
 
+// Category chips for the search dropdown.
+const SEARCH_CLASS_LABEL = {
+  stock: 'Stock', etf: 'ETF', crypto: 'Crypto', commodity: 'Commodity',
+  index: 'Index', forex: 'Forex', bond: 'Bond',
+};
+const SEARCH_CLASS_STYLE = {
+  stock: 'bg-zinc-100 text-zinc-600', etf: 'bg-indigo-50 text-indigo-700',
+  crypto: 'bg-amber-50 text-amber-700', commodity: 'bg-orange-50 text-orange-700',
+  index: 'bg-sky-50 text-sky-700', forex: 'bg-emerald-50 text-emerald-700',
+  bond: 'bg-violet-50 text-violet-700',
+};
+
 const RESEARCH_ASSET_INDEX = [
   { symbol: 'GC=F', name: 'Gold futures', type: 'commodity', aliases: ['gold', 'gold futures', 'xau', 'xauusd', 'gc=f'] },
   { symbol: 'GLD', name: 'SPDR Gold Shares', type: 'etf', aliases: ['gld', 'gold etf'], chartIds: ['hard_assets', 'precious_metals'] },
@@ -1732,7 +1744,7 @@ function ResearchFundamentals({
     const id = window.setTimeout(() => {
       searchSymbols(raw).then((rows) => {
         if (cancelled) return;
-        setLiveResults(rows.map((r) => ({ symbol: r.symbol, name: r.name, type: r.type, stock: r.type === 'stock' })));
+        setLiveResults(rows.map((r) => ({ symbol: r.symbol, name: r.name, type: r.type, covered: r.covered, stock: r.type === 'stock' })));
       });
     }, 220);
     return () => { cancelled = true; window.clearTimeout(id); };
@@ -1819,10 +1831,17 @@ function ResearchFundamentals({
                   className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-zinc-50"
                 >
                   <span className="min-w-0">
-                    <span className="block text-xs font-semibold text-zinc-900">{item.symbol}</span>
-                    <span className="block truncate text-[11px] text-zinc-500">{item.name}{item.type && item.type !== 'stock' ? ` · ${item.type}` : ''}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-zinc-900">{item.symbol}</span>
+                      <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${SEARCH_CLASS_STYLE[item.type] || SEARCH_CLASS_STYLE.stock}`}>
+                        {SEARCH_CLASS_LABEL[item.type] || item.type || 'stock'}
+                      </span>
+                    </span>
+                    <span className="block truncate text-[11px] text-zinc-500">{item.name}</span>
                   </span>
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0 text-zinc-300" />
+                  {item.covered
+                    ? <span className="shrink-0 text-[9px] font-semibold text-emerald-600" title="Tracked & collected by Equilima">● TRACKED</span>
+                    : <ExternalLink className="h-3.5 w-3.5 shrink-0 text-zinc-300" />}
                 </button>
               )) : (
                 <div className="px-3 py-2 text-xs text-zinc-500">No matching company or ticker. Current research stays unchanged.</div>

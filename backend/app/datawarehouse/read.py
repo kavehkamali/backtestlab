@@ -288,6 +288,49 @@ def platform_status(top_n: int = 60):
         con.close()
 
 
+def search_symbols(q: str, limit: int = 8):
+    """Search our COVERED universe (the `symbols` table — all stocks + the
+    curated ETF/crypto/commodity/index/forex/bond sets) by symbol or name.
+    Ranks exact/prefix symbol matches first, then name matches, tie-broken by
+    market cap. Returns [] on any error (fail-soft). Names come from yf_info
+    when collected, else the curated universe name."""
+    query = (q or "").strip()
+    if not query:
+        return []
+    con = _ro()
+    if con is None:
+        return []
+    like = f"%{query.upper()}%"
+    pre = f"{query.upper()}%"
+    try:
+        rows = con.execute(
+            """
+            SELECT s.symbol,
+                   COALESCE(yi.name, s.name, s.symbol) AS nm,
+                   s.asset_class,
+                   yi.market_cap
+            FROM symbols s
+            LEFT JOIN yf_info yi ON yi.symbol = s.symbol
+            WHERE s.active
+              AND (upper(s.symbol) LIKE ? OR upper(COALESCE(yi.name, s.name, '')) LIKE ?)
+            ORDER BY
+              (upper(s.symbol) = ?) DESC,          -- exact symbol
+              (upper(s.symbol) LIKE ?) DESC,       -- symbol prefix
+              (s.asset_class <> 'stock') DESC,     -- surface curated non-stock sets
+              yi.market_cap DESC NULLS LAST,
+              length(s.symbol)
+            LIMIT ?
+            """,
+            [like, like, query.upper(), pre, limit],
+        ).fetchall()
+    except Exception:
+        return []
+    finally:
+        con.close()
+    return [{"symbol": r[0], "name": r[1], "type": r[2] or "stock",
+             "market_cap": r[3], "covered": True} for r in rows]
+
+
 def coverage():
     """Warehouse health/coverage snapshot. None if the DB can't be opened."""
     con = _ro()

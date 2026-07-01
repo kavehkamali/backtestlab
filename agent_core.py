@@ -104,6 +104,22 @@ def _post(path: str, body: dict) -> dict | list | None:
 
 
 @function_tool
+def find_symbol(query: str) -> str:
+    """Resolve a name/keyword to tradable symbols in Equilima's COVERED universe
+    (all tracked stocks + curated ETFs, crypto, commodities, indices, forex,
+    bonds). Call to map a user phrase to a canonical Yahoo symbol before
+    research_ticker/price_chart — e.g. 'euro dollar'->EURUSD=X, 'copper'->HG=F,
+    'nasdaq'->^IXIC, 'solana'->SOL-USD. Covered results are marked tracked."""
+    data = _get("/api/search", {"q": query.strip(), "limit": 8})
+    rows = (data or {}).get("results", []) if isinstance(data, dict) else []
+    if not rows:
+        return f"No symbol match for '{query}'."
+    out = [{"symbol": r.get("symbol"), "name": r.get("name"),
+            "type": r.get("type"), "tracked": bool(r.get("covered"))} for r in rows]
+    return json.dumps({"query": query, "matches": out})[:3000]
+
+
+@function_tool
 def research_ticker(ticker: str) -> str:
     """Fetch fundamentals, price summary and quality metrics for one ticker.
     Call when the user asks to analyze/research/value a specific company."""
@@ -171,6 +187,7 @@ Your job has two parts every turn:
        Put the canonical Yahoo Finance symbol in `ticker`: stocks AAPL; crypto BTC-USD, ETH-USD, SOL-USD;
        commodities gold=GC=F, silver=SI=F, crude oil=CL=F, brent=BZ=F, natural gas=NG=F, copper=HG=F;
        indices S&P 500=^GSPC, Nasdaq=^IXIC, Dow=^DJI, VIX=^VIX; currencies EUR/USD=EURUSD=X; ETFs SPY, QQQ, GLD.
+       If unsure of a symbol, call find_symbol first to resolve it against Equilima's covered universe.
    - screener : find/filter a LIST of stocks (oversold, momentum, value, dividends, small caps...).
    - macro    : rates, fed, inflation, jobs, commodities, dollar, crypto, recession — no single ticker.
    - news     : catalysts, headlines, "what happened", "why did it move", "today".
@@ -200,7 +217,7 @@ def build_agent() -> Agent:
     if USE_WEBSEARCH:
         tools.append(WebSearchTool())
     if USE_TOOLS:
-        tools += [research_ticker, price_chart, screen_stocks, macro_overview, latest_news]
+        tools += [find_symbol, research_ticker, price_chart, screen_stocks, macro_overview, latest_news]
     return Agent(
         name="Equilima Analyst",
         instructions=_INSTRUCTIONS,

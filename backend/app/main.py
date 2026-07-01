@@ -2287,11 +2287,32 @@ _YF_QT_TO_CLASS = {
 
 @app.get("/api/search")
 async def symbol_search(q: str = "", limit: int = 10):
-    """Live symbol lookup via Yahoo Finance autocomplete. Resolves any ticker,
-    company, crypto, commodity, ETF, or index by name or symbol."""
+    """Symbol lookup. Our COVERED universe (every tracked stock + the curated
+    ETF/crypto/commodity/index/forex/bond sets) is matched first from the
+    warehouse and surfaced ahead of Yahoo Finance live autocomplete, so anything
+    we collect is always one keystroke away with our own labels."""
     query = (q or "").strip()
     if len(query) < 1:
         return {"results": []}
+
+    results = []
+    seen = set()
+
+    # 1) Covered universe first (fail-soft — empty if the warehouse is busy).
+    try:
+        from .datawarehouse import read as wh_read
+        for r in wh_read.search_symbols(query, limit=max(6, limit)):
+            sym = r.get("symbol")
+            if not sym or sym.upper() in seen:
+                continue
+            seen.add(sym.upper())
+            results.append({"symbol": sym, "name": r.get("name") or sym,
+                            "type": r.get("type") or "stock", "exchange": None,
+                            "covered": True})
+    except Exception:
+        pass
+
+    # 2) Yahoo live autocomplete fills the long tail (anything not tracked yet).
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
             resp = await client.get(
@@ -2299,23 +2320,22 @@ async def symbol_search(q: str = "", limit: int = 10):
                 params={"q": query, "quotesCount": max(1, min(limit, 20)), "newsCount": 0},
                 headers={"User-Agent": "Mozilla/5.0 (Equilima research)"},
             )
-            if resp.status_code >= 400:
-                return {"results": []}
-            quotes = resp.json().get("quotes", [])
+            quotes = resp.json().get("quotes", []) if resp.status_code < 400 else []
     except Exception:
-        return {"results": []}
+        quotes = []
 
-    results = []
     for item in quotes:
         sym = item.get("symbol")
-        if not sym:
+        if not sym or sym.upper() in seen:
             continue
+        seen.add(sym.upper())
         qt = str(item.get("quoteType", "")).upper()
         results.append({
             "symbol": sym,
             "name": item.get("longname") or item.get("shortname") or sym,
             "type": _YF_QT_TO_CLASS.get(qt, "stock"),
             "exchange": item.get("exchDisp") or item.get("exchange"),
+            "covered": False,
         })
     return {"results": results[:limit]}
 
