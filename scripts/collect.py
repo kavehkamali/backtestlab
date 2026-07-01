@@ -51,10 +51,11 @@ def main():
     from app.datawarehouse import db, universe
     from app.datawarehouse.sources import prices, edgar, macro, info, intraday
 
-    db.init_schema()
-
-    # Serialize the actual collection (skip for the trivial no-write commands).
+    # Acquire the collector lock FIRST — init_schema() opens the DB read-write,
+    # so it must run under the same serialization as the collection itself.
     _lock = None if cmd in ("init",) else _acquire_run_lock()
+
+    db.init_schema()
 
     if cmd == "init":
         print("schema ready")
