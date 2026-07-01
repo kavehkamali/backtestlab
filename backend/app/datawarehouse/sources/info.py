@@ -16,7 +16,7 @@ from datetime import datetime
 
 import yfinance as yf
 
-from ..db import connect
+from ..db import connect, set_collector_state
 
 
 def _f(v):
@@ -45,6 +45,7 @@ def collect_info(symbols: list[str] | None = None) -> dict:
                 "SELECT symbol FROM symbols WHERE active ORDER BY symbol").fetchall()]
         cls = {r[0]: r[1] for r in con.execute("SELECT symbol, asset_class FROM symbols").fetchall()}
         now = datetime.utcnow()
+        set_collector_state("info", "running", total=len(symbols), done=0, started=True)
         for i, sym in enumerate(symbols):
             try:
                 info = yf.Ticker(sym).info or {}
@@ -69,11 +70,13 @@ def collect_info(symbols: list[str] | None = None) -> dict:
                 note += f"{sym}:{type(e).__name__}; "
             if (i + 1) % 50 == 0:
                 print(f"[info] {i+1}/{len(symbols)} symbols", flush=True)
+                set_collector_state("info", "running", total=len(symbols), done=i + 1, rows=n)
         con.execute(
             """INSERT INTO collector_runs (collector,started_at,finished_at,ok,rows,note)
                VALUES ('info',?,?,?,?,?)""", [started, datetime.utcnow(), True, n, note[:2000]])
     finally:
         con.close()
+    set_collector_state("info", "idle", total=len(symbols), done=len(symbols), rows=n)
     print(f"[info] done: {n} symbol snapshots", flush=True)
     return {"snapshots": n}
 
@@ -87,7 +90,9 @@ def collect_quotes(symbols: list[str] | None = None, chunk: int = 80) -> dict:
         if symbols is None:
             symbols = [r[0] for r in con.execute(
                 "SELECT symbol FROM symbols WHERE active ORDER BY symbol").fetchall()]
+        set_collector_state("quotes", "running", total=len(symbols), done=0, started=True)
         for c0 in range(0, len(symbols), chunk):
+            set_collector_state("quotes", "running", total=len(symbols), done=c0, rows=total)
             batch = symbols[c0:c0 + chunk]
             try:
                 df = yf.download(batch, period="2d", interval="1d", auto_adjust=False,
@@ -123,6 +128,7 @@ def collect_quotes(symbols: list[str] | None = None, chunk: int = 80) -> dict:
                VALUES ('quotes',?,?,?,?,?)""", [started, datetime.utcnow(), True, total, ""])
     finally:
         con.close()
+    set_collector_state("quotes", "idle", total=len(symbols or []), done=len(symbols or []), rows=total)
     print(f"[quotes] done: {total} latest bars", flush=True)
     return {"quotes": total}
 

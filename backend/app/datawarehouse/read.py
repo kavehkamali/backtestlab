@@ -202,6 +202,79 @@ def macro_series(series_id: str):
     return [{"date": str(d), "value": v} for d, v in rows] if rows else None
 
 
+def _writer_active() -> bool:
+    """True if a collector currently holds the write lock."""
+    import duckdb as _d
+    from .db import warehouse_path
+    try:
+        c = _d.connect(str(warehouse_path()))  # read-write; fails if locked
+        c.close()
+        return False
+    except _d.IOException:
+        return True
+    except Exception:
+        return False
+
+
+def platform_status(top_n: int = 60):
+    """Rich data-platform status for the admin dashboard: coverage, per-class
+    breakdown, live collector progress, recent runs, top equities. Fail-soft."""
+    con = _ro()
+    if con is None:
+        return {"available": False, "writer_active": _writer_active()}
+    try:
+        out = {"available": True, "writer_active": False}
+        q1 = con.execute("SELECT count(*), count(DISTINCT symbol) FROM prices_daily").fetchone()
+        q2 = con.execute("SELECT count(*), count(DISTINCT symbol) FROM prices_intraday").fetchone()
+        out["coverage"] = {
+            "symbols": con.execute("SELECT count(*) FROM symbols").fetchone()[0],
+            "price_rows": q1[0], "price_symbols": q1[1],
+            "intraday_bars": q2[0], "intraday_symbols": q2[1],
+            "yf_info": con.execute("SELECT count(*) FROM yf_info").fetchone()[0],
+            "fundamentals_facts": con.execute("SELECT count(*) FROM fundamentals_facts").fetchone()[0],
+            "filers_with_facts": con.execute("SELECT count(DISTINCT symbol) FROM fundamentals_facts").fetchone()[0],
+            "filings": con.execute("SELECT count(*) FROM filings").fetchone()[0],
+            "macro_series": con.execute("SELECT count(*) FROM macro_series").fetchone()[0],
+            "macro_obs": con.execute("SELECT count(*) FROM macro_observations").fetchone()[0],
+            "cik_symbols": con.execute("SELECT count(*) FROM symbols WHERE cik IS NOT NULL").fetchone()[0],
+        }
+        out["by_class"] = [
+            {"asset_class": r[0], "symbols": r[1], "price_covered": r[2],
+             "intraday_covered": r[3], "market_cap_total": r[4]}
+            for r in con.execute(
+                """SELECT s.asset_class, count(*) AS n,
+                          count(DISTINCT pf.symbol), count(DISTINCT idf.symbol), sum(yi.market_cap)
+                   FROM symbols s
+                   LEFT JOIN (SELECT DISTINCT symbol FROM prices_daily) pf ON pf.symbol=s.symbol
+                   LEFT JOIN (SELECT DISTINCT symbol FROM prices_intraday) idf ON idf.symbol=s.symbol
+                   LEFT JOIN yf_info yi ON yi.symbol=s.symbol
+                   GROUP BY 1 ORDER BY n DESC""").fetchall()
+        ]
+        out["collectors"] = [
+            {"collector": r[0], "status": r[1], "phase": r[2], "total": r[3], "done": r[4],
+             "rows": r[5], "started_at": str(r[6]) if r[6] else None, "updated_at": str(r[7]) if r[7] else None, "note": r[8]}
+            for r in con.execute(
+                "SELECT collector,status,phase,total,done,rows,started_at,updated_at,note FROM collector_state ORDER BY collector").fetchall()
+        ]
+        out["runs"] = [
+            {"collector": r[0], "finished_at": str(r[1]) if r[1] else None, "ok": r[2], "rows": r[3], "note": (r[4] or "")[:200]}
+            for r in con.execute(
+                "SELECT collector,finished_at,ok,rows,note FROM collector_runs ORDER BY id DESC LIMIT 20").fetchall()
+        ]
+        out["top_equities"] = [
+            {"symbol": r[0], "name": r[1], "asset_class": r[2], "market_cap": r[3]}
+            for r in con.execute(
+                """SELECT yi.symbol, yi.name, s.asset_class, yi.market_cap
+                   FROM yf_info yi JOIN symbols s USING(symbol)
+                   WHERE yi.market_cap IS NOT NULL ORDER BY yi.market_cap DESC LIMIT ?""", [top_n]).fetchall()
+        ]
+        return out
+    except Exception as e:
+        return {"available": False, "error": str(e), "writer_active": _writer_active()}
+    finally:
+        con.close()
+
+
 def coverage():
     """Warehouse health/coverage snapshot. None if the DB can't be opened."""
     con = _ro()

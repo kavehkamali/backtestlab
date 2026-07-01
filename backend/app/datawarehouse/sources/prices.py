@@ -16,7 +16,7 @@ import httpx
 import pandas as pd
 import yfinance as yf
 
-from ..db import connect
+from ..db import connect, set_collector_state
 
 
 # A symbol with fewer than this many bars is treated as un-backfilled, so a
@@ -156,6 +156,8 @@ def collect_prices(symbols: list[str] | None = None, full: bool = False, chunk: 
     total = 0
     note = ""
     done = 0
+    set_collector_state("prices", "running", total=len(symbols), done=0, started=True,
+                        phase="full" if full else "incremental")
     for i in range(0, len(symbols), chunk):
         batch = symbols[i:i + chunk]
 
@@ -194,6 +196,7 @@ def collect_prices(symbols: list[str] | None = None, full: bool = False, chunk: 
 
         if done % 200 == 0 or done >= len(symbols):
             print(f"[prices] {done}/{len(symbols)} symbols, {total} rows so far", flush=True)
+        set_collector_state("prices", "running", total=len(symbols), done=done, rows=total)
 
     con = connect()
     try:
@@ -204,6 +207,7 @@ def collect_prices(symbols: list[str] | None = None, full: bool = False, chunk: 
         )
     finally:
         con.close()
+    set_collector_state("prices", "idle", total=len(symbols), done=len(symbols), rows=total, note=note[:200])
     print(f"[prices] done: {total} rows across {len(symbols)} symbols", flush=True)
     return {"rows": total, "symbols": len(symbols)}
 

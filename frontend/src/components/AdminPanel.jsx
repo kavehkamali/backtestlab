@@ -3,6 +3,7 @@ import { Loader2, Users, Eye, Globe, Monitor, Smartphone, Clock, LogOut, Refresh
 import { Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Line } from 'recharts';
 import { adminLogin, fetchAdminStats, fetchAdminUsage, fetchUsageIpOverrides, saveUsageIpOverride, deleteUsageIpOverride, saveAdminExcludedIps, toggleAdminExcludedIp, fetchAdminUsers, updateAdminUser, deleteAdminUser, previewAdminNewsletter, sendAdminNewsletter, fetchAdminNewsletterHistory } from '../api';
 import AdminArticlesTab from './AdminArticlesTab';
+import AdminDataPlatformTab from './AdminDataPlatformTab';
 
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
 
@@ -507,6 +508,8 @@ export default function AdminPanel() {
                   ? 'User management'
                   : adminTab === 'articles'
                     ? 'Articles & Market Blog'
+                  : adminTab === 'data'
+                    ? 'Data Platform'
                     : 'Email & newsletters'}
             </h2>
             <p className="text-xs text-zinc-500 mt-0.5">
@@ -526,6 +529,8 @@ export default function AdminPanel() {
                   ? 'Search accounts, verify email, enable or disable users'
                 : adminTab === 'articles'
                     ? 'SEO blog articles at /learn — hub-and-spoke clusters, meta, JSON-LD, sitemap'
+                : adminTab === 'data'
+                    ? 'Live collector progress, warehouse coverage by asset class, VPN egress, recent runs and largest covered equities'
                     : 'Draft with ChatGPT using the instructions below, choose recipients, send and verify delivery'}
             </p>
           </div>
@@ -552,6 +557,7 @@ export default function AdminPanel() {
               { id: 'users', label: 'Users' },
               { id: 'email', label: 'Newsletters' },
               { id: 'articles', label: 'Articles' },
+              { id: 'data', label: 'Data Platform' },
             ].map((t) => (
               <button
                 key={t.id}
@@ -1214,6 +1220,8 @@ export default function AdminPanel() {
       )}
 
       {adminTab === 'articles' && <AdminArticlesTab setAuthed={setAuthed} />}
+
+      {adminTab === 'data' && <AdminDataPlatformTab />}
 
       {adminTab !== 'analytics' ? null : (
         <>

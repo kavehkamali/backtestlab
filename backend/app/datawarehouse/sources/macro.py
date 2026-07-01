@@ -17,7 +17,7 @@ from datetime import datetime
 
 import httpx
 
-from ..db import connect
+from ..db import connect, set_collector_state
 
 TREASURY_BASE = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
 BLS_URL = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
@@ -188,18 +188,20 @@ def collect_macro() -> dict:
     con = connect()
     started = datetime.utcnow()
     total = 0
+    set_collector_state("macro", "running", total=4, done=0, started=True)
     try:
         with httpx.Client(timeout=40.0, headers={"User-Agent": "Equilima Research"}) as client:
-            total += _collect_treasury(con, client)
-            total += _collect_bls(con, client)
-            total += _collect_bea(con, client)
-            total += _collect_fred_extras(con, client)  # only if FRED_API_KEY set
+            total += _collect_treasury(con, client); set_collector_state("macro", "running", total=4, done=1, phase="treasury")
+            total += _collect_bls(con, client); set_collector_state("macro", "running", total=4, done=2, phase="bls")
+            total += _collect_bea(con, client); set_collector_state("macro", "running", total=4, done=3, phase="bea")
+            total += _collect_fred_extras(con, client); set_collector_state("macro", "running", total=4, done=4, phase="fred")
         con.execute(
             """INSERT INTO collector_runs (collector,started_at,finished_at,ok,rows,note)
                VALUES ('macro',?,?,?,?,?)""",
             [started, datetime.utcnow(), True, total, ""])
     finally:
         con.close()
+    set_collector_state("macro", "idle", total=4, done=4, rows=total)
     print(f"[macro] done: {total} observations")
     return {"observations": total}
 

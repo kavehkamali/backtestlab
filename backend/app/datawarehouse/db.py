@@ -161,6 +161,19 @@ CREATE TABLE IF NOT EXISTS macro_observations (
     PRIMARY KEY (series_id, date)
 );
 
+-- Live per-collector progress (updated during a run) for the admin dashboard.
+CREATE TABLE IF NOT EXISTS collector_state (
+    collector  VARCHAR PRIMARY KEY,
+    status     VARCHAR,          -- running | idle | error
+    phase      VARCHAR,          -- e.g. current interval / sub-step
+    total      BIGINT DEFAULT 0,
+    done       BIGINT DEFAULT 0,
+    rows       BIGINT DEFAULT 0,
+    started_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    note       VARCHAR
+);
+
 CREATE SEQUENCE IF NOT EXISTS collector_runs_seq START 1;
 CREATE TABLE IF NOT EXISTS collector_runs (
     id          BIGINT DEFAULT nextval('collector_runs_seq') PRIMARY KEY,
@@ -172,6 +185,32 @@ CREATE TABLE IF NOT EXISTS collector_runs (
     note        VARCHAR
 );
 """
+
+
+def set_collector_state(collector, status, total=0, done=0, rows=0, phase="", note="", started=False):
+    """Upsert live progress for a collector. `started=True` stamps started_at.
+    Best-effort — never let progress bookkeeping break a collector run."""
+    import time as _t
+    for _ in range(4):
+        try:
+            con = duckdb.connect(str(warehouse_path()))
+            try:
+                con.execute(
+                    """INSERT INTO collector_state (collector,status,phase,total,done,rows,started_at,updated_at,note)
+                       VALUES (?,?,?,?,?,?,?,now(),?)
+                       ON CONFLICT (collector) DO UPDATE SET
+                         status=excluded.status, phase=excluded.phase, total=excluded.total,
+                         done=excluded.done, rows=excluded.rows, updated_at=now(), note=excluded.note,
+                         started_at=CASE WHEN excluded.started_at IS NOT NULL THEN excluded.started_at ELSE collector_state.started_at END""",
+                    [collector, status, phase, total, done, rows,
+                     __import__("datetime").datetime.utcnow() if started else None, note[:500]])
+            finally:
+                con.close()
+            return
+        except duckdb.IOException:
+            _t.sleep(0.8)
+        except Exception:
+            return
 
 
 def init_schema() -> None:

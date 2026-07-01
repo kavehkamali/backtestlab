@@ -1,5 +1,5 @@
 from __future__ import annotations
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -21,7 +21,7 @@ from .backtester import BacktestConfig, StrategyType, run_backtest
 from .terminal import router as terminal_router
 from .research import router as research_router
 from .auth import router as auth_router
-from .analytics import router as analytics_router
+from .analytics import router as analytics_router, verify_admin
 from .agent_history import router as agent_history_router
 from .articles import public_router as articles_public_router, admin_router as articles_admin_router, page_router as articles_page_router
 from .shared_cache import get_or_compute, get_cached_or_refresh_bg, get_cached_any, set_cached, is_stale, SCREENER_TTL, DASHBOARD_TTL, CRYPTO_TTL, RESEARCH_TTL, cache_stats
@@ -2222,6 +2222,47 @@ async def warehouse_health():
         return wh_read.coverage()
     except Exception as e:
         return {"available": False, "error": str(e)}
+
+
+def _vpn_status() -> dict:
+    """Best-effort ProtonVPN/netns status for collector egress. All collectors
+    are VPN-routed (via the `protonvpn` netns) when proton.conf is present."""
+    import os as _os
+    import subprocess as _sp
+    conf = _os.path.exists("/etc/wireguard/proton.conf")
+    netns_up = False
+    exit_ip = None
+    try:
+        r = _sp.run(["ip", "netns", "list"], capture_output=True, text=True, timeout=3)
+        netns_up = "protonvpn" in (r.stdout or "")
+    except Exception:
+        pass
+    if netns_up:
+        try:
+            r = _sp.run(["ip", "netns", "exec", "protonvpn", "curl", "-s", "--max-time", "5",
+                         "https://api.ipify.org"], capture_output=True, text=True, timeout=8)
+            ip = (r.stdout or "").strip()
+            if ip and len(ip) <= 45:
+                exit_ip = ip
+        except Exception:
+            pass
+    # collectors whose egress is wrapped by the netns (all internet scrapers)
+    routed = ["prices", "quotes", "intraday", "info", "edgar", "macro"]
+    return {"configured": conf, "netns_up": netns_up, "exit_ip": exit_ip,
+            "routed_collectors": routed if conf else [],
+            "mode": "collectors-only (fail-closed killswitch)"}
+
+
+@app.get("/api/admin/data-platform")
+async def admin_data_platform(admin=Depends(verify_admin)):
+    """Rich collector/coverage status for the admin Data Platform tab."""
+    try:
+        from .datawarehouse import read as wh_read
+        status = wh_read.platform_status()
+    except Exception as e:
+        status = {"available": False, "error": str(e)}
+    status["vpn"] = _vpn_status()
+    return status
 
 
 @app.get("/api/agent/health")

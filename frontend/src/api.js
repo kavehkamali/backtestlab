@@ -168,6 +168,19 @@ export async function fetchAdminStats(daysOrOpts = 30) {
   return res.json();
 }
 
+export async function fetchAdminDataPlatform() {
+  const token = localStorage.getItem('eq_admin_token');
+  const res = await fetch(`${BASE}/admin/data-platform?_=${Date.now()}`, {
+    cache: 'no-store',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    if (res.status === 401) { localStorage.removeItem('eq_admin_token'); throw new Error('Session expired'); }
+    throw new Error('Failed to load data platform status');
+  }
+  return res.json();
+}
+
 export async function fetchAdminUsage({ days = 30, limit = 300 } = {}) {
   const token = localStorage.getItem('eq_admin_token');
   const qp = new URLSearchParams();

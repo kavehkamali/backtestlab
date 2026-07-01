@@ -17,7 +17,7 @@ from datetime import datetime
 
 import httpx
 
-from ..db import connect
+from ..db import connect, set_collector_state
 
 _MIN_INTERVAL = 1.0 / 8.0  # ~8 req/s, under SEC's 10/s ceiling
 _last_req = [0.0]
@@ -134,6 +134,7 @@ def collect_edgar(symbols: list[str] | None = None, max_companies: int | None = 
         if max_companies:
             rows = rows[:max_companies]
 
+        set_collector_state("edgar", "running", total=len(rows), done=0, started=True)
         with httpx.Client(timeout=40.0, headers={"User-Agent": _ua(),
                                                  "Accept-Encoding": "gzip, deflate"}) as client:
             for i, (symbol, cik) in enumerate(rows):
@@ -162,12 +163,14 @@ def collect_edgar(symbols: list[str] | None = None, max_companies: int | None = 
                     note += f"{symbol}:{type(e).__name__}; "
                 if (i + 1) % 25 == 0:
                     print(f"[edgar] {i+1}/{len(rows)} companies, {fact_n} facts, {filing_n} filings")
+                    set_collector_state("edgar", "running", total=len(rows), done=i + 1, rows=fact_n + filing_n)
         con.execute(
             """INSERT INTO collector_runs (collector,started_at,finished_at,ok,rows,note)
                VALUES ('edgar',?,?,?,?,?)""",
             [started, datetime.utcnow(), True, fact_n + filing_n, note[:2000]])
     finally:
         con.close()
+    set_collector_state("edgar", "idle", total=len(rows) if 'rows' in dir() else 0, done=fact_n + filing_n, rows=fact_n + filing_n)
     print(f"[edgar] done: {fact_n} facts, {filing_n} filings")
     return {"facts": fact_n, "filings": filing_n}
 

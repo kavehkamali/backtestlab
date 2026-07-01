@@ -16,7 +16,7 @@ from datetime import datetime
 import pandas as pd
 import yfinance as yf
 
-from ..db import connect
+from ..db import connect, set_collector_state
 
 # interval -> how far back to pull each run (within Yahoo's intraday limits).
 PERIOD = {"5m": "1mo", "15m": "1mo", "1h": "6mo"}
@@ -94,6 +94,9 @@ def collect_intraday(symbols: list[str] | None = None, intervals=DEFAULT_INTERVA
 
     total = 0
     note = ""
+    grand = len(symbols) * max(1, len(intervals))
+    overall = 0
+    set_collector_state("intraday", "running", total=grand, done=0, started=True, phase=intervals[0] if intervals else "")
     for interval in intervals:
         done = 0
         for i in range(0, len(symbols), chunk):
@@ -117,8 +120,10 @@ def collect_intraday(symbols: list[str] | None = None, intervals=DEFAULT_INTERVA
                 finally:
                     con.close()
             done += len(batch)
+            overall += len(batch)
             if done % 300 == 0:
                 print(f"[intraday] {interval}: {done}/{len(symbols)} symbols, {total} bars", flush=True)
+            set_collector_state("intraday", "running", total=grand, done=overall, rows=total, phase=interval)
     con = connect()
     try:
         con.execute(
@@ -127,6 +132,7 @@ def collect_intraday(symbols: list[str] | None = None, intervals=DEFAULT_INTERVA
             [started, datetime.utcnow(), True, total, note[:2000]])
     finally:
         con.close()
+    set_collector_state("intraday", "idle", total=grand, done=grand, rows=total, note=note[:200])
     print(f"[intraday] done: {total} bars across {len(symbols)} symbols", flush=True)
     return {"bars": total, "symbols": len(symbols)}
 
