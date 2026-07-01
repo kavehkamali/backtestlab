@@ -187,10 +187,56 @@ CREATE TABLE IF NOT EXISTS collector_runs (
 """
 
 
+def _state_sidecar_path() -> Path:
+    return Path(str(warehouse_path()) + ".collector_state.json")
+
+
+def _write_state_sidecar(collector, status, total, done, rows, phase, note, started):
+    """Mirror live progress to a lock-free JSON file so the admin dashboard can
+    show collector progress even while the DuckDB write lock is held mid-chunk.
+    Collectors are serialized by an flock, so there is only ever one writer."""
+    import json as _j
+    from datetime import datetime as _dt
+    p = _state_sidecar_path()
+    try:
+        data = {}
+        if p.exists():
+            try:
+                data = _j.loads(p.read_text() or "{}")
+            except Exception:
+                data = {}
+        now = _dt.utcnow().isoformat()
+        prev = data.get(collector, {})
+        data[collector] = {
+            "collector": collector, "status": status, "phase": phase,
+            "total": total, "done": done, "rows": rows, "note": note[:500],
+            "updated_at": now,
+            "started_at": now if started else prev.get("started_at"),
+        }
+        tmp = Path(str(p) + ".tmp")
+        tmp.write_text(_j.dumps(data))
+        tmp.replace(p)  # atomic
+    except Exception:
+        pass
+
+
+def read_state_sidecar() -> list[dict]:
+    import json as _j
+    p = _state_sidecar_path()
+    try:
+        if not p.exists():
+            return []
+        data = _j.loads(p.read_text() or "{}")
+        return sorted(data.values(), key=lambda r: r.get("collector", ""))
+    except Exception:
+        return []
+
+
 def set_collector_state(collector, status, total=0, done=0, rows=0, phase="", note="", started=False):
     """Upsert live progress for a collector. `started=True` stamps started_at.
     Best-effort — never let progress bookkeeping break a collector run."""
     import time as _t
+    _write_state_sidecar(collector, status, total, done, rows, phase, note, started)
     for _ in range(4):
         try:
             con = duckdb.connect(str(warehouse_path()))

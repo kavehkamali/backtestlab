@@ -223,12 +223,16 @@ def platform_status(top_n: int = 60):
     Uses a more patient read than the request-path helpers: collectors now write
     in short bursts, so a few seconds of retry reliably catches a gap between
     chunks even while several collectors run concurrently."""
+    from .db import read_state_sidecar
+    sidecar = read_state_sidecar()  # lock-free live progress, always available
     try:
         con = connect(read_only=True, retries=8, retry_wait=0.5)
     except Exception:
         con = None
     if con is None:
-        return {"available": False, "writer_active": _writer_active()}
+        # DB busy (a collector holds the write lock) — still surface live progress
+        # and VPN so the dashboard is never blank; coverage fills on the next poll.
+        return {"available": False, "writer_active": True, "collectors": sidecar}
     try:
         out = {"available": True, "writer_active": False}
         q1 = con.execute("SELECT count(*), count(DISTINCT symbol) FROM prices_daily").fetchone()
@@ -257,12 +261,14 @@ def platform_status(top_n: int = 60):
                    LEFT JOIN yf_info yi ON yi.symbol=s.symbol
                    GROUP BY 1 ORDER BY n DESC""").fetchall()
         ]
-        out["collectors"] = [
+        db_collectors = [
             {"collector": r[0], "status": r[1], "phase": r[2], "total": r[3], "done": r[4],
              "rows": r[5], "started_at": str(r[6]) if r[6] else None, "updated_at": str(r[7]) if r[7] else None, "note": r[8]}
             for r in con.execute(
                 "SELECT collector,status,phase,total,done,rows,started_at,updated_at,note FROM collector_state ORDER BY collector").fetchall()
         ]
+        # sidecar is the freshest (lock-free); fall back to the DB table if empty
+        out["collectors"] = sidecar or db_collectors
         out["runs"] = [
             {"collector": r[0], "finished_at": str(r[1]) if r[1] else None, "ok": r[2], "rows": r[3], "note": (r[4] or "")[:200]}
             for r in con.execute(

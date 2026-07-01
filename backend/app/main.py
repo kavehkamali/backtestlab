@@ -2229,6 +2229,8 @@ def _vpn_status() -> dict:
     are VPN-routed (via the `protonvpn` netns) when proton.conf is present."""
     import os as _os
     import subprocess as _sp
+    # The web user can't stat root-only /etc/wireguard, so an active netns is the
+    # authoritative "VPN is up" signal; the conf check is a best-effort extra.
     conf = _os.path.exists("/etc/wireguard/proton.conf")
     netns_up = False
     exit_ip = None
@@ -2246,10 +2248,11 @@ def _vpn_status() -> dict:
                 exit_ip = ip
         except Exception:
             pass
+    active = netns_up or conf
     # collectors whose egress is wrapped by the netns (all internet scrapers)
     routed = ["prices", "quotes", "intraday", "info", "edgar", "macro"]
-    return {"configured": conf, "netns_up": netns_up, "exit_ip": exit_ip,
-            "routed_collectors": routed if conf else [],
+    return {"configured": active, "netns_up": netns_up, "exit_ip": exit_ip,
+            "routed_collectors": routed if active else [],
             "mode": "collectors-only (fail-closed killswitch)"}
 
 
