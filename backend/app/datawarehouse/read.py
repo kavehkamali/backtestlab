@@ -218,8 +218,15 @@ def _writer_active() -> bool:
 
 def platform_status(top_n: int = 60):
     """Rich data-platform status for the admin dashboard: coverage, per-class
-    breakdown, live collector progress, recent runs, top equities. Fail-soft."""
-    con = _ro()
+    breakdown, live collector progress, recent runs, top equities. Fail-soft.
+
+    Uses a more patient read than the request-path helpers: collectors now write
+    in short bursts, so a few seconds of retry reliably catches a gap between
+    chunks even while several collectors run concurrently."""
+    try:
+        con = connect(read_only=True, retries=8, retry_wait=0.5)
+    except Exception:
+        con = None
     if con is None:
         return {"available": False, "writer_active": _writer_active()}
     try:
