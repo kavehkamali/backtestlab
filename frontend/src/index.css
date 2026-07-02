@@ -226,7 +226,7 @@ html.dark .eq-card-hover:hover { box-shadow: 0 4px 16px rgba(0,0,0,.4); }
 /* Dual-thumb range slider (screener filters) — two stacked native ranges */
 .eq-range {
   position: relative;
-  height: 18px;
+  height: 14px;
   display: flex;
   align-items: center;
 }
@@ -241,11 +241,11 @@ html.dark .eq-card-hover:hover { box-shadow: 0 4px 16px rgba(0,0,0,.4); }
 .eq-range input[type="range"] {
   position: absolute; left: 0; right: 0; width: 100%;
   appearance: none; -webkit-appearance: none;
-  background: transparent; pointer-events: none; height: 18px; margin: 0;
+  background: transparent; pointer-events: none; height: 14px; margin: 0;
 }
 .eq-range input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
-  width: 13px; height: 13px; border-radius: 999px;
+  width: 11px; height: 11px; border-radius: 999px;
   background: var(--eq-card); border: 2px solid var(--eq-accent);
   box-shadow: var(--eq-shadow-card);
   pointer-events: auto; cursor: grab;

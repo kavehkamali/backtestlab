@@ -24,12 +24,13 @@ function splinePath(points) {
   return d + 'Z';
 }
 
-export default function InteractiveSnowflake({ dims, values, onChange, enabled, onToggle, title }) {
+export default function InteractiveSnowflake({ dims, values, onChange, enabled, onToggle, title, size: sizeProp }) {
   const svgRef = useRef(null);
   const [dragging, setDragging] = useState(null);
   const [hovering, setHovering] = useState(null);
 
-  const size = 180;
+  // size overridable — screener renders a compact version inline
+  const size = sizeProp || 180;
   const cx = size / 2, cy = size / 2;
   const maxR = size * 0.34;
   const n = dims.length;

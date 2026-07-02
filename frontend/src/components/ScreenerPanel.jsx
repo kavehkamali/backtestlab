@@ -404,7 +404,7 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
   const appliedAgentIntentRef = useRef('');
 
   // Panels
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [filters, setFilters] = useState({ ...DEFAULT_FILTERS });
 
@@ -1036,125 +1036,94 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
       )}
 
       {/* ─── Filters Panel ─── */}
-      {/* ─── Filters — everything exposed, one compact professional card ─── */}
+      {/* ─── Filters — one dense row, collapsible, results stay above the fold ─── */}
       {results && (
         <div className="eq-card overflow-hidden">
-          {/* Quick row: the six that matter, as segmented chips */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5 border-b border-[var(--eq-grid)] px-4 py-3">
-            <QuickSeg label="Market cap" value={
-              filters.market_cap_max <= 2 ? 'small' : filters.market_cap_min >= 200 ? 'mega' : filters.market_cap_min >= 10 ? 'large' : filters.market_cap_min >= 2 ? 'mid' : 'any'
-            } options={[['any', 'Any'], ['mega', '>$200B'], ['large', '$10–200B'], ['mid', '$2–10B'], ['small', '<$2B']]}
-              onChange={(v) => {
-                const d = DEFAULT_FILTERS;
-                if (v === 'any') { updateFilter('market_cap_min', d.market_cap_min); updateFilter('market_cap_max', d.market_cap_max); }
-                else if (v === 'mega') { updateFilter('market_cap_min', 200); updateFilter('market_cap_max', d.market_cap_max); }
-                else if (v === 'large') { updateFilter('market_cap_min', 10); updateFilter('market_cap_max', 200); }
-                else if (v === 'mid') { updateFilter('market_cap_min', 2); updateFilter('market_cap_max', 10); }
-                else { updateFilter('market_cap_min', 0); updateFilter('market_cap_max', 2); }
-              }} />
-            <QuickSeg label="RSI" value={filters.rsi_max <= 30 ? 'oversold' : filters.rsi_min >= 70 ? 'overbought' : 'any'}
-              options={[['any', 'Any'], ['oversold', '≤30'], ['overbought', '≥70']]}
-              onChange={(v) => {
-                if (v === 'any') { updateFilter('rsi_min', 0); updateFilter('rsi_max', 100); }
-                else if (v === 'oversold') { updateFilter('rsi_min', 0); updateFilter('rsi_max', 30); }
-                else { updateFilter('rsi_min', 70); updateFilter('rsi_max', 100); }
-              }} />
-            <QuickSeg label="P/E" value={filters.pe_max <= 15 ? 'value' : (filters.pe_min >= 30 ? 'growth' : (filters.pe_max <= 30 && filters.pe_min >= 15 ? 'fair' : 'any'))}
-              options={[['any', 'Any'], ['value', '<15'], ['fair', '15–30'], ['growth', '>30']]}
-              onChange={(v) => {
-                const d = DEFAULT_FILTERS;
-                if (v === 'any') { updateFilter('pe_min', d.pe_min); updateFilter('pe_max', d.pe_max); }
-                else if (v === 'value') { updateFilter('pe_min', 0); updateFilter('pe_max', 15); }
-                else if (v === 'fair') { updateFilter('pe_min', 15); updateFilter('pe_max', 30); }
-                else { updateFilter('pe_min', 30); updateFilter('pe_max', d.pe_max); }
-              }} />
-            <QuickSeg label="Dividend" value={filters.dividend_yield_min >= 4 ? 'high' : filters.dividend_yield_min >= 2 ? 'some' : 'any'}
-              options={[['any', 'Any'], ['some', '≥2%'], ['high', '≥4%']]}
-              onChange={(v) => updateFilter('dividend_yield_min', v === 'any' ? 0 : v === 'some' ? 2 : 4)} />
-            <QuickSeg label="Trend" value={filters.above_sma200 === 'yes' ? 'up' : filters.above_sma200 === 'no' ? 'down' : 'any'}
-              options={[['any', 'Any'], ['up', '> 200 SMA'], ['down', '< 200 SMA']]}
-              onChange={(v) => updateFilter('above_sma200', v === 'any' ? 'any' : v === 'up' ? 'yes' : 'no')} />
-            <QuickSeg label="1M move" value={filters.change_20d_min >= 5 ? 'up' : filters.change_20d_max <= -5 ? 'down' : 'any'}
-              options={[['any', 'Any'], ['up', '+5%↑'], ['down', '−5%↓']]}
-              onChange={(v) => {
-                const d = DEFAULT_FILTERS;
-                if (v === 'any') { updateFilter('change_20d_min', d.change_20d_min); updateFilter('change_20d_max', d.change_20d_max); }
-                else if (v === 'up') { updateFilter('change_20d_min', 5); updateFilter('change_20d_max', d.change_20d_max); }
-                else { updateFilter('change_20d_min', d.change_20d_min); updateFilter('change_20d_max', -5); }
-              }} />
-            <div className="ml-auto flex flex-wrap items-center gap-1.5">
-              <button onClick={() => setFilters({ ...DEFAULT_FILTERS, rsi_max: 30 })} className="eq-chip eq-chip-gain !cursor-pointer">Oversold</button>
-              <button onClick={() => setFilters({ ...DEFAULT_FILTERS, above_sma20: 'yes', above_sma50: 'yes', above_sma200: 'yes', min_buy_signals: 3 })} className="eq-chip eq-chip-accent !cursor-pointer">Bullish</button>
-              <button onClick={() => setFilters({ ...DEFAULT_FILTERS, above_sma200: 'no', pct_from_52w_high_min: -50, pct_from_52w_high_max: -20 })} className="eq-chip !cursor-pointer" style={{ color: 'var(--eq-warn)' }}>Deep value</button>
-              <button onClick={() => setFilters({ ...DEFAULT_FILTERS, dividend_yield_min: 3 })} className="eq-chip !cursor-pointer">High div</button>
-              <button onClick={() => setFilters({ ...DEFAULT_FILTERS, short_pct_min: 15 })} className="eq-chip eq-chip-loss !cursor-pointer">High short</button>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 px-4 py-2">
+            <button type="button" onClick={() => setFiltersOpen(!filtersOpen)}
+              className="flex items-center gap-1.5 text-left">
+              <span className="eq-label">Filters</span>
+              <ChevronDown className={`h-3.5 w-3.5 text-[var(--eq-text3)] transition-transform ${filtersOpen ? '' : '-rotate-90'}`} />
+            </button>
+            <span className="mx-1 h-4 w-px bg-[var(--eq-border)]" />
+            <button onClick={() => setFilters({ ...DEFAULT_FILTERS, rsi_max: 30 })} className="eq-chip eq-chip-gain !cursor-pointer">Oversold</button>
+            <button onClick={() => setFilters({ ...DEFAULT_FILTERS, above_sma20: 'yes', above_sma50: 'yes', above_sma200: 'yes', min_buy_signals: 3 })} className="eq-chip eq-chip-accent !cursor-pointer">Bullish</button>
+            <button onClick={() => setFilters({ ...DEFAULT_FILTERS, above_sma200: 'no', pct_from_52w_high_min: -50, pct_from_52w_high_max: -20 })} className="eq-chip !cursor-pointer" style={{ color: 'var(--eq-warn)' }}>Deep value</button>
+            <button onClick={() => setFilters({ ...DEFAULT_FILTERS, dividend_yield_min: 3 })} className="eq-chip !cursor-pointer">High div</button>
+            <button onClick={() => setFilters({ ...DEFAULT_FILTERS, market_cap_min: 0, market_cap_max: 2 })} className="eq-chip !cursor-pointer">Small cap</button>
+            <button onClick={() => setFilters({ ...DEFAULT_FILTERS, short_pct_min: 15 })} className="eq-chip eq-chip-loss !cursor-pointer">High short</button>
+            <div className="ml-auto flex items-center gap-2">
               {activeFilterCount > 0 && (
-                <button onClick={resetFilters} className="eq-btn eq-btn-ghost !px-2 !py-1 !text-[10.5px]">Reset · {activeFilterCount}</button>
+                <button onClick={resetFilters} className="eq-btn eq-btn-ghost !px-2 !py-0.5 !text-[10.5px] !text-[var(--eq-accent)]">
+                  {activeFilterCount} active · reset
+                </button>
               )}
             </div>
           </div>
 
-          {/* Full grid — every filter visible, slider-based, nothing folded */}
-          <div className="grid grid-cols-1 gap-x-8 gap-y-5 px-4 py-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-            <div className="space-y-2.5">
-              <div className="eq-label">Performance</div>
-              <DualRange label="1D change" unit="%" min={-15} max={15} defMin={-100} defMax={100} valueMin={filters.change_1d_min} valueMax={filters.change_1d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_1d_min' : 'change_1d_max', v)} />
-              <DualRange label="5D change" unit="%" min={-30} max={30} defMin={-100} defMax={100} valueMin={filters.change_5d_min} valueMax={filters.change_5d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_5d_min' : 'change_5d_max', v)} />
-              <DualRange label="1M change" unit="%" min={-50} max={50} defMin={-100} defMax={100} valueMin={filters.change_20d_min} valueMax={filters.change_20d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_20d_min' : 'change_20d_max', v)} />
-              <DualRange label="3M change" unit="%" min={-75} max={75} defMin={-100} defMax={100} valueMin={filters.change_60d_min} valueMax={filters.change_60d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_60d_min' : 'change_60d_max', v)} />
-              <DualRange label="From 52W high" unit="%" min={-80} max={0} defMin={-100} defMax={0} valueMin={filters.pct_from_52w_high_min} valueMax={filters.pct_from_52w_high_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'pct_from_52w_high_min' : 'pct_from_52w_high_max', v)} />
-            </div>
-
-            <div className="space-y-2.5">
-              <div className="eq-label">Technical</div>
-              <DualRange label="RSI (14)" min={0} max={100} defMin={0} defMax={100} valueMin={filters.rsi_min} valueMax={filters.rsi_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'rsi_min' : 'rsi_max', v)} />
-              <DualRange label="Bollinger position" min={0} max={1} step={0.05} defMin={0} defMax={1} valueMin={filters.bb_pos_min} valueMax={filters.bb_pos_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'bb_pos_min' : 'bb_pos_max', v)} />
-              <DualRange label="Volatility (ann.)" unit="%" min={0} max={150} defMin={0} defMax={200} valueMin={filters.volatility_min} valueMax={filters.volatility_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'volatility_min' : 'volatility_max', v)} />
-              <DualRange label="Volume ratio" unit="×" min={0} max={10} step={0.1} defMin={0} defMax={50} valueMin={filters.vol_ratio_min} valueMax={filters.vol_ratio_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'vol_ratio_min' : 'vol_ratio_max', v)} />
-              <div className="space-y-1.5 pt-1">
-                <ToggleRow label="MACD trend" value={filters.macd_trend} onChange={v => updateFilter('macd_trend', v)} options={trendOpts} />
-                <ToggleRow label="Above SMA 20" value={filters.above_sma20} onChange={v => updateFilter('above_sma20', v)} options={yesNoAny} />
-                <ToggleRow label="Above SMA 50" value={filters.above_sma50} onChange={v => updateFilter('above_sma50', v)} options={yesNoAny} />
-                <ToggleRow label="Above SMA 200" value={filters.above_sma200} onChange={v => updateFilter('above_sma200', v)} options={yesNoAny} />
+          {filtersOpen && (
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-[var(--eq-grid)] px-4 pb-3 pt-2.5 md:grid-cols-3 xl:grid-cols-5">
+              <div className="space-y-1">
+                <div className="eq-label !text-[9px]">Performance</div>
+                <DualRange label="1D change" unit="%" min={-15} max={15} defMin={-100} defMax={100} valueMin={filters.change_1d_min} valueMax={filters.change_1d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_1d_min' : 'change_1d_max', v)} />
+                <DualRange label="5D change" unit="%" min={-30} max={30} defMin={-100} defMax={100} valueMin={filters.change_5d_min} valueMax={filters.change_5d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_5d_min' : 'change_5d_max', v)} />
+                <DualRange label="1M change" unit="%" min={-50} max={50} defMin={-100} defMax={100} valueMin={filters.change_20d_min} valueMax={filters.change_20d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_20d_min' : 'change_20d_max', v)} />
+                <DualRange label="3M change" unit="%" min={-75} max={75} defMin={-100} defMax={100} valueMin={filters.change_60d_min} valueMax={filters.change_60d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_60d_min' : 'change_60d_max', v)} />
+                <DualRange label="From 52W high" unit="%" min={-80} max={0} defMin={-100} defMax={0} valueMin={filters.pct_from_52w_high_min} valueMax={filters.pct_from_52w_high_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'pct_from_52w_high_min' : 'pct_from_52w_high_max', v)} />
               </div>
-            </div>
 
-            <div className="space-y-2.5">
-              <div className="eq-label">Fundamentals</div>
-              <DualRange label="Market cap" unit="B" min={0} max={500} step={1} defMin={0} defMax={999999} fmt={(v) => `$${v}`} valueMin={filters.market_cap_min} valueMax={filters.market_cap_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'market_cap_min' : 'market_cap_max', v)} />
-              <DualRange label="P/E ratio" min={0} max={100} defMin={0} defMax={999} valueMin={filters.pe_min} valueMax={filters.pe_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'pe_min' : 'pe_max', v)} />
-              <DualRange label="Dividend yield" unit="%" min={0} max={10} step={0.1} defMin={0} defMax={100} valueMin={filters.dividend_yield_min} valueMax={filters.dividend_yield_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'dividend_yield_min' : 'dividend_yield_max', v)} />
-              <DualRange label="Beta" min={0} max={4} step={0.1} defMin={0} defMax={10} valueMin={filters.beta_min} valueMax={filters.beta_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'beta_min' : 'beta_max', v)} />
-              <DualRange label="Profit margin" unit="%" min={-50} max={60} defMin={-100} defMax={100} valueMin={filters.profit_margin_min} valueMax={filters.profit_margin_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'profit_margin_min' : 'profit_margin_max', v)} />
-            </div>
+              <div className="space-y-1">
+                <div className="eq-label !text-[9px]">Technical</div>
+                <DualRange label="RSI (14)" min={0} max={100} defMin={0} defMax={100} valueMin={filters.rsi_min} valueMax={filters.rsi_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'rsi_min' : 'rsi_max', v)} />
+                <DualRange label="Bollinger pos" min={0} max={1} step={0.05} defMin={0} defMax={1} valueMin={filters.bb_pos_min} valueMax={filters.bb_pos_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'bb_pos_min' : 'bb_pos_max', v)} />
+                <DualRange label="Volatility" unit="%" min={0} max={150} defMin={0} defMax={200} valueMin={filters.volatility_min} valueMax={filters.volatility_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'volatility_min' : 'volatility_max', v)} />
+                <DualRange label="Volume ratio" unit="×" min={0} max={10} step={0.1} defMin={0} defMax={50} valueMin={filters.vol_ratio_min} valueMax={filters.vol_ratio_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'vol_ratio_min' : 'vol_ratio_max', v)} />
+                <ToggleRow label="MACD" value={filters.macd_trend} onChange={v => updateFilter('macd_trend', v)} options={trendOpts} />
+              </div>
 
-            <div className="space-y-2.5">
-              <div className="eq-label">Ownership & signals</div>
-              <DualRange label="Short % of float" unit="%" min={0} max={50} step={0.5} defMin={0} defMax={100} valueMin={filters.short_pct_min} valueMax={filters.short_pct_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'short_pct_min' : 'short_pct_max', v)} />
-              <DualRange label="Insider ownership" unit="%" min={0} max={100} step={1} defMin={0} defMax={100} valueMin={filters.insider_pct_min} valueMax={filters.insider_pct_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'insider_pct_min' : 'insider_pct_max', v)} />
-              <div className="pt-1">
-                <div className="mb-1 text-[10.5px] text-[var(--eq-text2)]">Min buy signals</div>
-                <div className="flex gap-1">
-                  {[0,1,2,3,4,5,6,7].map(n => (
-                    <button key={n} onClick={() => updateFilter('min_buy_signals', n)}
-                      className={`eq-num h-6 w-6 rounded-md text-[10px] font-semibold transition-colors ${filters.min_buy_signals === n ? 'bg-[var(--eq-accent)] text-[var(--eq-bg)]' : 'bg-[var(--eq-card2)] text-[var(--eq-text3)] hover:text-[var(--eq-text)]'}`}>{n}</button>
-                  ))}
+              <div className="space-y-1">
+                <div className="eq-label !text-[9px]">Fundamentals</div>
+                <DualRange label="Market cap" unit="B" min={0} max={500} step={1} defMin={0} defMax={999999} fmt={(v) => `$${v}`} valueMin={filters.market_cap_min} valueMax={filters.market_cap_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'market_cap_min' : 'market_cap_max', v)} />
+                <DualRange label="P/E ratio" min={0} max={100} defMin={0} defMax={999} valueMin={filters.pe_min} valueMax={filters.pe_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'pe_min' : 'pe_max', v)} />
+                <DualRange label="Div yield" unit="%" min={0} max={10} step={0.1} defMin={0} defMax={100} valueMin={filters.dividend_yield_min} valueMax={filters.dividend_yield_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'dividend_yield_min' : 'dividend_yield_max', v)} />
+                <DualRange label="Beta" min={0} max={4} step={0.1} defMin={0} defMax={10} valueMin={filters.beta_min} valueMax={filters.beta_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'beta_min' : 'beta_max', v)} />
+                <DualRange label="Profit margin" unit="%" min={-50} max={60} defMin={-100} defMax={100} valueMin={filters.profit_margin_min} valueMax={filters.profit_margin_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'profit_margin_min' : 'profit_margin_max', v)} />
+              </div>
+
+              <div className="space-y-1">
+                <div className="eq-label !text-[9px]">Trend & ownership</div>
+                <DualRange label="Short % float" unit="%" min={0} max={50} step={0.5} defMin={0} defMax={100} valueMin={filters.short_pct_min} valueMax={filters.short_pct_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'short_pct_min' : 'short_pct_max', v)} />
+                <DualRange label="Insider own" unit="%" min={0} max={100} step={1} defMin={0} defMax={100} valueMin={filters.insider_pct_min} valueMax={filters.insider_pct_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'insider_pct_min' : 'insider_pct_max', v)} />
+                <ToggleRow label="SMA 20" value={filters.above_sma20} onChange={v => updateFilter('above_sma20', v)} options={yesNoAny} />
+                <ToggleRow label="SMA 50" value={filters.above_sma50} onChange={v => updateFilter('above_sma50', v)} options={yesNoAny} />
+                <ToggleRow label="SMA 200" value={filters.above_sma200} onChange={v => updateFilter('above_sma200', v)} options={yesNoAny} />
+                <div className="flex items-center gap-1.5 pt-0.5">
+                  <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--eq-text3)]">Min signals</span>
+                  <div className="flex shrink-0 gap-0.5">
+                    {[0,2,4,6].map(n => (
+                      <button key={n} onClick={() => updateFilter('min_buy_signals', n)}
+                        className={`eq-num h-5 w-5 rounded text-[9.5px] font-semibold transition-colors ${filters.min_buy_signals === n ? 'bg-[var(--eq-accent)] text-[var(--eq-bg)]' : 'bg-[var(--eq-card2)] text-[var(--eq-text3)] hover:text-[var(--eq-text)]'}`}>{n}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="hidden xl:block">
+                <div className="eq-label mb-1 !text-[9px]">Quality <span className="normal-case tracking-normal">min 0–6</span></div>
+                <div className="flex justify-center">
+                  <InteractiveSnowflake
+                    title="Quality"
+                    size={138}
+                    dims={SF_QUALITY_DIMS}
+                    values={sfQuality}
+                    onChange={(key, val) => setSfQuality(prev => ({ ...prev, [key]: val }))}
+                    enabled={sfQualityEnabled}
+                    onToggle={() => setSfQualityEnabled(p => !p)}
+                  />
                 </div>
               </div>
             </div>
-
-            <div className="space-y-2.5">
-              <div className="eq-label">Quality <span className="normal-case tracking-normal">· drag, 0–6 min</span></div>
-              <InteractiveSnowflake
-                title="Quality"
-                dims={SF_QUALITY_DIMS}
-                values={sfQuality}
-                onChange={(key, val) => setSfQuality(prev => ({ ...prev, [key]: val }))}
-                enabled={sfQualityEnabled}
-                onToggle={() => setSfQualityEnabled(p => !p)}
-              />
-            </div>
-          </div>
+          )}
         </div>
       )}
 
