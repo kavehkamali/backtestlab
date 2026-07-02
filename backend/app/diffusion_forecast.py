@@ -50,9 +50,9 @@ def compute_diffusion_signals(df: pd.DataFrame, params: dict) -> pd.Series:
     retrain_every = int(params.get("retrain_every", 126))
     min_train = int(params.get("min_train", 756))  # ~3y
     epochs = int(params.get("epochs", 40))
-    n_samples = int(params.get("n_samples", 48))
-    p_hi = float(params.get("prob_enter", 0.60))
-    p_lo = float(params.get("prob_exit", 0.45))
+    n_samples = int(params.get("n_samples", 64))
+    p_hi = float(params.get("prob_enter", 0.65))
+    p_lo = float(params.get("prob_exit", 0.40))
 
     torch.manual_seed(42)
     rets_s = df["close"].pct_change()

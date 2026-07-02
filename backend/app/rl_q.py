@@ -30,10 +30,13 @@ def compute_rl_q_signals(df: pd.DataFrame, params: dict) -> pd.Series:
     retrain_every = int(params.get("retrain_every", 126))
     min_train = int(params.get("min_train", 504))
     sweeps = int(params.get("q_sweeps", 3))
-    margin = float(params.get("advantage_margin", 0.0003))
+    margin = float(params.get("advantage_margin", 0.001))
 
     feats = _build_features(df)
-    rets = df["close"].pct_change().shift(-1)  # reward uses NEXT bar's return
+    # reward: mean of the next 5 days' returns — smoother learning target than
+    # single-bar noise (purge below accounts for the 5-bar overlap)
+    fwd1 = df["close"].pct_change().shift(-1)
+    rets = fwd1.rolling(5).mean().shift(-4)
     valid = feats.dropna().index.intersection(rets.dropna().index)
     F = feats.loc[valid].values.astype(np.float32)
     R = rets.loc[valid].values.astype(np.float32)
@@ -46,9 +49,9 @@ def compute_rl_q_signals(df: pd.DataFrame, params: dict) -> pd.Series:
 
     for start in range(min_train, n, retrain_every):
         end = min(start + retrain_every, n)
-        # transitions strictly before the test window (reward at t uses t+1's
-        # return, so cut one extra bar)
-        cut = start - 1
+        # transitions strictly before the test window; rewards look 5 bars
+        # ahead, so purge 5
+        cut = start - 5
         S, Snext, Rw = F[:cut], F[1:cut + 1], R[:cut]
 
         # dataset over both actions; switching cost approximated in the reward
@@ -80,7 +83,7 @@ def compute_rl_q_signals(df: pd.DataFrame, params: dict) -> pd.Series:
         adv = q1 - q0
         seg = np.full(end - start, np.nan)
         seg[adv > margin + COST] = 1     # long only when the edge clears costs
-        seg[adv < -margin] = -1
+        seg[adv < -margin * 2] = -1      # asymmetric exit — don't churn on noise
         signal.iloc[start:end] = seg
 
     signal = signal.ffill().fillna(-1)
