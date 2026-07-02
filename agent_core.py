@@ -295,7 +295,6 @@ async def run_agent(message: str, history: list[dict] | None = None, ticker: str
             "tab": route.tab,
             "ticker": (route.ticker or "").upper(),
             "researchSubtab": None if route.research_subtab == "none" else route.research_subtab,
-        "focus": getattr(route, "focus", "") or "",
             "focus": getattr(route, "focus", "") or "",
             "reason": route.reason,
         },
