@@ -58,11 +58,11 @@ def compute_ml_boost_signals(df: pd.DataFrame, params: dict) -> pd.Series:
     """Return a 1/-1 signal series aligned to df.index (pre-shift)."""
     from sklearn.ensemble import HistGradientBoostingClassifier
 
-    horizon = int(params.get("horizon_days", 5))
+    horizon = int(params.get("horizon_days", 10))
     retrain_every = int(params.get("retrain_every", 63))
     min_train = int(params.get("min_train", 504))  # ~2y before first trade
-    p_hi = float(params.get("prob_enter", 0.56))
-    p_lo = float(params.get("prob_exit", 0.48))
+    p_hi = float(params.get("prob_enter", 0.58))
+    p_lo = float(params.get("prob_exit", 0.45))
 
     feats = _build_features(df)
     # label: forward `horizon`-day return positive after ~costs
