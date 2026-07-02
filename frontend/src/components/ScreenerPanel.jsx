@@ -158,23 +158,22 @@ function PctCell({ value }) {
 }
 
 function RangeRow({ label, value_min, value_max, step = 1, onChange }) {
+  const inputCls = 'eq-num w-14 shrink-0 rounded bg-[var(--eq-card2)] px-1 py-0.5 text-center text-[10px] text-[var(--eq-text)] ring-1 ring-[var(--eq-border)] focus:outline-none focus:ring-[var(--eq-accent-ring)]';
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-[10px] text-[var(--eq-text3)] w-20 shrink-0">{label}</span>
-      <input type="text" inputMode="decimal" value={value_min} onChange={e => onChange('min', parseFloat(e.target.value) || 0)}
-        className="w-16 bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded px-1.5 py-0.5 text-[10px] text-[var(--eq-text)] text-center focus:outline-none focus:border-[var(--eq-accent-ring)]" />
-      <span className="text-[var(--eq-text2)] text-[10px]">to</span>
-      <input type="text" inputMode="decimal" value={value_max} onChange={e => onChange('max', parseFloat(e.target.value) || 0)}
-        className="w-16 bg-[var(--eq-card2)] ring-1 ring-[var(--eq-border)] rounded px-1.5 py-0.5 text-[10px] text-[var(--eq-text)] text-center focus:outline-none focus:border-[var(--eq-accent-ring)]" />
+    <div className="flex items-center gap-1.5">
+      <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--eq-text3)]" title={label}>{label}</span>
+      <input type="text" inputMode="decimal" value={value_min} onChange={e => onChange('min', parseFloat(e.target.value) || 0)} className={inputCls} />
+      <span className="shrink-0 text-[10px] text-[var(--eq-text3)]">–</span>
+      <input type="text" inputMode="decimal" value={value_max} onChange={e => onChange('max', parseFloat(e.target.value) || 0)} className={inputCls} />
     </div>
   );
 }
 
 function ToggleRow({ label, value, onChange, options }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-[10px] text-[var(--eq-text3)] w-20 shrink-0">{label}</span>
-      <div className="flex gap-0.5">
+    <div className="flex items-center gap-1.5">
+      <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--eq-text3)]" title={label}>{label}</span>
+      <div className="flex shrink-0 gap-0.5">
         {options.map(o => (
           <button key={o.value} onClick={() => onChange(o.value)}
             className={`px-2 py-0.5 rounded text-[9px] font-medium ${value === o.value ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)]' : 'bg-[var(--eq-card2)] text-[var(--eq-text2)] hover:text-[var(--eq-text3)]'}`}>
@@ -1059,7 +1058,7 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
           </div>
 
           {/* Full grid — every filter visible, nothing folded */}
-          <div className="grid grid-cols-1 gap-x-6 gap-y-4 px-4 py-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-x-7 gap-y-4 px-4 py-3.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
             <div>
               <div className="eq-label mb-2">Performance</div>
               <div className="space-y-1.5">
