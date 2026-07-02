@@ -157,6 +157,43 @@ function PctCell({ value }) {
   return <span className={`${c} font-mono`}>{value > 0 ? '+' : ''}{value}%</span>;
 }
 
+/** Dual-thumb range slider. `defMin/defMax` are the filter's "off" values;
+ *  a thumb parked at the domain edge writes the off value (∞ semantics). */
+function DualRange({ label, min, max, step = 1, valueMin, valueMax, defMin, defMax, unit = '', fmt, onChange }) {
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lo = clamp(valueMin ?? min, min, max);
+  const hi = valueMax >= defMax && defMax > max ? max : clamp(valueMax ?? max, min, max);
+  const pct = (v) => ((v - min) / (max - min)) * 100;
+  const active = (valueMin ?? defMin) !== defMin || (valueMax ?? defMax) !== defMax;
+  const show = (v, isHi) => {
+    if (isHi && v >= max && defMax > max) return '∞';
+    if (!isHi && v <= min && defMin < min) return '−∞';
+    return (fmt ? fmt(v) : v) + unit;
+  };
+  const write = (side, v) => {
+    if (side === 'min') onChange('min', v <= min && defMin < min ? defMin : v);
+    else onChange('max', v >= max && defMax > max ? defMax : v);
+  };
+  return (
+    <div>
+      <div className="mb-0.5 flex items-baseline justify-between gap-2">
+        <span className="truncate text-[10.5px] text-[var(--eq-text2)]">{label}</span>
+        <span className={`eq-num shrink-0 text-[10px] ${active ? 'font-semibold text-[var(--eq-accent)]' : 'text-[var(--eq-text3)]'}`}>
+          {show(lo, false)} – {show(hi, true)}
+        </span>
+      </div>
+      <div className="eq-range">
+        <div className="eq-range-track" />
+        <div className="eq-range-fill" style={{ left: `${pct(lo)}%`, width: `${Math.max(0, pct(hi) - pct(lo))}%`, opacity: active ? 0.8 : 0.25 }} />
+        <input type="range" min={min} max={max} step={step} value={lo}
+          onChange={(e) => write('min', Math.min(parseFloat(e.target.value), hi))} />
+        <input type="range" min={min} max={max} step={step} value={hi}
+          onChange={(e) => write('max', Math.max(parseFloat(e.target.value), lo))} />
+      </div>
+    </div>
+  );
+}
+
 function RangeRow({ label, value_min, value_max, step = 1, onChange }) {
   const inputCls = 'eq-num w-14 shrink-0 rounded bg-[var(--eq-card2)] px-1 py-0.5 text-center text-[10px] text-[var(--eq-text)] ring-1 ring-[var(--eq-border)] focus:outline-none focus:ring-[var(--eq-accent-ring)]';
   return (
@@ -1057,59 +1094,57 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
             </div>
           </div>
 
-          {/* Full grid — every filter visible, nothing folded */}
-          <div className="grid grid-cols-1 gap-x-7 gap-y-4 px-4 py-3.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-            <div>
-              <div className="eq-label mb-2">Performance</div>
-              <div className="space-y-1.5">
-                <RangeRow label="1D Change %" value_min={filters.change_1d_min} value_max={filters.change_1d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_1d_min' : 'change_1d_max', v)} />
-                <RangeRow label="5D Change %" value_min={filters.change_5d_min} value_max={filters.change_5d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_5d_min' : 'change_5d_max', v)} />
-                <RangeRow label="1M Change %" value_min={filters.change_20d_min} value_max={filters.change_20d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_20d_min' : 'change_20d_max', v)} />
-                <RangeRow label="3M Change %" value_min={filters.change_60d_min} value_max={filters.change_60d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_60d_min' : 'change_60d_max', v)} />
-                <RangeRow label="From 52W Hi" value_min={filters.pct_from_52w_high_min} value_max={filters.pct_from_52w_high_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'pct_from_52w_high_min' : 'pct_from_52w_high_max', v)} />
-              </div>
+          {/* Full grid — every filter visible, slider-based, nothing folded */}
+          <div className="grid grid-cols-1 gap-x-8 gap-y-5 px-4 py-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+            <div className="space-y-2.5">
+              <div className="eq-label">Performance</div>
+              <DualRange label="1D change" unit="%" min={-15} max={15} defMin={-100} defMax={100} valueMin={filters.change_1d_min} valueMax={filters.change_1d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_1d_min' : 'change_1d_max', v)} />
+              <DualRange label="5D change" unit="%" min={-30} max={30} defMin={-100} defMax={100} valueMin={filters.change_5d_min} valueMax={filters.change_5d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_5d_min' : 'change_5d_max', v)} />
+              <DualRange label="1M change" unit="%" min={-50} max={50} defMin={-100} defMax={100} valueMin={filters.change_20d_min} valueMax={filters.change_20d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_20d_min' : 'change_20d_max', v)} />
+              <DualRange label="3M change" unit="%" min={-75} max={75} defMin={-100} defMax={100} valueMin={filters.change_60d_min} valueMax={filters.change_60d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_60d_min' : 'change_60d_max', v)} />
+              <DualRange label="From 52W high" unit="%" min={-80} max={0} defMin={-100} defMax={0} valueMin={filters.pct_from_52w_high_min} valueMax={filters.pct_from_52w_high_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'pct_from_52w_high_min' : 'pct_from_52w_high_max', v)} />
             </div>
-            <div>
-              <div className="eq-label mb-2">Technical</div>
-              <div className="space-y-1.5">
-                <RangeRow label="RSI (14)" value_min={filters.rsi_min} value_max={filters.rsi_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'rsi_min' : 'rsi_max', v)} />
-                <RangeRow label="BB Position" step={0.05} value_min={filters.bb_pos_min} value_max={filters.bb_pos_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'bb_pos_min' : 'bb_pos_max', v)} />
-                <RangeRow label="Volatility %" value_min={filters.volatility_min} value_max={filters.volatility_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'volatility_min' : 'volatility_max', v)} />
-                <RangeRow label="Vol Ratio" step={0.1} value_min={filters.vol_ratio_min} value_max={filters.vol_ratio_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'vol_ratio_min' : 'vol_ratio_max', v)} />
-                <ToggleRow label="MACD Trend" value={filters.macd_trend} onChange={v => updateFilter('macd_trend', v)} options={trendOpts} />
+
+            <div className="space-y-2.5">
+              <div className="eq-label">Technical</div>
+              <DualRange label="RSI (14)" min={0} max={100} defMin={0} defMax={100} valueMin={filters.rsi_min} valueMax={filters.rsi_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'rsi_min' : 'rsi_max', v)} />
+              <DualRange label="Bollinger position" min={0} max={1} step={0.05} defMin={0} defMax={1} valueMin={filters.bb_pos_min} valueMax={filters.bb_pos_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'bb_pos_min' : 'bb_pos_max', v)} />
+              <DualRange label="Volatility (ann.)" unit="%" min={0} max={150} defMin={0} defMax={200} valueMin={filters.volatility_min} valueMax={filters.volatility_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'volatility_min' : 'volatility_max', v)} />
+              <DualRange label="Volume ratio" unit="×" min={0} max={10} step={0.1} defMin={0} defMax={50} valueMin={filters.vol_ratio_min} valueMax={filters.vol_ratio_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'vol_ratio_min' : 'vol_ratio_max', v)} />
+              <div className="space-y-1.5 pt-1">
+                <ToggleRow label="MACD trend" value={filters.macd_trend} onChange={v => updateFilter('macd_trend', v)} options={trendOpts} />
                 <ToggleRow label="Above SMA 20" value={filters.above_sma20} onChange={v => updateFilter('above_sma20', v)} options={yesNoAny} />
                 <ToggleRow label="Above SMA 50" value={filters.above_sma50} onChange={v => updateFilter('above_sma50', v)} options={yesNoAny} />
                 <ToggleRow label="Above SMA 200" value={filters.above_sma200} onChange={v => updateFilter('above_sma200', v)} options={yesNoAny} />
               </div>
             </div>
-            <div>
-              <div className="eq-label mb-2">Fundamentals</div>
-              <div className="space-y-1.5">
-                <RangeRow label="Mkt Cap ($B)" step={0.1} value_min={filters.market_cap_min} value_max={filters.market_cap_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'market_cap_min' : 'market_cap_max', v)} />
-                <RangeRow label="P/E Ratio" step={0.1} value_min={filters.pe_min} value_max={filters.pe_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'pe_min' : 'pe_max', v)} />
-                <RangeRow label="Div Yield %" step={0.1} value_min={filters.dividend_yield_min} value_max={filters.dividend_yield_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'dividend_yield_min' : 'dividend_yield_max', v)} />
-                <RangeRow label="Beta" step={0.1} value_min={filters.beta_min} value_max={filters.beta_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'beta_min' : 'beta_max', v)} />
-                <RangeRow label="Profit Mrg %" value_min={filters.profit_margin_min} value_max={filters.profit_margin_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'profit_margin_min' : 'profit_margin_max', v)} />
-              </div>
+
+            <div className="space-y-2.5">
+              <div className="eq-label">Fundamentals</div>
+              <DualRange label="Market cap" unit="B" min={0} max={500} step={1} defMin={0} defMax={999999} fmt={(v) => `$${v}`} valueMin={filters.market_cap_min} valueMax={filters.market_cap_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'market_cap_min' : 'market_cap_max', v)} />
+              <DualRange label="P/E ratio" min={0} max={100} defMin={0} defMax={999} valueMin={filters.pe_min} valueMax={filters.pe_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'pe_min' : 'pe_max', v)} />
+              <DualRange label="Dividend yield" unit="%" min={0} max={10} step={0.1} defMin={0} defMax={100} valueMin={filters.dividend_yield_min} valueMax={filters.dividend_yield_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'dividend_yield_min' : 'dividend_yield_max', v)} />
+              <DualRange label="Beta" min={0} max={4} step={0.1} defMin={0} defMax={10} valueMin={filters.beta_min} valueMax={filters.beta_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'beta_min' : 'beta_max', v)} />
+              <DualRange label="Profit margin" unit="%" min={-50} max={60} defMin={-100} defMax={100} valueMin={filters.profit_margin_min} valueMax={filters.profit_margin_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'profit_margin_min' : 'profit_margin_max', v)} />
             </div>
-            <div>
-              <div className="eq-label mb-2">Ownership & signals</div>
-              <div className="space-y-1.5">
-                <RangeRow label="Short Float %" step={0.1} value_min={filters.short_pct_min} value_max={filters.short_pct_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'short_pct_min' : 'short_pct_max', v)} />
-                <RangeRow label="Insider Own %" step={0.1} value_min={filters.insider_pct_min} value_max={filters.insider_pct_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'insider_pct_min' : 'insider_pct_max', v)} />
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="w-20 shrink-0 text-[10px] text-[var(--eq-text3)]">Min Signals</span>
-                  <div className="flex gap-0.5">
-                    {[0,1,2,3,4,5,6,7].map(n => (
-                      <button key={n} onClick={() => updateFilter('min_buy_signals', n)}
-                        className={`h-6 w-6 rounded text-[10px] font-medium ${filters.min_buy_signals === n ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)]' : 'bg-[var(--eq-card2)] text-[var(--eq-text2)] hover:text-[var(--eq-text)]'}`}>{n}</button>
-                    ))}
-                  </div>
+
+            <div className="space-y-2.5">
+              <div className="eq-label">Ownership & signals</div>
+              <DualRange label="Short % of float" unit="%" min={0} max={50} step={0.5} defMin={0} defMax={100} valueMin={filters.short_pct_min} valueMax={filters.short_pct_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'short_pct_min' : 'short_pct_max', v)} />
+              <DualRange label="Insider ownership" unit="%" min={0} max={100} step={1} defMin={0} defMax={100} valueMin={filters.insider_pct_min} valueMax={filters.insider_pct_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'insider_pct_min' : 'insider_pct_max', v)} />
+              <div className="pt-1">
+                <div className="mb-1 text-[10.5px] text-[var(--eq-text2)]">Min buy signals</div>
+                <div className="flex gap-1">
+                  {[0,1,2,3,4,5,6,7].map(n => (
+                    <button key={n} onClick={() => updateFilter('min_buy_signals', n)}
+                      className={`eq-num h-6 w-6 rounded-md text-[10px] font-semibold transition-colors ${filters.min_buy_signals === n ? 'bg-[var(--eq-accent)] text-[var(--eq-bg)]' : 'bg-[var(--eq-card2)] text-[var(--eq-text3)] hover:text-[var(--eq-text)]'}`}>{n}</button>
+                  ))}
                 </div>
               </div>
             </div>
-            <div>
-              <div className="eq-label mb-2">Quality <span className="normal-case tracking-normal">· drag points, 0–6 min</span></div>
+
+            <div className="space-y-2.5">
+              <div className="eq-label">Quality <span className="normal-case tracking-normal">· drag, 0–6 min</span></div>
               <InteractiveSnowflake
                 title="Quality"
                 dims={SF_QUALITY_DIMS}

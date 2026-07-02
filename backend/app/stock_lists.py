@@ -183,7 +183,7 @@ def _warehouse_stock_universe():
                 """SELECT s.symbol FROM symbols s
                    JOIN (SELECT symbol, count(*) AS n FROM prices_daily GROUP BY symbol) p
                      ON p.symbol = s.symbol
-                   WHERE s.active AND s.asset_class = 'stock' AND p.n >= 60
+                   WHERE s.active AND s.asset_class = 'stock' AND p.n >= 1
                    ORDER BY s.symbol"""
             ).fetchall()
         finally:

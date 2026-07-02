@@ -223,6 +223,39 @@ html.dark .eq-card-hover:hover { box-shadow: 0 4px 16px rgba(0,0,0,.4); }
 .eq-table tbody tr { transition: background .1s ease; }
 .eq-table tbody tr:hover { background: var(--eq-card2); }
 
+/* Dual-thumb range slider (screener filters) — two stacked native ranges */
+.eq-range {
+  position: relative;
+  height: 18px;
+  display: flex;
+  align-items: center;
+}
+.eq-range-track {
+  position: absolute; left: 0; right: 0; height: 4px; border-radius: 999px;
+  background: var(--eq-grid);
+}
+.eq-range-fill {
+  position: absolute; height: 4px; border-radius: 999px;
+  background: var(--eq-accent); opacity: .75;
+}
+.eq-range input[type="range"] {
+  position: absolute; left: 0; right: 0; width: 100%;
+  appearance: none; -webkit-appearance: none;
+  background: transparent; pointer-events: none; height: 18px; margin: 0;
+}
+.eq-range input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 13px; height: 13px; border-radius: 999px;
+  background: var(--eq-card); border: 2px solid var(--eq-accent);
+  box-shadow: var(--eq-shadow-card);
+  pointer-events: auto; cursor: grab;
+}
+.eq-range input[type="range"]::-moz-range-thumb {
+  width: 11px; height: 11px; border-radius: 999px;
+  background: var(--eq-card); border: 2px solid var(--eq-accent);
+  pointer-events: auto; cursor: grab;
+}
+
 /* Skeleton shimmer */
 @keyframes eq-shimmer { 0% { opacity: .45; } 50% { opacity: .85; } 100% { opacity: .45; } }
 .eq-skeleton {
