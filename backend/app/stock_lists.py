@@ -172,8 +172,33 @@ def _fetch_all_tickers():
     return sorted(all_symbols)
 
 
+def _warehouse_stock_universe():
+    """Every active stock in the warehouse that actually has price history —
+    the same universe the collectors maintain (~10k). Fail-soft: None."""
+    try:
+        from .datawarehouse.db import connect
+        con = connect(read_only=True, retries=2, retry_wait=0.4)
+        try:
+            rows = con.execute(
+                """SELECT s.symbol FROM symbols s
+                   JOIN (SELECT symbol, count(*) AS n FROM prices_daily GROUP BY symbol) p
+                     ON p.symbol = s.symbol
+                   WHERE s.active AND s.asset_class = 'stock' AND p.n >= 60
+                   ORDER BY s.symbol"""
+            ).fetchall()
+        finally:
+            con.close()
+        syms = [r[0] for r in rows]
+        return syms if len(syms) > 1000 else None
+    except Exception:
+        return None
+
+
 def get_full_market():
-    """Get full market ticker list, cached to disk."""
+    """Get full market ticker list: warehouse universe first, cached web list fallback."""
+    wh = _warehouse_stock_universe()
+    if wh:
+        return wh
     CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
 
     # Check cache

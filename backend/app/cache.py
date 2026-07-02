@@ -135,15 +135,54 @@ def fetch_fundamentals_cached(symbol: str) -> dict:
         return {"name": symbol, "sector": "", "industry": ""}
 
 
+def _warehouse_bulk_daily(symbols: list, period: str) -> dict:
+    """One DuckDB query for daily bars of MANY symbols — makes full-market
+    scans feasible without hammering Yahoo. Fail-soft: {} on any problem."""
+    try:
+        import pandas as pd
+        from .datawarehouse.db import connect
+        years = {"1y": 1, "2y": 2, "5y": 5, "10y": 10}.get(str(period), 2)
+        con = connect(read_only=True, retries=2, retry_wait=0.4)
+        try:
+            df = con.execute(
+                """SELECT symbol, date, open, high, low, close, volume
+                   FROM prices_daily
+                   WHERE date >= current_date - INTERVAL (? * 365) DAY
+                     AND symbol IN (SELECT UNNEST(?::VARCHAR[]))
+                   ORDER BY symbol, date""",
+                [years, list(symbols)],
+            ).fetch_df()
+        finally:
+            con.close()
+        if df.empty:
+            return {}
+        out = {}
+        df["date"] = pd.to_datetime(df["date"])
+        for sym, g in df.groupby("symbol"):
+            sub = g.set_index("date")[["open", "high", "low", "close", "volume"]].astype(float)
+            if len(sub) >= 60:  # enough bars for the indicator stack
+                out[sym] = sub
+        return out
+    except Exception:
+        return {}
+
+
 def batch_fetch_prices(symbols: list, period: str = "2y", interval: str = "1d") -> dict:
     """
-    Batch fetch prices. Uses yf.download for uncached symbols (much faster).
+    Batch fetch prices. Warehouse bulk first for daily bars (one query for the
+    whole list), disk cache + yf.download for whatever is missing.
     """
     result = {}
     uncached = []
 
-    # Check cache first
+    # Warehouse bulk path: daily interval only
+    if interval == "1d" and len(symbols) > 5:
+        result.update(_warehouse_bulk_daily(symbols, period))
+
+    # Check cache for the rest
     for s in symbols:
+        if s in result:
+            continue
         cached = get_cached_prices(s, period, interval)
         if cached is not None:
             result[s] = cached

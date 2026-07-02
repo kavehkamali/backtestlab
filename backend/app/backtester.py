@@ -26,6 +26,9 @@ class StrategyType(str, Enum):
     MOMENTUM = "momentum"
     BUY_AND_HOLD = "buy_and_hold"
     ML_TRANSFORMER = "ml_transformer"
+    REGIME_TREND = "regime_trend"
+    COMPOSITE = "composite"
+    ML_BOOST = "ml_boost"
 
 
 @dataclass
@@ -177,7 +180,59 @@ def _compute_signals_momentum(df: pd.DataFrame, params: dict) -> pd.Series:
     return signal
 
 
+def _compute_signals_regime_trend(df: pd.DataFrame, params: dict) -> pd.Series:
+    """Trend-regime filter (Faber-style): long only when price is above the
+    long SMA AND 12-1 month time-series momentum is positive; otherwise cash.
+    The point is not to out-return buy & hold every year — it is to keep most
+    of the upside while skipping the deep bear-market drawdowns, which is what
+    lifts Sharpe/Calmar above the benchmark."""
+    sma_len = params.get("sma_period", 200)
+    mom_len = params.get("momentum_period", 252)
+    skip = params.get("skip_recent", 21)  # classic 12-1: skip the latest month
+    sma = df["close"].rolling(sma_len).mean()
+    mom = df["close"].shift(skip) / df["close"].shift(mom_len) - 1
+    signal = pd.Series(-1, index=df.index)
+    signal[(df["close"] > sma) & (mom > 0)] = 1
+    return signal
+
+
+def _compute_signals_composite(df: pd.DataFrame, params: dict) -> pd.Series:
+    """Ensemble vote of four independent signals — trend (200SMA), momentum
+    (12-1), MACD histogram, RSI regime. Long when >= `enter_votes` agree, exit
+    when <= `exit_votes`. Voting reduces single-indicator whipsaw."""
+    enter_votes = params.get("enter_votes", 3)
+    exit_votes = params.get("exit_votes", 1)
+
+    sma200 = df["close"].rolling(200).mean()
+    v_trend = (df["close"] > sma200).astype(int)
+
+    mom = df["close"].shift(21) / df["close"].shift(252) - 1
+    v_mom = (mom > 0).astype(int)
+
+    ema12 = df["close"].ewm(span=12, adjust=False).mean()
+    ema26 = df["close"].ewm(span=26, adjust=False).mean()
+    macd = ema12 - ema26
+    macd_sig = macd.ewm(span=9, adjust=False).mean()
+    v_macd = ((macd - macd_sig) > 0).astype(int)
+
+    delta = df["close"].diff()
+    gain = delta.where(delta > 0, 0.0).rolling(14).mean()
+    loss = (-delta.where(delta < 0, 0.0)).rolling(14).mean()
+    rsi = 100 - (100 / (1 + gain / loss.replace(0, np.nan)))
+    v_rsi = (rsi > 50).astype(int)
+
+    votes = v_trend + v_mom + v_macd + v_rsi
+    signal = pd.Series(0, index=df.index)
+    signal[votes >= enter_votes] = 1
+    signal[votes <= exit_votes] = -1
+    # hold previous state between enter/exit bands
+    signal = signal.replace(0, np.nan).ffill().fillna(-1)
+    return signal
+
+
 STRATEGY_MAP = {
+    StrategyType.REGIME_TREND: _compute_signals_regime_trend,
+    StrategyType.COMPOSITE: _compute_signals_composite,
     StrategyType.SMA_CROSSOVER: _compute_signals_sma_crossover,
     StrategyType.EMA_CROSSOVER: _compute_signals_ema_crossover,
     StrategyType.RSI: _compute_signals_rsi,
@@ -210,10 +265,15 @@ def run_backtest(df: pd.DataFrame, config: BacktestConfig) -> BacktestResult:
     if config.strategy == StrategyType.BUY_AND_HOLD:
         return _run_buy_and_hold(df, config)
 
-    # ML strategy handled separately (walk-forward)
+    # ML strategies handled separately (walk-forward, purged)
     if config.strategy == StrategyType.ML_TRANSFORMER:
         from .ml_backtest import run_ml_backtest
         return run_ml_backtest(df, config)
+    if config.strategy == StrategyType.ML_BOOST:
+        from .ml_boost import compute_ml_boost_signals
+        signals = compute_ml_boost_signals(df, config.params)
+        signals = signals.shift(1).fillna(0)  # trade on NEXT bar — no look-ahead
+        return _simulate(df, signals, config)
 
     # Compute signals using strategy function
     signal_fn = STRATEGY_MAP[config.strategy]

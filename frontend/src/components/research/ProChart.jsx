@@ -103,7 +103,8 @@ export default function ProChart({ symbol, height = 380, defaultType = 'area' })
   }, [symbol]);
 
   // Load intraday bars when an intraday timeframe is selected — cached warehouse
-  // bars first, live terminal feed as fallback.
+  // bars first, live terminal feed when the cache is missing OR stale (the
+  // collector runs on a timer; a chart must never show yesterday as "1D").
   useEffect(() => {
     setIntradayBars(null);
     if (!preset.intraday) return;
@@ -112,10 +113,17 @@ export default function ProChart({ symbol, height = 380, defaultType = 'area' })
     (async () => {
       const wh = await fetchWarehouseIntraday(symbol, preset.interval);
       if (cancelled) return;
-      if (wh?.available && wh.bars?.length) { setIntradayBars(wh.bars); setLoading(false); return; }
+      const whBars = wh?.available && wh.bars?.length ? wh.bars : null;
+      const lastT = whBars ? Number(whBars[whBars.length - 1].time) : 0;
+      // stale if the newest cached bar is older than ~49h (covers weekends via
+      // the fallback below only when genuinely stale on a trading day)
+      const fresh = lastT > Date.now() / 1000 - 49 * 3600;
+      if (whBars && fresh) { setIntradayBars(whBars); setLoading(false); return; }
       const live = await fetchTerminalChart(symbol, preset.period, preset.interval).catch(() => null);
       if (cancelled) return;
-      setIntradayBars((live?.data || []).filter((b) => b.close != null));
+      const liveBars = (live?.data || []).filter((b) => b.close != null);
+      // live can also be empty (market closed + API hiccup) — fall back to cache
+      setIntradayBars(liveBars.length ? liveBars : (whBars || []));
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -129,10 +137,28 @@ export default function ProChart({ symbol, height = 380, defaultType = 'area' })
 
   const bars = useMemo(() => {
     if (preset.intraday) {
-      return (intradayBars || []).map((b) => ({
+      let rows = (intradayBars || []).map((b) => ({
         time: typeof b.time === 'number' ? b.time : Math.floor(new Date(b.time).getTime() / 1000),
         open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume,
-      }));
+      })).sort((a, b) => a.time - b.time);
+      if (rows.length) {
+        // slice to the preset window measured from the LAST bar (cached feeds
+        // return their full depth — "1D" must be one session, "5D" five, etc.)
+        const daysWanted = preset.k === '1D' ? 1 : preset.k === '5D' ? 5 : 31;
+        const dayOf = (t) => Math.floor((t - rows[rows.length - 1].time) / 86400);
+        if (preset.k === '1D') {
+          // exactly the last session present in the data
+          const lastDay = new Date(rows[rows.length - 1].time * 1000).toISOString().slice(0, 10);
+          rows = rows.filter((r) => new Date(r.time * 1000).toISOString().slice(0, 10) === lastDay);
+        } else {
+          const cutoff = rows[rows.length - 1].time - daysWanted * 86400 - 12 * 3600;
+          rows = rows.filter((r) => r.time >= cutoff);
+        }
+        // epochs are UTC; lightweight-charts prints them as UTC — shift each bar
+        // by its own local offset so the axis reads the viewer's wall clock (DST-safe).
+        rows = rows.map((r) => ({ ...r, time: r.time - new Date(r.time * 1000).getTimezoneOffset() * 60 }));
+      }
+      return rows;
     }
     if (!allBars.length) return [];
     if (preset.agg) return aggregate(allBars, preset.agg);

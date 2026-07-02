@@ -949,15 +949,12 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
           <Columns3 className="w-3 h-3" /> Columns
         </button>
 
-        {/* Filters toggle */}
-        <button onClick={() => { setFiltersOpen(!filtersOpen); setColumnsOpen(false); }}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            filtersOpen || activeFilterCount > 0 ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)] border ring-[var(--eq-accent-ring)]'
-              : 'bg-[var(--eq-card)] text-[var(--eq-text3)] ring-1 ring-[var(--eq-border)] hover:text-[var(--eq-text)] hover:ring-[var(--eq-border2)]'
-          }`}>
-          <SlidersHorizontal className="w-3 h-3" /> Filters
-          {activeFilterCount > 0 && <span className="bg-[var(--eq-accent)] text-[var(--eq-bg)] text-[9px] rounded-full w-4 h-4 flex items-center justify-center">{activeFilterCount}</span>}
-        </button>
+        {/* Filters are always visible below — this badge just reports state */}
+        {activeFilterCount > 0 && (
+          <span className="flex items-center gap-1.5 rounded-lg bg-[var(--eq-accent-soft)] px-3 py-1.5 text-xs font-medium text-[var(--eq-accent)]">
+            <SlidersHorizontal className="h-3 w-3" /> {activeFilterCount} active
+          </span>
+        )}
 
         {results && (
           <div className="relative">
@@ -1003,79 +1000,11 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
       )}
 
       {/* ─── Filters Panel ─── */}
-      {filtersOpen && (
-        <div className="bg-[var(--eq-card2)] shadow-sm ring-1 ring-[var(--eq-border)] rounded-xl overflow-hidden">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-x-6 gap-y-2 p-4">
-            <div>
-              <div className="text-[9px] text-[var(--eq-text3)] uppercase tracking-widest mb-2 font-semibold">Performance</div>
-              <div className="space-y-1.5">
-                <RangeRow label="1D Change %" value_min={filters.change_1d_min} value_max={filters.change_1d_max} onChange={(s, v) => updateFilter(s === 'min' ? 'change_1d_min' : 'change_1d_max', v)} />
-                <RangeRow label="5D Change %" value_min={filters.change_5d_min} value_max={filters.change_5d_max} onChange={(s, v) => updateFilter(s === 'min' ? 'change_5d_min' : 'change_5d_max', v)} />
-                <RangeRow label="1M Change %" value_min={filters.change_20d_min} value_max={filters.change_20d_max} onChange={(s, v) => updateFilter(s === 'min' ? 'change_20d_min' : 'change_20d_max', v)} />
-                <RangeRow label="3M Change %" value_min={filters.change_60d_min} value_max={filters.change_60d_max} onChange={(s, v) => updateFilter(s === 'min' ? 'change_60d_min' : 'change_60d_max', v)} />
-                <RangeRow label="From 52W Hi" value_min={filters.pct_from_52w_high_min} value_max={filters.pct_from_52w_high_max} onChange={(s, v) => updateFilter(s === 'min' ? 'pct_from_52w_high_min' : 'pct_from_52w_high_max', v)} />
-              </div>
-            </div>
-            <div>
-              <div className="text-[9px] text-[var(--eq-text3)] uppercase tracking-widest mb-2 font-semibold">Technical</div>
-              <div className="space-y-1.5">
-                <RangeRow label="RSI (14)" value_min={filters.rsi_min} value_max={filters.rsi_max} onChange={(s, v) => updateFilter(s === 'min' ? 'rsi_min' : 'rsi_max', v)} />
-                <RangeRow label="BB Position" step={0.05} value_min={filters.bb_pos_min} value_max={filters.bb_pos_max} onChange={(s, v) => updateFilter(s === 'min' ? 'bb_pos_min' : 'bb_pos_max', v)} />
-                <RangeRow label="Volatility %" value_min={filters.volatility_min} value_max={filters.volatility_max} onChange={(s, v) => updateFilter(s === 'min' ? 'volatility_min' : 'volatility_max', v)} />
-                <RangeRow label="Vol Ratio" step={0.1} value_min={filters.vol_ratio_min} value_max={filters.vol_ratio_max} onChange={(s, v) => updateFilter(s === 'min' ? 'vol_ratio_min' : 'vol_ratio_max', v)} />
-                <ToggleRow label="MACD Trend" value={filters.macd_trend} onChange={v => updateFilter('macd_trend', v)} options={trendOpts} />
-                <ToggleRow label="Above SMA 20" value={filters.above_sma20} onChange={v => updateFilter('above_sma20', v)} options={yesNoAny} />
-                <ToggleRow label="Above SMA 50" value={filters.above_sma50} onChange={v => updateFilter('above_sma50', v)} options={yesNoAny} />
-                <ToggleRow label="Above SMA 200" value={filters.above_sma200} onChange={v => updateFilter('above_sma200', v)} options={yesNoAny} />
-              </div>
-            </div>
-            <div>
-              <div className="text-[9px] text-[var(--eq-text3)] uppercase tracking-widest mb-2 font-semibold">Fundamentals</div>
-              <div className="space-y-1.5">
-                <RangeRow label="Mkt Cap ($B)" step={0.1} value_min={filters.market_cap_min} value_max={filters.market_cap_max} onChange={(s, v) => updateFilter(s === 'min' ? 'market_cap_min' : 'market_cap_max', v)} />
-                <RangeRow label="P/E Ratio" step={0.1} value_min={filters.pe_min} value_max={filters.pe_max} onChange={(s, v) => updateFilter(s === 'min' ? 'pe_min' : 'pe_max', v)} />
-                <RangeRow label="Div Yield %" step={0.1} value_min={filters.dividend_yield_min} value_max={filters.dividend_yield_max} onChange={(s, v) => updateFilter(s === 'min' ? 'dividend_yield_min' : 'dividend_yield_max', v)} />
-                <RangeRow label="Beta" step={0.1} value_min={filters.beta_min} value_max={filters.beta_max} onChange={(s, v) => updateFilter(s === 'min' ? 'beta_min' : 'beta_max', v)} />
-                <RangeRow label="Profit Mrg %" value_min={filters.profit_margin_min} value_max={filters.profit_margin_max} onChange={(s, v) => updateFilter(s === 'min' ? 'profit_margin_min' : 'profit_margin_max', v)} />
-              </div>
-            </div>
-            <div>
-              <div className="text-[9px] text-[var(--eq-text3)] uppercase tracking-widest mb-2 font-semibold">Ownership & Signals</div>
-              <div className="space-y-1.5">
-                <RangeRow label="Short Float %" step={0.1} value_min={filters.short_pct_min} value_max={filters.short_pct_max} onChange={(s, v) => updateFilter(s === 'min' ? 'short_pct_min' : 'short_pct_max', v)} />
-                <RangeRow label="Insider Own %" step={0.1} value_min={filters.insider_pct_min} value_max={filters.insider_pct_max} onChange={(s, v) => updateFilter(s === 'min' ? 'insider_pct_min' : 'insider_pct_max', v)} />
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="text-[10px] text-[var(--eq-text3)] w-20 shrink-0">Min Signals</span>
-                  <div className="flex gap-0.5">
-                    {[0,1,2,3,4,5,6,7].map(n => (
-                      <button key={n} onClick={() => updateFilter('min_buy_signals', n)}
-                        className={`w-6 h-6 rounded text-[10px] font-medium ${filters.min_buy_signals === n ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)]' : 'bg-[var(--eq-card2)] text-[var(--eq-text2)] hover:text-[var(--eq-text3)]'}`}>{n}</button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 pt-3 border-t border-[var(--eq-border)]">
-                <div className="text-[9px] text-[var(--eq-text3)] uppercase tracking-widest mb-2 font-semibold">Quick Presets</div>
-                <div className="flex flex-wrap gap-1.5">
-                  <button onClick={() => setFilters({ ...DEFAULT_FILTERS, rsi_max: 30 })} className="px-2 py-1 rounded text-[10px] bg-emerald-500/10 text-[var(--eq-gain)] hover:bg-emerald-500/20">Oversold</button>
-                  <button onClick={() => setFilters({ ...DEFAULT_FILTERS, rsi_min: 70 })} className="px-2 py-1 rounded text-[10px] bg-red-500/10 text-[var(--eq-loss)] hover:bg-red-500/20">Overbought</button>
-                  <button onClick={() => setFilters({ ...DEFAULT_FILTERS, above_sma20: 'yes', above_sma50: 'yes', above_sma200: 'yes', min_buy_signals: 3 })} className="px-2 py-1 rounded text-[10px] bg-[var(--eq-accent-soft)] text-[var(--eq-accent)] hover:opacity-85/20">Bullish</button>
-                  <button onClick={() => setFilters({ ...DEFAULT_FILTERS, above_sma200: 'no', pct_from_52w_high_min: -50, pct_from_52w_high_max: -20 })} className="px-2 py-1 rounded text-[10px] bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20">Deep Value</button>
-                  <button onClick={() => setFilters({ ...DEFAULT_FILTERS, market_cap_min: 0, market_cap_max: 2 })} className="px-2 py-1 rounded text-[10px] bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20">Small Cap</button>
-                  <button onClick={() => setFilters({ ...DEFAULT_FILTERS, dividend_yield_min: 3 })} className="px-2 py-1 rounded text-[10px] bg-purple-500/10 text-purple-400 hover:bg-purple-500/20">High Dividend</button>
-                  <button onClick={() => setFilters({ ...DEFAULT_FILTERS, short_pct_min: 15 })} className="px-2 py-1 rounded text-[10px] bg-orange-500/10 text-orange-400 hover:bg-orange-500/20">High Short</button>
-                  <button onClick={resetFilters} className="px-2 py-1 rounded text-[10px] bg-[var(--eq-card2)] text-[var(--eq-text3)] hover:text-[var(--eq-text)]">Reset All</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Quick filters — the handful that matter, inline ─── */}
+      {/* ─── Filters — everything exposed, one compact professional card ─── */}
       {results && (
-        <div className="eq-card px-4 py-3">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5">
+        <div className="eq-card overflow-hidden">
+          {/* Quick row: the six that matter, as segmented chips */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5 border-b border-[var(--eq-grid)] px-4 py-3">
             <QuickSeg label="Market cap" value={
               filters.market_cap_max <= 2 ? 'small' : filters.market_cap_min >= 200 ? 'mega' : filters.market_cap_min >= 10 ? 'large' : filters.market_cap_min >= 2 ? 'mid' : 'any'
             } options={[['any', 'Any'], ['mega', '>$200B'], ['large', '$10–200B'], ['mid', '$2–10B'], ['small', '<$2B']]}
@@ -1117,14 +1046,79 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
                 else if (v === 'up') { updateFilter('change_20d_min', 5); updateFilter('change_20d_max', d.change_20d_max); }
                 else { updateFilter('change_20d_min', d.change_20d_min); updateFilter('change_20d_max', -5); }
               }} />
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex flex-wrap items-center gap-1.5">
+              <button onClick={() => setFilters({ ...DEFAULT_FILTERS, rsi_max: 30 })} className="eq-chip eq-chip-gain !cursor-pointer">Oversold</button>
+              <button onClick={() => setFilters({ ...DEFAULT_FILTERS, above_sma20: 'yes', above_sma50: 'yes', above_sma200: 'yes', min_buy_signals: 3 })} className="eq-chip eq-chip-accent !cursor-pointer">Bullish</button>
+              <button onClick={() => setFilters({ ...DEFAULT_FILTERS, above_sma200: 'no', pct_from_52w_high_min: -50, pct_from_52w_high_max: -20 })} className="eq-chip !cursor-pointer" style={{ color: 'var(--eq-warn)' }}>Deep value</button>
+              <button onClick={() => setFilters({ ...DEFAULT_FILTERS, dividend_yield_min: 3 })} className="eq-chip !cursor-pointer">High div</button>
+              <button onClick={() => setFilters({ ...DEFAULT_FILTERS, short_pct_min: 15 })} className="eq-chip eq-chip-loss !cursor-pointer">High short</button>
               {activeFilterCount > 0 && (
-                <button onClick={resetFilters} className="eq-btn eq-btn-ghost !px-2 !py-1 !text-[10.5px]">Clear all</button>
+                <button onClick={resetFilters} className="eq-btn eq-btn-ghost !px-2 !py-1 !text-[10.5px]">Reset · {activeFilterCount}</button>
               )}
-              <button onClick={() => { setFiltersOpen(!filtersOpen); setColumnsOpen(false); }}
-                className="eq-btn !px-2.5 !py-1 !text-[10.5px]">
-                All filters{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
-              </button>
+            </div>
+          </div>
+
+          {/* Full grid — every filter visible, nothing folded */}
+          <div className="grid grid-cols-1 gap-x-6 gap-y-4 px-4 py-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <div>
+              <div className="eq-label mb-2">Performance</div>
+              <div className="space-y-1.5">
+                <RangeRow label="1D Change %" value_min={filters.change_1d_min} value_max={filters.change_1d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_1d_min' : 'change_1d_max', v)} />
+                <RangeRow label="5D Change %" value_min={filters.change_5d_min} value_max={filters.change_5d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_5d_min' : 'change_5d_max', v)} />
+                <RangeRow label="1M Change %" value_min={filters.change_20d_min} value_max={filters.change_20d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_20d_min' : 'change_20d_max', v)} />
+                <RangeRow label="3M Change %" value_min={filters.change_60d_min} value_max={filters.change_60d_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'change_60d_min' : 'change_60d_max', v)} />
+                <RangeRow label="From 52W Hi" value_min={filters.pct_from_52w_high_min} value_max={filters.pct_from_52w_high_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'pct_from_52w_high_min' : 'pct_from_52w_high_max', v)} />
+              </div>
+            </div>
+            <div>
+              <div className="eq-label mb-2">Technical</div>
+              <div className="space-y-1.5">
+                <RangeRow label="RSI (14)" value_min={filters.rsi_min} value_max={filters.rsi_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'rsi_min' : 'rsi_max', v)} />
+                <RangeRow label="BB Position" step={0.05} value_min={filters.bb_pos_min} value_max={filters.bb_pos_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'bb_pos_min' : 'bb_pos_max', v)} />
+                <RangeRow label="Volatility %" value_min={filters.volatility_min} value_max={filters.volatility_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'volatility_min' : 'volatility_max', v)} />
+                <RangeRow label="Vol Ratio" step={0.1} value_min={filters.vol_ratio_min} value_max={filters.vol_ratio_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'vol_ratio_min' : 'vol_ratio_max', v)} />
+                <ToggleRow label="MACD Trend" value={filters.macd_trend} onChange={v => updateFilter('macd_trend', v)} options={trendOpts} />
+                <ToggleRow label="Above SMA 20" value={filters.above_sma20} onChange={v => updateFilter('above_sma20', v)} options={yesNoAny} />
+                <ToggleRow label="Above SMA 50" value={filters.above_sma50} onChange={v => updateFilter('above_sma50', v)} options={yesNoAny} />
+                <ToggleRow label="Above SMA 200" value={filters.above_sma200} onChange={v => updateFilter('above_sma200', v)} options={yesNoAny} />
+              </div>
+            </div>
+            <div>
+              <div className="eq-label mb-2">Fundamentals</div>
+              <div className="space-y-1.5">
+                <RangeRow label="Mkt Cap ($B)" step={0.1} value_min={filters.market_cap_min} value_max={filters.market_cap_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'market_cap_min' : 'market_cap_max', v)} />
+                <RangeRow label="P/E Ratio" step={0.1} value_min={filters.pe_min} value_max={filters.pe_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'pe_min' : 'pe_max', v)} />
+                <RangeRow label="Div Yield %" step={0.1} value_min={filters.dividend_yield_min} value_max={filters.dividend_yield_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'dividend_yield_min' : 'dividend_yield_max', v)} />
+                <RangeRow label="Beta" step={0.1} value_min={filters.beta_min} value_max={filters.beta_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'beta_min' : 'beta_max', v)} />
+                <RangeRow label="Profit Mrg %" value_min={filters.profit_margin_min} value_max={filters.profit_margin_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'profit_margin_min' : 'profit_margin_max', v)} />
+              </div>
+            </div>
+            <div>
+              <div className="eq-label mb-2">Ownership & signals</div>
+              <div className="space-y-1.5">
+                <RangeRow label="Short Float %" step={0.1} value_min={filters.short_pct_min} value_max={filters.short_pct_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'short_pct_min' : 'short_pct_max', v)} />
+                <RangeRow label="Insider Own %" step={0.1} value_min={filters.insider_pct_min} value_max={filters.insider_pct_max} onChange={(sd, v) => updateFilter(sd === 'min' ? 'insider_pct_min' : 'insider_pct_max', v)} />
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="w-20 shrink-0 text-[10px] text-[var(--eq-text3)]">Min Signals</span>
+                  <div className="flex gap-0.5">
+                    {[0,1,2,3,4,5,6,7].map(n => (
+                      <button key={n} onClick={() => updateFilter('min_buy_signals', n)}
+                        className={`h-6 w-6 rounded text-[10px] font-medium ${filters.min_buy_signals === n ? 'bg-[var(--eq-accent-soft)] text-[var(--eq-accent)]' : 'bg-[var(--eq-card2)] text-[var(--eq-text2)] hover:text-[var(--eq-text)]'}`}>{n}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div className="eq-label mb-2">Quality <span className="normal-case tracking-normal">· drag points, 0–6 min</span></div>
+              <InteractiveSnowflake
+                title="Quality"
+                dims={SF_QUALITY_DIMS}
+                values={sfQuality}
+                onChange={(key, val) => setSfQuality(prev => ({ ...prev, [key]: val }))}
+                enabled={sfQualityEnabled}
+                onToggle={() => setSfQualityEnabled(p => !p)}
+              />
             </div>
           </div>
         </div>

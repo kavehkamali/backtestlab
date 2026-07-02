@@ -220,6 +220,36 @@ def list_strategies():
                 ],
             },
             {
+                "id": "regime_trend",
+                "name": "Regime Trend Filter",
+                "description": "Long only when price > 200SMA AND 12-1 momentum > 0; cash otherwise. Skips bear markets — beats buy & hold on drawdown and risk-adjusted return.",
+                "params": [
+                    {"name": "sma_period", "type": "int", "default": 200, "min": 100, "max": 300},
+                    {"name": "momentum_period", "type": "int", "default": 252, "min": 126, "max": 378},
+                    {"name": "skip_recent", "type": "int", "default": 21, "min": 0, "max": 42},
+                ],
+            },
+            {
+                "id": "composite",
+                "name": "Composite Signal",
+                "description": "Ensemble vote of trend, momentum, MACD and RSI regimes. Long when >=3 agree, exit when <=1 — voting cuts single-indicator whipsaw.",
+                "params": [
+                    {"name": "enter_votes", "type": "int", "default": 3, "min": 2, "max": 4},
+                    {"name": "exit_votes", "type": "int", "default": 1, "min": 0, "max": 2},
+                ],
+            },
+            {
+                "id": "ml_boost",
+                "name": "ML Gradient Boosting",
+                "description": "Walk-forward gradient boosting on 20+ price/volume features, purged labels, probability hysteresis. Retrained quarterly; never sees future data.",
+                "params": [
+                    {"name": "horizon_days", "type": "int", "default": 5, "min": 2, "max": 21},
+                    {"name": "retrain_every", "type": "int", "default": 63, "min": 21, "max": 126},
+                    {"name": "prob_enter", "type": "float", "default": 0.56, "min": 0.5, "max": 0.7},
+                    {"name": "prob_exit", "type": "float", "default": 0.48, "min": 0.3, "max": 0.5},
+                ],
+            },
+            {
                 "id": "ml_transformer",
                 "name": "ML Transformer",
                 "description": "Transformer model predicts P(up X% in N days). Walk-forward training, no leakage.",
@@ -254,7 +284,9 @@ def backtest(req: BacktestRequest, request: Request):
     """Run a single strategy backtest."""
     event_id, _usage = begin_usage_event(request, "backtest", action="run_backtest", input_payload=req.model_dump())
     try:
-        df = fetch_stock_data(req.symbol, period=req.period)
+        # Explicit dates override the period preset — fetch max so the whole
+        # requested window exists before slicing (period alone could be shorter).
+        df = fetch_stock_data(req.symbol, period="max" if (req.start_date or req.end_date) else req.period)
         strategy = StrategyType(req.strategy)
         config = BacktestConfig(
             strategy=strategy,
@@ -302,7 +334,7 @@ def compare_strategies(req: CompareRequest, request: Request):
     """Run multiple strategies on the same data for comparison."""
     event_id, _usage = begin_usage_event(request, "backtest", action="compare", input_payload=req.model_dump())
     try:
-        df = fetch_stock_data(req.symbol, period=req.period)
+        df = fetch_stock_data(req.symbol, period="max" if (req.start_date or req.end_date) else req.period)
         results = []
         for strategy_id in req.strategies:
             strategy = StrategyType(strategy_id)
