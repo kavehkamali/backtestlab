@@ -11,6 +11,8 @@ import AccountPanel from './components/AccountPanel';
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const LearnLayout = lazy(() => import('./components/LearnLayout'));
 import SiteFooter from './components/SiteFooter';
+import MarketTape from './components/MarketTape';
+import CommandPalette from './components/CommandPalette';
 import { getLearnRoute } from './learnNavigation';
 import { applyDocumentTheme, syncSiteThemeUserMeta } from './siteTheme';
 import { bootstrapAgentE2EE, fetchAgentE2EEMeta, rewrapAgentE2EE } from './api';
@@ -268,7 +270,9 @@ function App() {
     setCompareResults(null);
     try {
       const res = await compareStrategies(params);
-      setCompareResults(res.results);
+      const arr = res.results || [];
+      arr.benchmark = res.benchmark || null;  // carried alongside for ComparePanel overlay
+      setCompareResults(arr);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -331,6 +335,10 @@ function App() {
       }
     }, 0);
   }, []);
+
+  const openSymbolInResearch = useCallback((sym) => {
+    handleAgentNavigate('research', sym);
+  }, [handleAgentNavigate]);
 
   // Learn hub (/learn, /learn/:slug, or #/learn …) — SEO articles
   if (learnRoute && !isAdmin) {
@@ -395,6 +403,16 @@ function App() {
         onOpenLearn={() => {
           window.history.pushState({}, '', '/learn');
           window.dispatchEvent(new PopStateEvent('popstate'));
+        }}
+      />
+
+      <MarketTape onOpenSymbol={openSymbolInResearch} />
+      <CommandPalette
+        onOpenSymbol={openSymbolInResearch}
+        onGoTab={(t) => {
+          setActiveTab(t);
+          const path = t === 'screener' ? '/screener' : t === 'backtest' ? '/backtest' : '/';
+          window.history.pushState({}, '', path);
         }}
       />
 
@@ -485,6 +503,7 @@ function App() {
                         response: result?.response || '',
                         ticker: result?.ticker || '',
                         tickers: result?.tickers || [],
+                        focus: result?.focus || '',
                       },
                     }));
                   }}

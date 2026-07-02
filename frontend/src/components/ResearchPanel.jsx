@@ -1656,7 +1656,10 @@ function ResearchFundamentals({
   useEffect(() => {
     const onAssistantQuery = (e) => {
       const detail = e.detail || {};
-      if (detail.userMessage || detail.message) setAgentIntent(String(detail.userMessage || detail.message));
+      // Prefer the agent's STRUCTURED focus sections (exact card ids); fall back
+      // to raw text so the regex intent map still works for older responses.
+      const intentStr = [detail.focus, detail.userMessage || detail.message].filter(Boolean).join(' ');
+      if (intentStr) setAgentIntent(intentStr);
       const target = resolveResearchTargetFromAssistant(detail);
       if (!target) return;
       if (target.stock === false && target.chartable === false) openChartAsset(target);

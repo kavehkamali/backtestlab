@@ -92,6 +92,20 @@ const DEFAULT_FILTERS = {
 };
 
 // ─── Tiny components ───
+/** Labeled segmented control for the quick-filter bar. */
+function QuickSeg({ label, value, options, onChange }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="eq-label !text-[9px] whitespace-nowrap">{label}</span>
+      <div className="eq-seg">
+        {options.map(([v, l]) => (
+          <button key={v} type="button" onClick={() => onChange(v)} className="eq-seg-item !font-sans whitespace-nowrap" data-on={value === v}>{l}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SignalDot({ signal }) {
   if (signal === 1) return <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 mx-auto" title="BUY" />;
   if (signal === -1) return <div className="w-2.5 h-2.5 rounded-full bg-red-400 mx-auto" title="SELL" />;
@@ -536,8 +550,7 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
       if (sf.fund) setSfFund((prev) => ({ ...prev, ...sf.fund }));
       if (sf.tech) setSfTech((prev) => ({ ...prev, ...sf.tech }));
       if (sf.mom) setSfMom((prev) => ({ ...prev, ...sf.mom }));
-      if (sf.custom) setSfAgent(sf.custom);
-      else setSfAgent(null);
+      setSfAgent(null);  // snowflake UI retired — assistant screens map to normal filters
       setActiveSnowflakeIds(sf.controllers?.length ? sf.controllers : ['fund', 'tech']);
     }
     setFiltersOpen(false);
@@ -1059,55 +1072,61 @@ export default function ScreenerPanel({ onOpenResearch, agentIntent = null }) {
         </div>
       )}
 
-      {/* ─── Interactive Snowflake Filters ─── */}
+      {/* ─── Quick filters — the handful that matter, inline ─── */}
       {results && (
-        <div className="bg-[var(--eq-card)] shadow-sm ring-1 ring-[var(--eq-border)] rounded-xl px-4 py-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] text-[var(--eq-text3)] font-semibold uppercase tracking-wider">Visual Filters</span>
-              <span className="text-[9px] text-[var(--eq-text2)]">Drag points to set minimum thresholds</span>
-            </div>
-            <div className="flex gap-1.5">
-              <button onClick={() => { setSfQualityEnabled(false); setSfFundEnabled(false); setSfTechEnabled(false); setSfMomEnabled(false); setSfAgent(prev => prev ? { ...prev, enabled: false } : prev); }}
-                className="px-2 py-0.5 rounded text-[9px] text-[var(--eq-text3)] hover:text-[var(--eq-text)] bg-[var(--eq-card2)]">All Off</button>
-              <button onClick={() => {
-                setActiveSnowflakeIds(['quality', 'fund', 'tech', 'mom', ...(sfAgent ? ['agent'] : [])]);
-                setSfQualityEnabled(true); setSfFundEnabled(true); setSfTechEnabled(true); setSfMomEnabled(true); setSfAgent(prev => prev ? { ...prev, enabled: true } : prev);
-              }}
-                className="px-2 py-0.5 rounded text-[9px] text-[var(--eq-text3)] hover:text-[var(--eq-text)] bg-[var(--eq-card2)]">All On</button>
-              <button onClick={() => {
-                setSfQuality({ value: 3, future: 3, past: 3, health: 3, dividend: 3 });
-                setSfFund({ valuation: 3, growth: 3, profitability: 3, balance: 3, income: 3 });
-                setSfTech({ rsi_score: 3, macd_score: 3, volume_score: 3, trend_score: 3, bb_score: 3 });
-                setSfMom({ mom_1d: 3, mom_5d: 3, mom_20d: 3, mom_60d: 3, mom_52w: 3 });
-                setSfAgent(prev => prev ? { ...prev, values: Object.fromEntries((prev.dims || []).map(d => [d.key, 3])) } : prev);
-              }}
-                className="px-2 py-0.5 rounded text-[9px] text-[var(--eq-text3)] hover:text-[var(--eq-text)] bg-[var(--eq-card2)]">Reset Shapes</button>
+        <div className="eq-card px-4 py-3">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2.5">
+            <QuickSeg label="Market cap" value={
+              filters.market_cap_max <= 2 ? 'small' : filters.market_cap_min >= 200 ? 'mega' : filters.market_cap_min >= 10 ? 'large' : filters.market_cap_min >= 2 ? 'mid' : 'any'
+            } options={[['any', 'Any'], ['mega', '>$200B'], ['large', '$10–200B'], ['mid', '$2–10B'], ['small', '<$2B']]}
+              onChange={(v) => {
+                const d = DEFAULT_FILTERS;
+                if (v === 'any') { updateFilter('market_cap_min', d.market_cap_min); updateFilter('market_cap_max', d.market_cap_max); }
+                else if (v === 'mega') { updateFilter('market_cap_min', 200); updateFilter('market_cap_max', d.market_cap_max); }
+                else if (v === 'large') { updateFilter('market_cap_min', 10); updateFilter('market_cap_max', 200); }
+                else if (v === 'mid') { updateFilter('market_cap_min', 2); updateFilter('market_cap_max', 10); }
+                else { updateFilter('market_cap_min', 0); updateFilter('market_cap_max', 2); }
+              }} />
+            <QuickSeg label="RSI" value={filters.rsi_max <= 30 ? 'oversold' : filters.rsi_min >= 70 ? 'overbought' : 'any'}
+              options={[['any', 'Any'], ['oversold', '≤30'], ['overbought', '≥70']]}
+              onChange={(v) => {
+                if (v === 'any') { updateFilter('rsi_min', 0); updateFilter('rsi_max', 100); }
+                else if (v === 'oversold') { updateFilter('rsi_min', 0); updateFilter('rsi_max', 30); }
+                else { updateFilter('rsi_min', 70); updateFilter('rsi_max', 100); }
+              }} />
+            <QuickSeg label="P/E" value={filters.pe_max <= 15 ? 'value' : (filters.pe_min >= 30 ? 'growth' : (filters.pe_max <= 30 && filters.pe_min >= 15 ? 'fair' : 'any'))}
+              options={[['any', 'Any'], ['value', '<15'], ['fair', '15–30'], ['growth', '>30']]}
+              onChange={(v) => {
+                const d = DEFAULT_FILTERS;
+                if (v === 'any') { updateFilter('pe_min', d.pe_min); updateFilter('pe_max', d.pe_max); }
+                else if (v === 'value') { updateFilter('pe_min', 0); updateFilter('pe_max', 15); }
+                else if (v === 'fair') { updateFilter('pe_min', 15); updateFilter('pe_max', 30); }
+                else { updateFilter('pe_min', 30); updateFilter('pe_max', d.pe_max); }
+              }} />
+            <QuickSeg label="Dividend" value={filters.dividend_yield_min >= 4 ? 'high' : filters.dividend_yield_min >= 2 ? 'some' : 'any'}
+              options={[['any', 'Any'], ['some', '≥2%'], ['high', '≥4%']]}
+              onChange={(v) => updateFilter('dividend_yield_min', v === 'any' ? 0 : v === 'some' ? 2 : 4)} />
+            <QuickSeg label="Trend" value={filters.above_sma200 === 'yes' ? 'up' : filters.above_sma200 === 'no' ? 'down' : 'any'}
+              options={[['any', 'Any'], ['up', '> 200 SMA'], ['down', '< 200 SMA']]}
+              onChange={(v) => updateFilter('above_sma200', v === 'any' ? 'any' : v === 'up' ? 'yes' : 'no')} />
+            <QuickSeg label="1M move" value={filters.change_20d_min >= 5 ? 'up' : filters.change_20d_max <= -5 ? 'down' : 'any'}
+              options={[['any', 'Any'], ['up', '+5%↑'], ['down', '−5%↓']]}
+              onChange={(v) => {
+                const d = DEFAULT_FILTERS;
+                if (v === 'any') { updateFilter('change_20d_min', d.change_20d_min); updateFilter('change_20d_max', d.change_20d_max); }
+                else if (v === 'up') { updateFilter('change_20d_min', 5); updateFilter('change_20d_max', d.change_20d_max); }
+                else { updateFilter('change_20d_min', d.change_20d_min); updateFilter('change_20d_max', -5); }
+              }} />
+            <div className="ml-auto flex items-center gap-2">
+              {activeFilterCount > 0 && (
+                <button onClick={resetFilters} className="eq-btn eq-btn-ghost !px-2 !py-1 !text-[10.5px]">Clear all</button>
+              )}
+              <button onClick={() => { setFiltersOpen(!filtersOpen); setColumnsOpen(false); }}
+                className="eq-btn !px-2.5 !py-1 !text-[10.5px]">
+                All filters{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
+              </button>
             </div>
           </div>
-          <div className="flex justify-around flex-wrap gap-2">
-            {snowflakeControllers.map((controller) => (
-              <InteractiveSnowflake
-                key={controller.id}
-                title={controller.title}
-                dims={controller.dims}
-                values={controller.values}
-                onChange={controller.onChange}
-                enabled={controller.enabled}
-                onToggle={controller.onToggle}
-              />
-            ))}
-            {snowflakeControllers.length === 0 && (
-              <div className="py-8 text-center text-xs text-[var(--eq-text3)]">
-                No visual filters applied. Ask the assistant for a screen or use All On.
-              </div>
-            )}
-          </div>
-          {anySfActive && (
-            <div className="text-center mt-2 text-[9px] text-[var(--eq-accent)]">
-              Snowflake filters active — showing stocks that meet all minimum thresholds
-            </div>
-          )}
         </div>
       )}
 

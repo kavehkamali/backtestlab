@@ -59,6 +59,19 @@ class BacktestResult:
     equity_curve: list[dict]  # [{date, equity, drawdown}]
     trades: list[dict]  # [{date, type, price, shares, pnl}]
     monthly_returns: list[dict]  # [{month, return_pct}]
+    # ─ scientific extensions ─
+    volatility_annual_pct: float = 0.0
+    exposure_pct: float = 0.0          # % of days with a position on
+    avg_win: float = 0.0
+    avg_loss: float = 0.0
+    best_trade: float = 0.0
+    worst_trade: float = 0.0
+    t_stat: float = 0.0                # mean trade PnL / SE — |t|>2 ≈ 95% significance
+    significant: bool = False          # |t| > 2 AND enough trades
+    longest_dd_days: int = 0
+    in_sample: dict = field(default_factory=dict)   # first 70% window stats
+    out_of_sample: dict = field(default_factory=dict)  # last 30% window stats
+    verdict: str = ""                  # honest one-line assessment
 
 
 def _compute_signals_sma_crossover(df: pd.DataFrame, params: dict) -> pd.Series:
@@ -299,6 +312,26 @@ def _simulate(df: pd.DataFrame, signals: pd.Series, config: BacktestConfig) -> B
     return _compute_metrics(equity_curve, trades, config)
 
 
+def _segment_stats(equities: pd.Series, dates) -> dict:
+    """Return/sharpe/max-dd for a window of the equity curve (for IS/OOS)."""
+    if len(equities) < 10:
+        return {}
+    rets = equities.pct_change().dropna()
+    total = (equities.iloc[-1] / equities.iloc[0]) - 1
+    n_days = (dates[-1] - dates[0]).days or 1
+    annual = (1 + total) ** (365 / n_days) - 1
+    sharpe = (rets.mean() / rets.std() * np.sqrt(252)) if rets.std() > 0 else 0
+    dd = ((equities - equities.cummax()) / equities.cummax()).min()
+    return {
+        "total_return_pct": round(total * 100, 2),
+        "annual_return_pct": round(annual * 100, 2),
+        "sharpe_ratio": round(sharpe, 3),
+        "max_drawdown_pct": round(dd * 100, 2),
+        "start": dates[0].strftime("%Y-%m-%d"),
+        "end": dates[-1].strftime("%Y-%m-%d"),
+    }
+
+
 def _compute_metrics(
     equity_curve: list[dict],
     trades: list[dict],
@@ -352,6 +385,64 @@ def _compute_metrics(
         for m, r in monthly_grouped.items()
     ]
 
+    # ─ scientific extensions ─
+    vol_annual = daily_returns.std() * np.sqrt(252) if daily_returns.std() > 0 else 0
+    # exposure: days where equity moved with the market (approx: position on) —
+    # derived from trade windows
+    in_pos_days = 0
+    open_i = None
+    date_idx = {e["date"]: i for i, e in enumerate(equity_curve)}
+    for t in trades:
+        if t["type"] == "buy":
+            open_i = date_idx.get(t["date"])
+        elif t["type"] in ("sell", "cover") and open_i is not None:
+            close_i = date_idx.get(t["date"], len(equity_curve) - 1)
+            in_pos_days += max(0, close_i - open_i)
+            open_i = None
+    if open_i is not None:
+        in_pos_days += len(equity_curve) - 1 - open_i
+    exposure = in_pos_days / max(1, len(equity_curve) - 1)
+
+    avg_win = float(np.mean(wins)) if wins else 0.0
+    avg_loss = float(np.mean(losses)) if losses else 0.0
+    best_trade = float(max(trade_pnls)) if trade_pnls else 0.0
+    worst_trade = float(min(trade_pnls)) if trade_pnls else 0.0
+    # t-statistic on trade PnLs (H0: mean trade = 0)
+    if len(trade_pnls) >= 2 and np.std(trade_pnls, ddof=1) > 0:
+        t_stat = float(np.mean(trade_pnls) / (np.std(trade_pnls, ddof=1) / np.sqrt(len(trade_pnls))))
+    else:
+        t_stat = 0.0
+    significant = abs(t_stat) > 2.0 and len(trade_pnls) >= 20
+
+    # longest drawdown spell (days below prior peak)
+    longest_dd = 0
+    cur = 0
+    for i in range(1, len(equity_curve)):
+        if equity_curve[i]["drawdown"] < 0:
+            cur += 1
+            longest_dd = max(longest_dd, cur)
+        else:
+            cur = 0
+
+    # in-sample / out-of-sample split at 70%
+    split = int(len(equities) * 0.7)
+    ins = _segment_stats(equities.iloc[:split], dates[:split]) if split >= 10 else {}
+    oos = _segment_stats(equities.iloc[split:].reset_index(drop=True), dates[split:]) if len(equities) - split >= 10 else {}
+
+    # honest verdict
+    if len(trade_pnls) < 5:
+        verdict = "Too few trades to draw any conclusion — treat as anecdote, not evidence."
+    elif len(trade_pnls) < 20:
+        verdict = "Small sample (<20 trades): results are suggestive but not statistically reliable."
+    elif significant and oos and ins and oos.get("sharpe_ratio", 0) > 0 and ins.get("sharpe_ratio", 0) > 0:
+        verdict = "Statistically significant edge that held out-of-sample — worth deeper validation."
+    elif significant and oos and oos.get("sharpe_ratio", 0) <= 0:
+        verdict = "In-sample edge did NOT survive the out-of-sample window — likely curve-fit."
+    elif significant:
+        verdict = "Mean trade PnL is statistically significant (|t| > 2) — validate on other symbols/periods."
+    else:
+        verdict = "No statistically significant edge over zero (|t| ≤ 2) after costs."
+
     return BacktestResult(
         strategy=config.strategy.value,
         symbol=config.symbol,
@@ -368,4 +459,16 @@ def _compute_metrics(
         equity_curve=equity_curve,
         trades=trades,
         monthly_returns=monthly_returns,
+        volatility_annual_pct=round(vol_annual * 100, 2),
+        exposure_pct=round(exposure * 100, 1),
+        avg_win=round(avg_win, 2),
+        avg_loss=round(avg_loss, 2),
+        best_trade=round(best_trade, 2),
+        worst_trade=round(worst_trade, 2),
+        t_stat=round(t_stat, 2),
+        significant=significant,
+        longest_dd_days=longest_dd,
+        in_sample=ins,
+        out_of_sample=oos,
+        verdict=verdict,
     )

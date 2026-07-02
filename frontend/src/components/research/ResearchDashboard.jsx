@@ -6,7 +6,7 @@ import {
   Panel, KeyStatsCard, PerformanceCard, RiskCard, ValuationCard, TargetsCard,
   FinancialsCard, FilingsCard, AboutCard, RangeCard,
   ProfitabilityCard, GrowthCard, BalanceCard, OwnershipCard, DividendCard,
-  ScoresCard, SupplyCard, FundReturnsCard, VolumeCard,
+  ScoresCard, SupplyCard, FundReturnsCard, VolumeCard, InstrumentCard,
   money, num, pct,
 } from './cards';
 
@@ -57,6 +57,9 @@ function buildRegistry(dark) {
     { id: 'growth', classes: ['stock'], span: 2, prio: 68, ok: (c) => !!c.data?.growth, node: (c) => <GrowthCard g={c.data.growth} /> },
     { id: 'targets', classes: ['stock'], span: 1, prio: 65, ok: (c) => c.s.target_mean != null || c.s.recommendation, node: (c) => <TargetsCard s={c.s} /> },
     { id: 'supply', classes: ['crypto'], span: 1, prio: 72, ok: (c) => c.s.circulating_supply != null, node: (c) => <SupplyCard s={c.s} /> },
+    // Uniform class-details slot: commodity/forex/index/bond render the SAME
+    // panel structure as other classes — only the fields inside differ.
+    { id: 'details', classes: ['commodity', 'forex', 'index', 'bond'], span: 1, prio: 72, ok: (c) => !!c.s && c.s.price != null, node: (c) => <InstrumentCard s={c.s} ac={c.ac} /> },
     { id: 'fundreturns', classes: ['etf'], span: 1, prio: 72, ok: (c) => c.s.ytd_return != null || c.s.nav_price != null, node: (c) => <FundReturnsCard s={c.s} /> },
     { id: 'financials', classes: ['stock'], span: 2, prio: 60, ok: (c) => c.financials?.annual?.length, node: (c) => <FinancialsCard financials={c.financials} dark={dark} /> },
     { id: 'balance', classes: ['stock'], span: 1, prio: 58, ok: (c) => !!c.data?.balance, node: (c) => <BalanceCard b={c.data.balance} /> },
@@ -71,8 +74,12 @@ function buildRegistry(dark) {
 }
 
 // Agent intent → boost matching cards so "show financials" surfaces that card.
+// The agent sends structured section ids (exact match) and we also regex the
+// raw question text as fallback.
 function intentBoost(id, intent) {
   const t = String(intent || '').toLowerCase();
+  // exact structured match, e.g. focus="dividend,valuation"
+  if (new RegExp(`(^|[\\s,])${id}([\\s,]|$)`).test(t)) return 120;
   const map = {
     financials: /financ|earnings|revenue|income|statement|profit/,
     profitability: /margin|profitab|roe|roa|return on/,
@@ -123,10 +130,23 @@ export default function ResearchDashboard({ symbol, data, loading = false, inten
     const reg = buildRegistry(dark);
     return reg
       .filter((card) => (card.classes === '*' || card.classes.includes(ac)) && card.ok(ctx))
-      .map((card) => ({ ...card, score: card.prio + intentBoost(card.id, intent) }))
+      .map((card) => {
+        const boost = intentBoost(card.id, intent);
+        return { ...card, score: card.prio + boost, focused: boost > 0 };
+      })
       .sort((a, b) => b.score - a.score);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ac, dark, intent, financials, filings, data]);
+
+  // When the agent focuses sections, glide the first focused card into view.
+  useEffect(() => {
+    if (!intent || !cards.some((c) => c.focused)) return;
+    const id = window.setTimeout(() => {
+      document.querySelector('[data-eq-focused="true"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 350);
+    return () => window.clearTimeout(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intent, data]);
 
   const up = (s.change || 0) >= 0;
 
@@ -169,7 +189,13 @@ export default function ResearchDashboard({ symbol, data, loading = false, inten
       {/* Adaptive card grid */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {cards.map((card) => (
-          <div key={card.id} className={card.span === 2 ? 'lg:col-span-2' : ''}>{card.node(ctx)}</div>
+          <div
+            key={card.id}
+            data-eq-focused={card.focused ? 'true' : undefined}
+            className={`${card.span === 2 ? 'lg:col-span-2' : ''} ${card.focused ? 'rounded-[15px] ring-2 ring-[var(--eq-accent-ring)] transition-shadow' : ''}`}
+          >
+            {card.node(ctx)}
+          </div>
         ))}
       </div>
 

@@ -485,6 +485,41 @@ export function VolumeCard({ s }) {
   );
 }
 
+// NEW — uniform per-class instrument details so every asset class renders the
+// same panel structure; only the fields inside differ.
+export function InstrumentCard({ s, ac }) {
+  const px = (v, d = 2) => (v != null ? num(v, d) : '—');
+  let tiles = [];
+  if (ac === 'commodity') {
+    tiles = [
+      ['Contract', s.contract || s.name || '—'], ['Exchange', s.exchange || '—'],
+      ['Underlying', s.underlying || s.symbol], ['Open interest', s.open_interest != null ? compact(s.open_interest) : '—'],
+      ['Prev close', px(s.previous_close)], ['Open', px(s.open)],
+    ];
+  } else if (ac === 'forex') {
+    tiles = [
+      ['Pair', s.name || s.symbol], ['Prev close', px(s.previous_close, 4)],
+      ['Open', px(s.open, 4)], ['Day high', px(s.day_high, 4)],
+      ['Day low', px(s.day_low, 4)], ['Quote currency', s.currency || 'USD'],
+    ];
+  } else if (ac === 'bond') {
+    tiles = [
+      ['Level', s.price != null ? `${num(s.price)}%` : '—'], ['Prev close', s.previous_close != null ? `${num(s.previous_close)}%` : '—'],
+      ['Day high', s.day_high != null ? `${num(s.day_high)}%` : '—'], ['Day low', s.day_low != null ? `${num(s.day_low)}%` : '—'],
+      ['52W high', s.high_52w != null ? `${num(s.high_52w)}%` : '—'], ['52W low', s.low_52w != null ? `${num(s.low_52w)}%` : '—'],
+    ];
+  } else {
+    // index & anything else
+    tiles = [
+      ['Prev close', px(s.previous_close)], ['Open', px(s.open)],
+      ['Day high', px(s.day_high)], ['Day low', px(s.day_low)],
+      ['Exchange', s.exchange || '—'], ['Currency', s.currency || 'USD'],
+    ];
+  }
+  return <Panel title="Instrument details"><Grid tiles={tiles} cols={3} /></Panel>;
+}
+
+
 export function FinancialsCard({ financials, dark }) {
   const annual = financials?.annual || [];
   const quarterly = financials?.quarterly || [];

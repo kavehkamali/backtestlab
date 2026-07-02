@@ -2453,6 +2453,7 @@ export default function AgentPanel({
         response: streamTextRef.current,
         ticker: streamTickerRef.current,
         tickers: data.tickers || [],
+        focus: data.route?.focus || '',
         context,
         mode: effectiveMode,
       });

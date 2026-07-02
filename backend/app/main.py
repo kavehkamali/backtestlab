@@ -268,10 +268,33 @@ def backtest(req: BacktestRequest, request: Request):
         )
         result = run_backtest(df, config)
         out = _sanitize(asdict(result))
+        out["benchmark"] = _benchmark_block(df, config)
         finish_usage_event(event_id, out)
         return out
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+def _benchmark_block(df, config) -> dict:
+    """Buy-and-hold on the same window/costs — the honest baseline every
+    strategy must beat. Includes the equity curve for overlay plotting."""
+    from .backtester import BacktestConfig as _BC, StrategyType as _ST, run_backtest as _rb
+    try:
+        bh = _rb(df, _BC(strategy=_ST.BUY_AND_HOLD, symbol=config.symbol,
+                         start_date=config.start_date, end_date=config.end_date,
+                         initial_capital=config.initial_capital,
+                         commission_pct=config.commission_pct))
+        d = _sanitize(asdict(bh))
+        return {
+            "total_return_pct": d["total_return_pct"],
+            "annual_return_pct": d["annual_return_pct"],
+            "sharpe_ratio": d["sharpe_ratio"],
+            "max_drawdown_pct": d["max_drawdown_pct"],
+            "volatility_annual_pct": d.get("volatility_annual_pct", 0),
+            "equity_curve": d["equity_curve"],
+        }
+    except Exception:
+        return {}
 
 
 @app.post("/api/compare")
@@ -295,7 +318,7 @@ def compare_strategies(req: CompareRequest, request: Request):
             )
             result = run_backtest(df, config)
             results.append(_sanitize(asdict(result)))
-        out = {"results": results}
+        out = {"results": results, "benchmark": _benchmark_block(df, config)}
         finish_usage_event(event_id, out)
         return out
     except Exception as e:

@@ -71,6 +71,13 @@ class Route(BaseModel):
     research_subtab: Literal["fundamentals", "chart", "none"] = Field(
         description="If tab=research, which sub-view; else 'none'."
     )
+    focus: str = Field(
+        default="",
+        description=("Comma-separated dashboard sections the question is about, from: "
+                     "financials, profitability, growth, balance, ownership, dividend, valuation, "
+                     "targets, risk, supply, fundreturns, volume, filings, performance, range. "
+                     "'' if none apply."),
+    )
     reason: str = Field(description="One short sentence: why this tab.")
 
 
@@ -199,7 +206,9 @@ OpenAI, Stripe — no ticker), valuations, funding rounds, or any event after yo
 training cutoff. Do not answer stale from memory when the question is time-sensitive;
 search first, then give the current picture and note the "as of" date. Be fast and
 decisive. Always fill `ticker` with the primary symbol (or '') and list every
-referenced symbol in `tickers`."""
+referenced symbol in `tickers`. Fill `focus` with the dashboard sections the
+question targets (e.g. 'dividend' for yield questions, 'valuation,targets' for
+"is it overvalued", 'risk' for volatility) so the UI surfaces those cards."""
 
 _ROUTER_INSTRUCTIONS = """Classify the user's latest message into ONE workspace tab and primary symbol.
 Tabs: research (ONE asset of any class — stock, crypto, commodity, ETF, index, or currency),
@@ -286,6 +295,8 @@ async def run_agent(message: str, history: list[dict] | None = None, ticker: str
             "tab": route.tab,
             "ticker": (route.ticker or "").upper(),
             "researchSubtab": None if route.research_subtab == "none" else route.research_subtab,
+        "focus": getattr(route, "focus", "") or "",
+            "focus": getattr(route, "focus", "") or "",
             "reason": route.reason,
         },
         "analysis": {},

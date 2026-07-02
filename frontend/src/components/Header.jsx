@@ -279,6 +279,15 @@ export default function Header({
         </nav>
 
         <div className="relative z-[200] flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+            className="hidden h-8 items-center gap-2 rounded-lg border border-[var(--eq-border)] px-2.5 text-[11px] text-[var(--eq-text3)] transition-colors hover:border-[var(--eq-border2)] hover:text-[var(--eq-text2)] lg:flex"
+            title="Command palette"
+          >
+            Search anything
+            <kbd className="rounded border border-[var(--eq-border)] bg-[var(--eq-card2)] px-1 py-px font-[inherit] text-[9.5px]">⌘K</kbd>
+          </button>
           <ThemeButton />
           {user ? (
             <UserMenu user={user} setActiveTab={setActiveTab} onSignOut={onSignOut} />
