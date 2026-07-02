@@ -29,6 +29,8 @@ class StrategyType(str, Enum):
     REGIME_TREND = "regime_trend"
     COMPOSITE = "composite"
     ML_BOOST = "ml_boost"
+    RL_Q = "rl_q"
+    DIFFUSION = "diffusion"
 
 
 @dataclass
@@ -273,6 +275,14 @@ def run_backtest(df: pd.DataFrame, config: BacktestConfig) -> BacktestResult:
         from .ml_boost import compute_ml_boost_signals
         signals = compute_ml_boost_signals(df, config.params)
         signals = signals.shift(1).fillna(0)  # trade on NEXT bar — no look-ahead
+        return _simulate(df, signals, config)
+    if config.strategy == StrategyType.RL_Q:
+        from .rl_q import compute_rl_q_signals
+        signals = compute_rl_q_signals(df, config.params).shift(1).fillna(0)
+        return _simulate(df, signals, config)
+    if config.strategy == StrategyType.DIFFUSION:
+        from .diffusion_forecast import compute_diffusion_signals
+        signals = compute_diffusion_signals(df, config.params).shift(1).fillna(0)
         return _simulate(df, signals, config)
 
     # Compute signals using strategy function

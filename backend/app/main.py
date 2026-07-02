@@ -250,6 +250,27 @@ def list_strategies():
                 ],
             },
             {
+                "id": "rl_q",
+                "name": "RL Fitted Q-Learning",
+                "description": "Reinforcement learning: fitted Q-iteration over market-state features, actions long/flat, reward = next-day PnL minus switching costs. Walk-forward — the policy never sees its test window.",
+                "params": [
+                    {"name": "retrain_every", "type": "int", "default": 126, "min": 63, "max": 252},
+                    {"name": "q_sweeps", "type": "int", "default": 3, "min": 1, "max": 6},
+                    {"name": "advantage_margin", "type": "float", "default": 0.0003, "min": 0.0, "max": 0.002},
+                ],
+            },
+            {
+                "id": "diffusion",
+                "name": "Diffusion Forecaster",
+                "description": "Denoising diffusion model (torch) samples distributions of the next 10 days of returns conditioned on recent context; goes long only when most sampled paths are positive. Walk-forward, purged. Slow — minutes on long histories.",
+                "params": [
+                    {"name": "horizon_days", "type": "int", "default": 10, "min": 5, "max": 21},
+                    {"name": "epochs", "type": "int", "default": 40, "min": 10, "max": 100},
+                    {"name": "n_samples", "type": "int", "default": 48, "min": 16, "max": 128},
+                    {"name": "prob_enter", "type": "float", "default": 0.6, "min": 0.5, "max": 0.75},
+                ],
+            },
+            {
                 "id": "ml_transformer",
                 "name": "ML Transformer",
                 "description": "Transformer model predicts P(up X% in N days). Walk-forward training, no leakage.",
@@ -355,6 +376,94 @@ def compare_strategies(req: CompareRequest, request: Request):
         return out
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+class ScanRequest(BaseModel):
+    strategy: str = "composite"
+    list_id: str = "sp500"
+    period: str = "2y"
+    params: dict = {}
+    top: int = 40
+
+
+@app.post("/api/backtest/scan")
+def backtest_scan(req: ScanRequest, request: Request):
+    """Strategy-fit scanner: run a fast vectorized backtest of one indicator
+    strategy across a whole universe and rank symbols by edge over buy & hold —
+    this is how you find the assets a method actually works on."""
+    event_id, _usage = begin_usage_event(request, "backtest", action="scan", input_payload=req.model_dump())
+    cache_key = f"btscan_{req.strategy}_{req.list_id}_{req.period}"
+
+    def _compute():
+        return _scan_compute(req.strategy, req.list_id, req.period, req.params)
+
+    out = get_or_compute(cache_key, 6 * 3600, _compute)
+    ranked = out.get("rows", [])[: max(5, min(req.top, 100))]
+    result = {"rows": ranked, "scanned": out.get("scanned", 0), "strategy": req.strategy,
+              "list_id": req.list_id, "period": req.period}
+    finish_usage_event(event_id, {"scanned": result["scanned"]})
+    return result
+
+
+def _scan_compute(strategy_id: str, list_id: str, period: str, params: dict):
+    import numpy as np
+    from .backtester import STRATEGY_MAP, StrategyType
+    from .stock_lists import LISTS
+    from .cache import batch_fetch_prices
+
+    try:
+        strategy = StrategyType(strategy_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Unknown strategy: {strategy_id}")
+    if strategy not in STRATEGY_MAP:
+        raise HTTPException(status_code=400, detail="Scanner supports indicator strategies only (ML/RL/diffusion are too heavy to sweep — run them on candidates the scan surfaces).")
+
+    stock_list = LISTS.get(list_id)
+    if not stock_list:
+        raise HTTPException(status_code=400, detail=f"Unknown list: {list_id}")
+    symbols = stock_list["symbols"][:1200]  # sanity cap
+
+    prices = batch_fetch_prices(symbols, period=period, interval="1d")
+    signal_fn = STRATEGY_MAP[strategy]
+    COST = 0.0015  # per switch, matches the simulator
+    rows = []
+    for sym, df in prices.items():
+        try:
+            if df is None or len(df) < 260:
+                continue
+            sig = signal_fn(df, params or {})
+            pos = (sig.shift(1) > 0).astype(float)  # long/flat, next-bar execution
+            ret = df["close"].pct_change().fillna(0)
+            switches = pos.diff().abs().fillna(0)
+            strat_ret = pos * ret - switches * COST
+            eq = (1 + strat_ret).cumprod()
+            bh = (1 + ret).cumprod()
+
+            def _stats(series_eq, series_ret):
+                total = float(series_eq.iloc[-1] - 1) * 100
+                sd = series_ret.std()
+                sharpe = float(series_ret.mean() / sd * np.sqrt(252)) if sd and sd > 0 else 0.0
+                dd = float(((series_eq - series_eq.cummax()) / series_eq.cummax()).min()) * 100
+                return total, sharpe, dd
+
+            st, ss, sdd = _stats(eq, strat_ret)
+            bt, bs, bdd = _stats(bh, ret)
+            vol = float(ret.std() * np.sqrt(252)) * 100
+            rows.append({
+                "symbol": sym,
+                "strategy_return_pct": round(st, 1), "bh_return_pct": round(bt, 1),
+                "edge_pct": round(st - bt, 1),
+                "strategy_sharpe": round(ss, 2), "bh_sharpe": round(bs, 2),
+                "sharpe_edge": round(ss - bs, 2),
+                "strategy_maxdd_pct": round(sdd, 1), "bh_maxdd_pct": round(bdd, 1),
+                "volatility_pct": round(vol, 1),
+                "trades": int(switches.sum()),
+            })
+        except Exception:
+            continue
+    # rank by risk-adjusted edge first, then raw edge
+    rows.sort(key=lambda r: (r["sharpe_edge"], r["edge_pct"]), reverse=True)
+    return {"rows": rows, "scanned": len(rows)}
 
 
 @app.get("/api/screener/lists")

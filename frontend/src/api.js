@@ -542,6 +542,16 @@ export async function fetchWarehouseFilings(symbol, limit = 25) {
 }
 
 /** Live symbol search (any global ticker/crypto/commodity/etf/index). Best-effort. */
+export async function scanStrategyFit({ strategy, list_id, period = '2y', top = 40 }) {
+  const res = await fetch(`${BASE}/backtest/scan`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ strategy, list_id, period, top }),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.detail || 'Scan failed');
+  return res.json();
+}
+
 export async function searchSymbols(q) {
   const query = String(q || '').trim();
   if (!query) return [];

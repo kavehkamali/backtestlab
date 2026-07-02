@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Play, Loader2, FlaskConical, CheckCircle2, AlertTriangle, XCircle, Info } from 'lucide-react';
+import { Play, Loader2, FlaskConical, CheckCircle2, AlertTriangle, XCircle, Info, Radar } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, AreaChart, Area, ReferenceLine,
 } from 'recharts';
 import { chartTheme, tooltipStyle, isDarkMode, onThemeChange } from '../uiTheme';
+import { scanStrategyFit, fetchScreenerLists } from '../api';
 
 const BACKTEST_SYMBOL_HINTS = new Set([
   'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'NVDA', 'TSLA', 'META', 'JPM', 'V', 'WMT', 'UNH', 'XOM',
@@ -137,6 +138,92 @@ function MonthlyHeatmap({ monthly }) {
   );
 }
 
+/** Where does this strategy work? Sweep a universe, rank by edge over B&H. */
+function FitScanner({ strategies, onPick }) {
+  const SCANNABLE = ['composite', 'regime_trend', 'sma_crossover', 'ema_crossover', 'rsi', 'macd', 'bollinger_bands', 'mean_reversion', 'momentum'];
+  const [strategy, setStrategy] = useState('composite');
+  const [listId, setListId] = useState('sp500');
+  const [period, setPeriod] = useState('2y');
+  const [lists, setLists] = useState([]);
+  const [rows, setRows] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  useEffect(() => { fetchScreenerLists().then((d) => setLists(d.lists || [])).catch(() => {}); }, []);
+
+  const run = async () => {
+    setBusy(true); setErr('');
+    try {
+      const d = await scanStrategyFit({ strategy, list_id: listId, period, top: 30 });
+      setRows(d.rows || []);
+    } catch (e) { setErr(e.message); setRows(null); }
+    finally { setBusy(false); }
+  };
+
+  const opts = strategies.filter((s) => SCANNABLE.includes(s.id));
+  const selCls = 'eq-input !w-auto !py-1.5 !text-[11.5px]';
+
+  return (
+    <div className="eq-card p-4">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <h3 className="eq-label flex items-center gap-1.5"><Radar className="h-3.5 w-3.5" /> Fit scanner</h3>
+        <span className="text-[10.5px] text-[var(--eq-text3)]">sweep a universe to find the assets this strategy actually works on — then run the full test on the winners</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={strategy} onChange={(e) => setStrategy(e.target.value)} className={selCls}>
+          {opts.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <select value={listId} onChange={(e) => setListId(e.target.value)} className={selCls}>
+          {(lists.length ? lists : [{ id: 'sp500', name: 'S&P 500' }]).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+        </select>
+        <div className="eq-seg">
+          {['1y', '2y', '5y'].map((p) => (
+            <button key={p} onClick={() => setPeriod(p)} className="eq-seg-item" data-on={period === p}>{p.toUpperCase()}</button>
+          ))}
+        </div>
+        <button onClick={run} disabled={busy} className="eq-btn eq-btn-primary !py-1.5 disabled:opacity-40">
+          {busy ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Scanning…</> : 'Scan universe'}
+        </button>
+        {err && <span className="text-[11px] text-[var(--eq-loss)]">{err}</span>}
+      </div>
+      {rows && (
+        <div className="mt-3 max-h-72 overflow-y-auto rounded-lg border border-[var(--eq-border)]">
+          <table className="eq-table eq-num !text-[11px]">
+            <thead className="sticky top-0">
+              <tr>
+                <th>Symbol</th><th className="!text-right">Strategy</th><th className="!text-right">Buy&Hold</th>
+                <th className="!text-right">Edge</th><th className="!text-right">Sharpe Δ</th>
+                <th className="!text-right">DD (strat/bh)</th><th className="!text-right">Vol</th><th className="!text-right">Trades</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.symbol} className="cursor-pointer" onClick={() => onPick?.(r.symbol, strategy)} title="Run the full backtest on this symbol">
+                  <td className="font-semibold text-[var(--eq-accent)]">{r.symbol}</td>
+                  <td className={`!text-right ${tone(r.strategy_return_pct)}`}>{fmtPct(r.strategy_return_pct)}</td>
+                  <td className={`!text-right ${tone(r.bh_return_pct)}`}>{fmtPct(r.bh_return_pct)}</td>
+                  <td className={`!text-right font-semibold ${tone(r.edge_pct)}`}>{fmtPct(r.edge_pct)}</td>
+                  <td className={`!text-right ${tone(r.sharpe_edge)}`}>{r.sharpe_edge > 0 ? '+' : ''}{r.sharpe_edge}</td>
+                  <td className="!text-right">{r.strategy_maxdd_pct}% / {r.bh_maxdd_pct}%</td>
+                  <td className="!text-right">{r.volatility_pct}%</td>
+                  <td className="!text-right">{r.trades}</td>
+                </tr>
+              ))}
+              {rows.length === 0 && <tr><td colSpan={8} className="!text-center text-[var(--eq-text3)]">No rows — try a wider universe or period</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {rows && rows.length > 0 && (
+        <div className="mt-2 text-[10px] leading-relaxed text-[var(--eq-text3)]">
+          Ranked by risk-adjusted edge (Sharpe Δ) over buy & hold. High-volatility, cyclical names reward trend/ensemble methods; smooth one-way trends favor holding. Click a row to run the full scientific backtest.
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function ComparePanel({ strategies, onCompare, results, loading, benchmark: benchmarkProp }) {
   const [symbol, setSymbol] = useState('AAPL');
   const [selected, setSelected] = useState(['sma_crossover', 'buy_and_hold']);
@@ -250,6 +337,13 @@ export default function ComparePanel({ strategies, onCompare, results, loading, 
           {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Running…</> : <><Play className="h-3.5 w-3.5" /> Run backtest</>}
         </button>
       </div>
+
+      <FitScanner strategies={strategies} onPick={(sym, strat) => {
+        setSymbol(sym);
+        const nextSel = [...new Set([strat, 'buy_and_hold'])];
+        setSelected(nextSel);
+        runCompare({ symbol: sym, selected: nextSel });
+      }} />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_1fr]">
         {/* ── config rail ── */}
